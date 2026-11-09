@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 // LoadFunc is a Load or LayoutLoad function with its result type erased.
@@ -54,6 +55,9 @@ type Manifest struct {
 	Client fs.FS
 	// ClientEntry is the Vite manifest key of the client entry module.
 	ClientEntry string
+	// ServerBundle is the server renderer built by `vite build --ssr`, or
+	// "" to render on the client only.
+	ServerBundle string
 }
 
 // LayoutDef is a layout directory.
@@ -83,6 +87,9 @@ type PageDef struct {
 	Component string
 	Load      LoadFunc
 	Actions   Actions
+	// NoSSR disables server-side rendering for this page; set by
+	// `const SSR = false` in the route's package.
+	NoSSR bool
 }
 
 // FallbackDef renders 404s for URLs that match no route.
@@ -104,6 +111,9 @@ type options struct {
 	multipartMemory int64
 	logger          *slog.Logger
 	addr            string
+	ssr             bool
+	ssrWorkers      int
+	ssrTimeout      time.Duration
 }
 
 // HookFunc runs before every page, data, action and endpoint request. It
@@ -157,4 +167,23 @@ func WithLogger(l *slog.Logger) Option {
 // HOST:PORT from the environment, or ":3000".
 func WithAddr(addr string) Option {
 	return func(o *options) { o.addr = addr }
+}
+
+// WithoutSSR renders every page on the client only. Use `const SSR = false`
+// in a route's package to turn it off for one page instead.
+func WithoutSSR() Option {
+	return func(o *options) { o.ssr = false }
+}
+
+// WithSSRWorkers sets how many pages can render on the server at once.
+// Each worker is a JavaScript VM using roughly 5 to 20 MB of memory. The
+// default is GOMAXPROCS.
+func WithSSRWorkers(n int) Option {
+	return func(o *options) { o.ssrWorkers = n }
+}
+
+// WithSSRTimeout bounds how long a server render may take before the page
+// falls back to client rendering. The default is 5 seconds.
+func WithSSRTimeout(d time.Duration) Option {
+	return func(o *options) { o.ssrTimeout = d }
 }

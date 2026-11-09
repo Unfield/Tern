@@ -23,11 +23,11 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 
 ## v0.2: Server-side rendering
 
-- [ ] Embedded JavaScript engine for Svelte SSR (QuickJS via wazero, no cgo)
-- [ ] Hydration instead of client-only mounting
-- [ ] Renderer pool and benchmarks
-- [ ] Optional Node sidecar renderer for maximum compatibility
-- [ ] Per-route `ssr` / `csr` options
+- [x] Embedded JavaScript engine for Svelte SSR (`modernc.org/quickjs`, no cgo; see ADR 0004)
+- [x] Hydration instead of client-only mounting
+- [x] Renderer pool with timeouts, memory limits and fallback to client rendering
+- [x] Server rendering in development through Vite
+- [x] Per-route `const SSR = false` and app-wide `kit.WithoutSSR()`
 
 ## v0.3: Performance and deployment
 

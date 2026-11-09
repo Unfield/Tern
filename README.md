@@ -12,7 +12,7 @@
 </p>
 
 > [!WARNING]
-> Tern is in early development and is not ready for production use. APIs will change before v1.0.
+> Tern is pre-1.0. It is tested and usable, but APIs may still change between minor versions.
 
 ---
 
@@ -23,8 +23,22 @@
 - **Real Svelte 5.** Not a lookalike. Your components, the Svelte ecosystem and your editor tooling all keep working.
 - **Go on the server.** `load` functions and form actions are plain Go, built on `net/http`.
 - **End-to-end types.** The structs your Go `Load` returns become TypeScript types for your Svelte pages, generated automatically.
-- **One binary.** `tern build` embeds the compiled client into a single static Go executable. No Node in production.
+- **Server-side rendering.** Pages render in Go through an embedded JavaScript engine and hydrate in the browser. No Node in production.
+- **One binary.** `tern build` embeds the client and the renderer into a single static Go executable.
 - **Progressive enhancement.** Forms work without JavaScript, and get better with it.
+
+## Getting started
+
+You need Go 1.26+ and Node.js 22+.
+
+```sh
+go run github.com/Unfield/Tern/cmd/tern@latest new my-app
+cd my-app
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>. `npm run build` produces `build/my-app`, a single binary that serves the whole app.
 
 ## A taste
 
@@ -68,15 +82,15 @@ func Load(ctx *kit.Ctx) (Data, error) {
 <article>{data.body}</article>
 ```
 
-> The snippets above show the target API; it is being built now. See the [roadmap](docs/ROADMAP.md).
+Dynamic directories use Go-safe names, because Go import paths cannot contain brackets: `slug.param` for `[slug]`, `lang.optional` for `[[lang]]`, `path.rest` for `[...path]`, and `app.group` for `(app)`. See [examples/todos](examples/todos) for a complete app with sessions, form actions, a protected route group and an API endpoint.
 
 ## Status
 
 | Milestone | Scope | State |
 |---|---|---|
-| **v0.1** | Router, `load`, actions, typegen, dev server, client rendering, single-binary build | In progress |
-| **v0.2** | Server-side rendering and hydration | Planned |
-| **v0.3** | Streaming, prerendering, adapters | Planned |
+| **v0.1** | Router, loads, actions, endpoints, typegen, dev server, single-binary build | Done |
+| **v0.2** | Server-side rendering and hydration | Done |
+| **v0.3** | Prerendering, streaming, deployment guides | In progress |
 
 ## Documentation
 

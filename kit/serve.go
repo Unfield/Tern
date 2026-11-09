@@ -58,6 +58,7 @@ func (a *App) Serve(ctx context.Context) error {
 	a.logger.Info("tern: shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	defer func() { _ = a.Close() }()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		return err
 	}

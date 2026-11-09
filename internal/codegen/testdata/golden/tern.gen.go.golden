@@ -19,6 +19,9 @@ var ternAppHTML string
 //go:embed all:.tern/output/client
 var ternClientFS embed.FS
 
+//go:embed all:.tern/output/server
+var ternServerFS embed.FS
+
 var ternManifest = &kit.Manifest{
 	AppHTML:     ternAppHTML,
 	ClientEntry: ".tern/generated/client.js",
@@ -65,6 +68,9 @@ func init() {
 		panic(err)
 	}
 	ternManifest.Client = client
+	if bundle, err := fs.ReadFile(ternServerFS, ".tern/output/server/server.js"); err == nil {
+		ternManifest.ServerBundle = string(bundle)
+	}
 }
 
 // ternApp creates the Tern application. Options configure hooks,

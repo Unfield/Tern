@@ -57,6 +57,8 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 		return err
 	}) && step("building the client with Vite", func() error {
 		return runVite(stdout, stderr, "build", "--logLevel", "warn")
+	}) && step("building the server renderer", func() error {
+		return runVite(stdout, stderr, "build", "--ssr", "--logLevel", "warn")
 	}) && step("compressing assets", func() error {
 		return precompress(codegen.ClientOut)
 	}) && step("compiling the server", func() error {

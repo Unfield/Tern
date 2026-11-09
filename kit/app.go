@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/Unfield/Tern/internal/routes"
+	"github.com/Unfield/Tern/internal/ssr"
 )
 
 // App serves a Tern application. It implements http.Handler, so it can be
@@ -29,6 +31,8 @@ type App struct {
 	shell   *shell
 	assets  *assets
 	dev     *devServer
+	ssr     ssr.Renderer
+	closers []io.Closer
 }
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -42,6 +46,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			"uuid":    uuidRe.MatchString,
 		},
 		csrf:            true,
+		ssr:             true,
 		bodyLimit:       1 << 20,
 		multipartMemory: 8 << 20,
 	}
@@ -86,6 +91,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			return nil, err
 		}
 		a.dev = dev
+		if o.ssr {
+			a.ssr = &ssr.Dev{URL: url}
+		}
 	} else {
 		if a.shell, err = parseShell(m.AppHTML); err != nil {
 			return nil, err
@@ -94,6 +102,18 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			if a.assets, err = loadAssets(m.Client, m.ClientEntry); err != nil {
 				return nil, err
 			}
+		}
+		if o.ssr && m.ServerBundle != "" {
+			pool, err := ssr.NewPool(m.ServerBundle, ssr.Options{
+				Workers: o.ssrWorkers,
+				Timeout: o.ssrTimeout,
+				Logger:  o.logger,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("kit: %w", err)
+			}
+			a.ssr = pool
+			a.closers = append(a.closers, pool)
 		}
 	}
 
@@ -115,6 +135,17 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	}
 	a.handler = h
 	return a, nil
+}
+
+// Close releases the app's resources, such as server-rendering VMs.
+// ListenAndServe and Serve call it on shutdown.
+func (a *App) Close() error {
+	var errs []error
+	for _, c := range a.closers {
+		errs = append(errs, c.Close())
+	}
+	a.closers = nil
+	return errors.Join(errs...)
 }
 
 // ServeHTTP implements http.Handler.

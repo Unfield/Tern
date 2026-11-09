@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"os/exec"
@@ -30,6 +31,7 @@ type routePackage struct {
 	failures   []types.Type
 	actionsAny bool // Actions is not a literal we can inspect
 	methods    []string
+	noSSR      bool // const SSR = false
 }
 
 // analyze type-checks the route packages and validates their exports.
@@ -129,6 +131,13 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 	}
 	if scanned.Load {
 		rp.load = checkLoad("Load")
+	}
+	if obj, ok := scope.Lookup("SSR").(*types.Const); ok {
+		if b, isBool := obj.Type().Underlying().(*types.Basic); !isBool || b.Info()&types.IsBoolean == 0 {
+			errs = append(errs, fmt.Sprintf("%s: SSR must be a boolean constant", pos(obj)))
+		} else {
+			rp.noSSR = !constant.BoolVal(obj.Val())
+		}
 	}
 	if scanned.LayoutLoad {
 		rp.layoutLoad = checkLoad("LayoutLoad")
@@ -383,5 +392,5 @@ func dedupe(s []string) []string {
 	return out
 }
 
-// routeFile joins the routes root and a route-relative path.
-func routeFile(routesDir, rel string) string { return path.Join(routesDir, rel) }
+// routeFile turns a route-relative path into a project-relative one.
+func routeFile(rel string) string { return path.Join(RoutesDir, rel) }

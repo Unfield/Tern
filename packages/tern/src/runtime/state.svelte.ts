@@ -1,4 +1,4 @@
-import type { Navigation } from './types.js';
+import type { Navigation, Payload } from './types.js';
 
 class PageState {
 	/** The current URL. */
@@ -55,4 +55,16 @@ export const navigating = {
 
 export function setNavigating(n: Navigation | null) {
 	navigatingState.current = n;
+}
+
+/** Updates page state for a rendered payload. */
+export function applyPayloadToPage(p: Payload, url: URL, state: Record<string, unknown>, data: Record<string, unknown>[]) {
+	page.url = url;
+	page.params = p.params ?? {};
+	page.route = { id: p.route ?? null };
+	page.status = p.status;
+	page.error = p.type === 'error' ? (p.error ?? { message: 'Error' }) : null;
+	page.data = data[data.length - 1] ?? {};
+	page.state = state;
+	page.form = p.hasForm ? (p.form ?? null) : null;
 }

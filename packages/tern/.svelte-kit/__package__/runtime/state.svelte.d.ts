@@ -1,4 +1,4 @@
-import type { Navigation } from './types.js';
+import type { Navigation, Payload } from './types.js';
 declare class PageState {
     /** The current URL. */
     url: URL;
@@ -46,4 +46,6 @@ export declare const navigating: {
     readonly current: Navigation | null;
 };
 export declare function setNavigating(n: Navigation | null): void;
+/** Updates page state for a rendered payload. */
+export declare function applyPayloadToPage(p: Payload, url: URL, state: Record<string, unknown>, data: Record<string, unknown>[]): void;
 export {};

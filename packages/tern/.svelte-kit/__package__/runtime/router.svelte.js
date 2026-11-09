@@ -1,8 +1,9 @@
-import { mount, tick } from 'svelte';
+import { hydrate, mount, tick } from 'svelte';
 import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
-import { page, setNavigating } from './state.svelte.js';
+import { plan } from './select.js';
+import { applyPayloadToPage, page, setNavigating } from './state.svelte.js';
 const MAX_REDIRECTS = 20;
 const PRELOAD_TTL = 10_000;
 const SCROLL_KEY = 'tern:scroll';
@@ -42,7 +43,12 @@ export async function start(m) {
     const url = new URL(location.href);
     const payload = JSON.parse(el.textContent ?? '{}');
     await render(payload, url, history.state?.ternState ?? {}, token);
-    mount(Root, { target, props });
+    if (target.hasAttribute('data-tern-ssr')) {
+        hydrate(Root, { target, props });
+    }
+    else {
+        mount(Root, { target, props });
+    }
     started = true;
     const saved = scrollPositions[historyIndex];
     if (saved) {
@@ -155,7 +161,7 @@ async function navigate(url, opts, type, redirects, popIndex) {
     // A change of hash alone is a scroll, not a navigation.
     if (type !== 'popstate' && !opts.invalidateAll && url.hash && samePage(url)) {
         saveScroll();
-        history.pushState({ ternIndex: (historyIndex = Date.now()), ternState: opts.state ?? {} }, '', url);
+        history.pushState({ ternIndex: (historyIndex = Date.now()), ternState: $state.snapshot(opts.state ?? {}) }, '', url);
         scrollToHash(url.hash);
         return;
     }
@@ -187,12 +193,14 @@ async function navigate(url, opts, type, redirects, popIndex) {
         return;
     }
     if (type !== 'popstate') {
+        // History entries must be structured-cloneable: no state proxies.
+        const entry = { ternIndex: historyIndex, ternState: $state.snapshot(state) };
         if (opts.replaceState) {
-            history.replaceState({ ternIndex: historyIndex, ternState: state }, '', url);
+            history.replaceState(entry, '', url);
         }
         else {
-            historyIndex = Date.now();
-            history.pushState({ ternIndex: historyIndex, ternState: state }, '', url);
+            entry.ternIndex = historyIndex = Date.now();
+            history.pushState(entry, '', url);
         }
     }
     setNavigating(null);
@@ -231,77 +239,38 @@ function loadRoute(id) {
         return Promise.reject(new Error(`unknown route ${id}`));
     return Promise.all([...route.layouts.map(loadLayout), route.page().then((m) => m.default)]);
 }
-function mergeData(list) {
-    const out = [];
-    let acc = {};
-    for (const node of list) {
-        acc = { ...acc, ...(node ?? {}) };
-        out.push(acc);
-    }
-    return out;
-}
 /** Renders a payload. It reports false if the payload is not a page. */
 async function render(p, url, state, id) {
+    const what = plan(manifest, p);
     let components;
-    let data;
-    const received = p.nodes ?? [];
-    if (p.type === 'data') {
-        const route = p.route ? manifest.routes[p.route] : undefined;
-        if (!route || !p.route)
+    switch (what.kind) {
+        case 'not-a-page':
             return false;
-        components = await loadRoute(p.route);
-        data = mergeData(received);
-        nodes = received;
-        layoutCount = route.layouts.length;
-    }
-    else if (p.type === 'error') {
-        const route = p.route ? manifest.routes[p.route] : undefined;
-        if (p.route && !route)
-            return false; // an endpoint, not a page
-        const layouts = route ? route.layouts : manifest.fallback.layouts;
-        const failed = p.failed ?? 0;
-        const boundary = pickErrorPage(route ? route.errors : manifest.fallback.errors, failed);
-        if (boundary) {
+        case 'page':
+            components = await loadRoute(what.route);
+            layoutCount = what.layouts.length;
+            break;
+        case 'error': {
+            const errors = what.route ? manifest.routes[what.route].errors : manifest.fallback.errors;
             components = [
-                ...(await Promise.all(layouts.slice(0, boundary.layouts).map(loadLayout))),
-                (await boundary.component()).default
+                ...(await Promise.all(what.layouts.map(loadLayout))),
+                (await errors[what.errorIndex].component()).default
             ];
-            const merged = mergeData(received.slice(0, boundary.layouts));
-            data = [...merged, merged[merged.length - 1] ?? {}];
+            layoutCount = what.layouts.length;
+            break;
         }
-        else {
+        case 'default-error':
             components = [DefaultError];
-            data = [{}];
-        }
-        nodes = received;
-        layoutCount = boundary?.layouts ?? 0;
+            layoutCount = 0;
     }
-    else {
-        return false;
-    }
+    nodes = p.nodes ?? [];
     if (id !== token)
         return true; // superseded; the newer navigation renders
-    page.url = url;
-    page.params = p.params ?? {};
-    page.route = { id: p.route ?? null };
-    page.status = p.status;
-    page.error = p.type === 'error' ? (p.error ?? { message: 'Error' }) : null;
-    page.data = data[data.length - 1] ?? {};
-    page.state = state;
-    page.form = p.hasForm ? (p.form ?? null) : null;
+    applyPayloadToPage(p, url, state, what.data);
     props.components = components;
-    props.data = data;
+    props.data = what.data;
     props.form = page.form;
     return true;
-}
-/** The innermost error page whose layouts all loaded successfully. */
-function pickErrorPage(errors, failed) {
-    let pick;
-    for (const e of errors) {
-        if (e.layouts <= failed)
-            pick = e;
-    }
-    return pick;
 }
 function saveScroll() {
     scrollPositions[historyIndex] = { x: scrollX, y: scrollY };

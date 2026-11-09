@@ -135,8 +135,23 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 	fmt.Fprintf(&head, "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"%s\">%s</script>", nonce, data)
 
+	headHTML := head.String()
 	body := `<div id="tern-root" style="display: contents"></div>`
-	doc := shell.render(head.String(), body, nonce)
+	if a.ssr != nil && (def == nil || def.Page == nil || !def.Page.NoSSR) {
+		res, err := a.ssr.Render(c.Request.Context(), data, absoluteURL(c.Request))
+		switch {
+		case err != nil:
+			// Render on the client instead; the page still works.
+			a.logger.Warn("tern: server rendering failed; falling back to client rendering",
+				"path", c.Request.URL.Path, "route", c.routeID, "error", err)
+		case !res.Skip:
+			if res.Head != "" {
+				headHTML = "\n\t\t" + res.Head + headHTML
+			}
+			body = `<div id="tern-root" data-tern-ssr style="display: contents">` + res.Body + `</div>`
+		}
+	}
+	doc := shell.render(headHTML, body, nonce)
 
 	c.applyHeaders()
 	h := c.writer.Header()
@@ -148,6 +163,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	if c.Request.Method != http.MethodHead {
 		_, _ = c.writer.Write([]byte(doc))
 	}
+}
+
+// absoluteURL reconstructs the URL the client requested.
+func absoluteURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host + r.URL.RequestURI()
 }
 
 // components returns the Svelte files a page renders, for preloading.

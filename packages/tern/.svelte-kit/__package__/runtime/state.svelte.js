@@ -49,3 +49,14 @@ export const navigating = {
 export function setNavigating(n) {
     navigatingState.current = n;
 }
+/** Updates page state for a rendered payload. */
+export function applyPayloadToPage(p, url, state, data) {
+    page.url = url;
+    page.params = p.params ?? {};
+    page.route = { id: p.route ?? null };
+    page.status = p.status;
+    page.error = p.type === 'error' ? (p.error ?? { message: 'Error' }) : null;
+    page.data = data[data.length - 1] ?? {};
+    page.state = state;
+    page.form = p.hasForm ? (p.form ?? null) : null;
+}

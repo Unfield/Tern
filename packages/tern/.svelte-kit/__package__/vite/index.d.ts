@@ -15,6 +15,9 @@ export interface TernOptions {
  *
  * export default defineConfig({ plugins: [tern()] });
  * ```
+ *
+ * `vite build` builds the client; `vite build --ssr` builds the server
+ * renderer that `tern build` embeds in the Go binary.
  */
 export declare function tern(options?: TernOptions): Plugin[];
 export default tern;

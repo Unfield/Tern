@@ -117,21 +117,50 @@ test('the JSON endpoint returns the user\'s todos', async ({ page }) => {
 	expect(anonymous.status()).toBe(401);
 });
 
-test('plain form posts work without JavaScript', async ({ request }) => {
-	// A browser without JavaScript submits forms as regular POSTs and follows
-	// the redirect. Until server-side rendering (v0.2), check the server's
-	// responses directly instead of the rendered DOM.
-	const login = await request.post('/login', { form: { name: uniqueName() }, maxRedirects: 0 });
-	expect(login.status()).toBe(303);
-	expect(login.headers()['location']).toBe('/');
+test('pages hydrate without warnings', async ({ page }) => {
+	const problems: string[] = [];
+	page.on('console', (msg) => {
+		if (msg.type() === 'error' || msg.type() === 'warning') problems.push(msg.text());
+	});
+	page.on('pageerror', (err) => problems.push(err.message));
 
-	const created = await request.post('/?/create', { form: { title: 'No JS' } });
-	expect(created.status()).toBe(200);
-	const html = await created.text();
-	expect(html).toContain('"title":"No JS"');
-	expect(html).toContain('"hasForm":true');
+	await signIn(page);
+	await page.getByLabel('New todo').fill('Hydrate me');
+	await page.getByRole('button', { name: 'Add' }).click();
+	await expect(page.getByRole('link', { name: 'Hydrate me' })).toBeVisible();
+	await page.reload(); // server-rendered, then hydrated
+	await page.getByRole('button', { name: 'Mark as done' }).click();
+	await expect(page.getByTestId('left')).toHaveText('0 left');
+	expect(problems).toEqual([]);
+});
 
-	const invalid = await request.post('/?/create', { form: { title: '' } });
-	expect(invalid.status()).toBe(400);
-	expect(await invalid.text()).toContain('A todo needs a title');
+test('pages are rendered on the server', async ({ request }) => {
+	const html = await (await request.get('/login')).text();
+	expect(html).toContain('data-tern-ssr');
+	expect(html).toContain('<h1>Sign in</h1>');
+	expect(html).toContain('<title>Sign in · Todos</title>');
+});
+
+test.describe('without JavaScript', () => {
+	test.use({ javaScriptEnabled: false });
+
+	test('the app works with plain forms and links', async ({ page }) => {
+		const name = uniqueName();
+		await page.goto('/');
+		await expect(page).toHaveURL(/\/login$/);
+		await page.getByLabel('Your name').fill(name);
+		await page.getByRole('button', { name: 'Continue' }).click();
+		await expect(page.getByTestId('user')).toHaveText(name);
+
+		await page.getByLabel('New todo').fill('No JS needed');
+		await page.getByRole('button', { name: 'Add' }).click();
+		await expect(page.getByRole('link', { name: 'No JS needed' })).toBeVisible();
+
+		await page.getByLabel('New todo').fill('');
+		await page.getByRole('button', { name: 'Add' }).click();
+		await expect(page.getByRole('alert')).toHaveText('A todo needs a title of up to 120 characters.');
+
+		await page.getByRole('link', { name: 'No JS needed' }).click();
+		await expect(page.getByTestId('detail-title')).toHaveText('No JS needed');
+	});
 });

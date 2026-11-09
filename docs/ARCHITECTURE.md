@@ -124,15 +124,18 @@ Layout data is merged into child page types, so `data` in a page includes everyt
 
 ### 5. Rendering
 
-**v0.1: client-side rendering.** On a document request, Go runs the matching `Load` functions and responds with an HTML shell that contains:
+Every page is **rendered on the server and hydrated** in the browser.
 
-- the Vite-built entry script and CSS links for the route
-- the merged load data as `<script type="application/json">`
-- a `<div>` mount point
+1. Go matches the route and runs the loads, producing a payload: the route ID, parameters, and each node's JSON data.
+2. The payload goes to the server renderer, a Svelte bundle running in a pool of embedded QuickJS VMs ([ADR 0004](adr/0004-ssr-with-embedded-quickjs.md)). It renders the same component tree the client will, and returns `head` and `body` HTML.
+3. Go writes `src/app.html` with the rendered HTML, the payload as `<script type="application/json">`, and the scripts and styles the route needs.
+4. The client reads the payload and hydrates.
 
-The Tern client reads the data and mounts the layout and page components. On client-side navigation, the router requests `/<path>/__data.json` and swaps components without a full reload.
+On client-side navigation, the router requests `/<path>/__data.json` and renders without a full reload.
 
-**v0.2: server-side rendering.** The same request pipeline runs Svelte's server-compiled components inside an embedded JavaScript engine to produce HTML, and the client hydrates instead of mounting. Because `Load` only returns data, **no app code changes between v0.1 and v0.2**. See [ADR 0002](adr/0002-client-rendering-first.md).
+The server and the client use one function to decide what renders for a payload (`runtime/select.ts`), so hydration always matches. If a server render fails or times out, the page is sent without HTML and renders on the client; the error is logged. A page can opt out with `const SSR = false` in its route package, and an app with `kit.WithoutSSR()`.
+
+In development, the Go app asks Vite to render, so server rendering always uses the latest source.
 
 ### 6. Client runtime (`packages/tern`, published as `@unfield/tern`)
 

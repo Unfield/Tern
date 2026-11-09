@@ -1,6 +1,6 @@
 # 0002. Client-side rendering first, SSR in v0.2
 
-- Status: Accepted
+- Status: Accepted; implemented in v0.2 by [0004](0004-ssr-with-embedded-quickjs.md)
 - Date: 2026-11-09
 
 ## Context

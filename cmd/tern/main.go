@@ -19,6 +19,7 @@ Commands:
   dev       Start the development server
   gen       Generate the route manifest and TypeScript types
   build     Build a production binary
+  routes    List the routes in src/routes (or the given directory)
   version   Print the Tern version
   help      Show this help
 `
@@ -40,6 +41,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "version", "-v", "--version":
 		fmt.Fprintf(stdout, "tern %s\n", version.String())
 		return 0
+	case "routes":
+		return cmdRoutes(args[1:], stdout, stderr)
 	case "new", "dev", "gen", "build":
 		fmt.Fprintf(stderr, "tern %s: not implemented yet\n", cmd)
 		return 1

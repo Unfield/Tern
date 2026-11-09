@@ -6,7 +6,7 @@ This is the planned order of work. It changes as we learn; the [issue tracker](h
 
 The goal: you can build a real app with Tern and deploy it as one binary.
 
-- [ ] Route scanner and matcher (`[param]`, `[[optional]]`, `[...rest]`, `(group)`)
+- [x] Route scanner and matcher (`[param]`, `[[optional]]`, `[...rest]`, `(group)`, `[id=matcher]`)
 - [ ] Manifest code generation for route packages
 - [ ] `kit`: `Ctx`, `Load`, layouts with `Parent()`, `Redirect`/`Error`/`NotFound`
 - [ ] Form actions with `Fail` and progressive enhancement

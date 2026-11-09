@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `examples/dashboard`: a shadcn-svelte, Tailwind 4, bits-ui, layerchart and SQLite dashboard with sidebar navigation, dialogs, selects, dropdown menus, toasts, charts, streamed data and dark mode, covered by end-to-end tests.
 - GET forms (such as search boxes) navigate on the client, keeping focus and scroll when they filter the current page.
 - Server rendering supports libraries that read `process.env` or use `Intl` while loading: `process.env.NODE_ENV` is replaced at build time, and the renderer provides a `process` stub and an `en-US` `Intl` (`NumberFormat`, `DateTimeFormat`, `PluralRules`, `Collator`, `RelativeTimeFormat`, `ListFormat`, `Locale`, `Segmenter`).
+- Tests: a `tern dev` integration test (rebuilds, the error page, recovery, shutdown), a starter-template test that creates, type-checks, builds and runs a project, client unit tests with Vitest, and benchmarks ([docs/benchmarks.md](docs/benchmarks.md)).
 - Typed links: `tern gen` writes a `$routes` module, and `route('/projects/[id]', { id })` builds URLs with the pattern and parameters checked by TypeScript.
 - Navigation hooks: `beforeNavigate` (can cancel, including leaving the page), `onNavigate` (can delay rendering, for view transitions) and `afterNavigate`.
 - Selective reloading: loads record what they read (`ctx.Param`, `ctx.URL`, `kit.Parent`, and keys from the new `ctx.Depends`). On client navigation, layouts whose inputs did not change are reused instead of rerun, and `invalidate(key)` reruns only the loads that depend on `key`.
@@ -24,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - `tern dev` waits for Vite before serving, so the first pages are server-rendered.
+- `tern dev` refuses to start when another `tern dev` is already running for the same project, instead of both overwriting the same build output.
 - The Vite plugin uses `server.ws.clientPort` instead of the deprecated `server.hmr.clientPort`.
 - An action with an `any` result no longer turns every field of `form` into `unknown`.
 

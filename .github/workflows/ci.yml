@@ -68,6 +68,42 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
+      - name: Client unit tests
+        run: pnpm --filter @ternkit/tern test
+
+  template:
+    name: Starter template
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: tern new, check, build and run
+        run: scripts/test-template.sh
+
+  dev:
+    name: tern dev integration
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run tern dev against examples/todos
+        run: TERN_INTEGRATION=1 go test -count=1 -timeout 8m -run TestDevServer -v ./cmd/tern/
 
   e2e:
     name: End-to-end tests (${{ matrix.example }})

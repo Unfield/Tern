@@ -51,7 +51,8 @@
   "scripts": {
     "build": "svelte-package -i src -o dist",
     "prepare": "svelte-package -i src -o dist",
-    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "svelte": "^5.46.4",
@@ -67,6 +68,7 @@
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.8",
     "typescript": "^6.0.0",
-    "vite": "^8.3.7"
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
   }
 }

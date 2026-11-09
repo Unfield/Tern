@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -80,4 +81,32 @@ func TestRoutesCommandErrors(t *testing.T) {
 	if code := run([]string{"routes", "a", "b"}, &stdout, &stderr); code != 2 {
 		t.Fatalf("exit code = %d, want 2 for too many arguments", code)
 	}
+}
+
+func TestLockDev(t *testing.T) {
+	root := t.TempDir()
+	unlock, err := lockDev(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Our own lock file looks stale to a second attempt in the same process,
+	// so simulate another live process instead.
+	pidFile := filepath.Join(root, ".tern", "dev", "tern-dev.pid")
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getppid())+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lockDev(root); err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("second lock: %v", err)
+	}
+	unlock()
+
+	// A stale lock from a process that no longer exists is replaced.
+	if err := os.WriteFile(pidFile, []byte("999999\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err = lockDev(root)
+	if err != nil {
+		t.Fatalf("stale lock: %v", err)
+	}
+	unlock()
 }

@@ -87,7 +87,12 @@ type devRunner struct {
 }
 
 func (d *devRunner) run(ctx context.Context) error {
-	var err error
+	unlock, err := lockDev(d.root)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	if d.vitePort, err = freePort(); err != nil {
 		return err
 	}

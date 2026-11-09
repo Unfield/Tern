@@ -10,6 +10,7 @@ This guide covers everything you need to build an app with Tern. If you know Sve
 - [Form actions](#form-actions)
 - [Endpoints](#endpoints)
 - [Hooks, middleware and configuration](#hooks-middleware-and-configuration)
+- [Plugins](#plugins)
 - [Types](#types)
 - [Rendering](#rendering)
 - [Streaming](#streaming)
@@ -324,6 +325,61 @@ func auth(ctx *kit.Ctx) error {
 | `kit.WithSSRWorkers(n)`, `kit.WithSSRTimeout(d)` | tune server rendering |
 
 `*kit.App` is an `http.Handler`, so you can also mount it in your own server or router instead of calling `ListenAndServe`.
+
+## Plugins
+
+Plugins package reusable server behavior. Add them in `main.go`:
+
+```go
+import (
+	"github.com/Unfield/Tern/plugins/compress"
+	"github.com/Unfield/Tern/plugins/health"
+	"github.com/Unfield/Tern/plugins/requestlog"
+	"github.com/Unfield/Tern/plugins/secure"
+)
+
+app, err := ternApp(kit.WithPlugins(
+	health.New(health.Check("database", db.PingContext)),
+	requestlog.New(requestlog.SkipAssets()),
+	compress.New(),
+	secure.New(secure.HSTS(365*24*time.Hour, true)),
+))
+```
+
+| Plugin | What it does |
+|---|---|
+| `plugins/health` | `GET /healthz` for liveness and `GET /readyz` for readiness, running your checks with a timeout. Readiness reports 503 during shutdown so load balancers drain first. |
+| `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration and size. |
+| `plugins/compress` | gzip for HTML, JSON, XML and text responses. Streaming still flushes as values resolve. |
+| `plugins/secure` | Security headers: no framing, a strict referrer policy, browser features off, cross-origin isolation, and opt-in HSTS. |
+
+### Writing a plugin
+
+A plugin is any type with `Name() string` and `Setup(*kit.Setup) error`. `Setup` can register:
+
+| Method | Adds |
+|---|---|
+| `s.Hook(fn)` | a hook that runs before every request |
+| `s.Middleware(mw)` | `net/http` middleware |
+| `s.Matcher(name, fn)` | a parameter matcher |
+| `s.Handle(pattern, h)` | an `http.Handler`, served before routes (`"GET /metrics"`) |
+| `s.Head(html)`, `s.HeadFunc(fn)` | HTML in every page's `<head>`; `HeadFunc` gets the CSP nonce for inline scripts |
+| `s.OnShutdown(fn)` | work to do when the server stops |
+
+```go
+type Analytics struct{ SiteID string }
+
+func (Analytics) Name() string { return "analytics" }
+
+func (a Analytics) Setup(s *kit.Setup) error {
+	s.HeadFunc(func(_ *kit.Ctx, nonce string) string {
+		return fmt.Sprintf(`<script defer nonce="%s" src="https://stats.example.com/script.js" data-site="%s"></script>`, nonce, a.SiteID)
+	})
+	return nil
+}
+```
+
+Plugins are set up in order after the other options, and each name may only be added once.
 
 ## Types
 

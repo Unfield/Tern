@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A plugin system: `kit.WithPlugins` and the `kit.Plugin` interface. A plugin's `Setup` can add hooks, middleware, matchers, HTTP handlers served before routes, HTML in every page's `<head>` (with the CSP nonce), and shutdown work.
+- Built-in plugins: `plugins/health` (liveness and readiness with checks), `plugins/requestlog` (structured access logs), `plugins/compress` (gzip that keeps streaming working) and `plugins/secure` (security headers).
+
 ## [0.4.0] - 2026-11-09
 
 ### Added

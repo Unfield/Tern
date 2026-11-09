@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
@@ -36,6 +38,12 @@ type App struct {
 	closers []io.Closer
 	// prerendering is set while `tern build` prerenders pages.
 	prerendering bool
+
+	// Set up by plugins.
+	pluginMux       *http.ServeMux
+	hasPluginRoutes bool
+	head            []func(*Ctx, string) string
+	shutdown        []func(context.Context) error
 }
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -60,7 +68,11 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		o.logger = slog.Default()
 	}
 
-	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1"}
+	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux()}
+	if err := a.setupPlugins(); err != nil {
+		return nil, err
+	}
+	o = a.opts // plugins may have added hooks, middleware and matchers
 
 	list := make([]*routes.Route, 0, len(m.Routes))
 	for i := range m.Routes {
@@ -143,7 +155,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 // Close releases the app's resources, such as server-rendering VMs.
 // ListenAndServe and Serve call it on shutdown.
 func (a *App) Close() error {
-	var errs []error
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	errs := []error{a.runShutdown(ctx)}
 	for _, c := range a.closers {
 		errs = append(errs, c.Close())
 	}
@@ -168,6 +182,12 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	if a.prerendering && r.URL.Path == "/__tern/prerender" {
 		a.prerenderList(w)
 		return
+	}
+	if a.hasPluginRoutes {
+		if h, pattern := a.pluginMux.Handler(r); pattern != "" {
+			h.ServeHTTP(w, r)
+			return
+		}
 	}
 	safe := r.Method == http.MethodGet || r.Method == http.MethodHead
 	if a.assets != nil && safe && a.assets.serve(w, r) {

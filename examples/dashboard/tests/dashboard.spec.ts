@@ -243,3 +243,14 @@ test('beforeNavigate can stop navigation with unsaved changes', async ({ page })
 	await page.getByRole('link', { name: 'Projects', exact: true }).click();
 	await expect(page).toHaveURL(/\/projects$/);
 });
+
+test('plugins add health checks, compression and security headers', async ({ request }) => {
+	const ready = await request.get('/readyz');
+	expect(ready.status()).toBe(200);
+	expect((await ready.json()).checks.database.status).toBe('ok');
+
+	const login = await request.get('/login', { headers: { 'accept-encoding': 'gzip' } });
+	expect(login.headers()['content-encoding']).toBe('gzip');
+	expect(login.headers()['x-frame-options']).toBe('DENY');
+	expect(login.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin');
+});

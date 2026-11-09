@@ -118,6 +118,9 @@ func Open(path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
+// Ping checks that the database is reachable, for health checks.
+func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
 // SeedIfEmpty gives a new user sample projects so the dashboard has data.
 func (s *Store) SeedIfEmpty(ctx context.Context, owner string) error {
 	var n int

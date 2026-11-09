@@ -117,6 +117,7 @@ type options struct {
 	multipartMemory int64
 	logger          *slog.Logger
 	addr            string
+	plugins         []Plugin
 	csp             string
 	cspReportOnly   bool
 	ssr             bool

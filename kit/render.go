@@ -143,6 +143,12 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		}
 		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(scripts[0]), nonce)
 	}
+	for _, fn := range a.head {
+		if h := fn(c, nonce); h != "" {
+			head.WriteString("\n\t\t")
+			head.WriteString(h)
+		}
+	}
 	streaming := len(c.pendingDeferreds()) > 0 && c.Request.Method != http.MethodHead
 	if streaming {
 		fmt.Fprintf(&head, "\n\t\t<script nonce=\"%s\">%s</script>", nonce, resolveScript)

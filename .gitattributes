@@ -1,0 +1,7 @@
+# Use LF everywhere so generated files, golden files and go.sum compare
+# equal on every platform.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.gz binary

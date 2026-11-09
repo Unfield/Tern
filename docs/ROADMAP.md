@@ -38,7 +38,6 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 
 ## Next
 
-- A documentation website generated from `docs/`
 
 ## Later
 

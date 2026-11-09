@@ -28,3 +28,6 @@ packages/*/dist/
 
 # svelte-package scratch output
 .svelte-kit/
+
+# Docs site build output
+/website/dist/

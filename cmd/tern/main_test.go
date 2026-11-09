@@ -14,8 +14,8 @@ func TestRun(t *testing.T) {
 		wantOut  string
 		wantErr  string
 	}{
-		{name: "no args", args: nil, wantCode: 2, wantErr: "Usage:"},
-		{name: "help", args: []string{"help"}, wantCode: 0, wantOut: "Usage:"},
+		{name: "no args", args: nil, wantCode: 2, wantErr: "Usage"},
+		{name: "help", args: []string{"help"}, wantCode: 0, wantOut: "Usage"},
 		{name: "version", args: []string{"version"}, wantCode: 0, wantOut: "tern "},
 		{name: "unknown", args: []string{"nope"}, wantCode: 2, wantErr: `unknown command "nope"`},
 	}

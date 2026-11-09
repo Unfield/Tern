@@ -5,10 +5,11 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/Unfield/Tern/internal/routes"
+	"github.com/Unfield/Tern/internal/ui"
 )
 
 const defaultRoutesDir = "src/routes"
@@ -27,11 +28,12 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 
 	m, err := routes.Scan(os.DirFS("."), dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "tern routes: %v\n", err)
+		ui.New(stderr).Error(err)
 		return 1
 	}
+	p := ui.New(stdout)
 	if len(m.Routes) == 0 {
-		fmt.Fprintf(stdout, "No routes found in %s\n", dir)
+		p.Printf("No routes found in %s\n", dir)
 		return 0
 	}
 
@@ -39,15 +41,31 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 	list := slices.Clone(m.Routes)
 	slices.SortFunc(list, func(a, b *routes.Route) int { return strings.Compare(a.Pattern(), b.Pattern()) })
 
-	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ROUTE\tKIND\tLOAD\tLAYOUTS\tDIRECTORY")
+	rows := [][]string{{"ROUTE", "KIND", "LOAD", "LAYOUTS", "DIRECTORY"}}
 	for _, r := range list {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n", r.Pattern(), kind(r), check(r.HasLoad()), len(r.Layouts), r.ID)
+		rows = append(rows, []string{r.Pattern(), kind(r), check(r.HasLoad()), strconv.Itoa(len(r.Layouts)), r.ID})
 	}
-	if err := w.Flush(); err != nil {
-		fmt.Fprintf(stderr, "tern routes: %v\n", err)
-		return 1
-	}
+	p.Println()
+	p.Table(rows, func(col int, cell string) string {
+		switch col {
+		case 0:
+			return p.Bold(cell)
+		case 1:
+			if cell == "endpoint" {
+				return p.Yellow(cell)
+			}
+			return p.Cyan(cell)
+		case 2:
+			if cell == "yes" {
+				return p.Green(cell)
+			}
+			return p.Dim(cell)
+		case 4:
+			return p.Dim(cell)
+		}
+		return cell
+	})
+	p.Printf("\n  %s\n\n", p.Dim(plural(len(list), "route")))
 	return 0
 }
 

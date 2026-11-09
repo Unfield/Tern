@@ -41,7 +41,12 @@ func TestRoutesCommand(t *testing.T) {
 		t.Fatalf("exit code %d, stderr: %s", code, stderr.String())
 	}
 
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	var lines []string
+	for _, l := range strings.Split(stdout.String(), "\n") {
+		if l = strings.TrimSpace(l); l != "" && !strings.HasSuffix(l, "routes") {
+			lines = append(lines, l)
+		}
+	}
 	if len(lines) != 4 {
 		t.Fatalf("got %d lines, want 4:\n%s", len(lines), stdout.String())
 	}

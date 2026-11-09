@@ -5,26 +5,48 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
+	"github.com/Unfield/Tern/internal/ui"
 	"github.com/Unfield/Tern/internal/version"
 )
 
-const usage = `Tern: Svelte on the client, Go on the server.
+type command struct {
+	name, args, summary string
+}
 
-Usage:
-  tern <command> [arguments]
+var commands = []command{
+	{"new", "<dir>", "Create a new project"},
+	{"dev", "", "Start the development server"},
+	{"build", "", "Build a production binary"},
+	{"gen", "", "Generate route wiring and TypeScript types"},
+	{"routes", "[dir]", "List the app's routes"},
+	{"version", "", "Print the Tern version"},
+}
 
-Run tern <command> -h for a command's options.
+func printUsage(w io.Writer) {
+	p := ui.New(w)
+	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern")), p.Dim("Svelte on the client, Go on the server"))
+	p.Printf("  %s\n", p.Bold("Usage"))
+	p.Printf("    tern %s %s\n\n", p.Cyan("<command>"), p.Dim("[options]"))
+	p.Printf("  %s\n", p.Bold("Commands"))
+	for _, c := range commands {
+		usage := c.name
+		if c.args != "" {
+			usage += " " + c.args
+		}
+		p.Printf("    %s%s %s\n", p.Cyan(usage), pad(usage, 14), c.summary)
+	}
+	p.Printf("\n  Run %s for a command's options.\n", p.Cyan("tern <command> -h"))
+	p.Printf("  Docs: %s\n\n", p.Dim("https://github.com/Unfield/Tern/blob/main/docs/guide.md"))
+}
 
-Commands:
-  new       Create a new Tern project
-  dev       Start the development server
-  gen       Generate the route manifest and TypeScript types
-  build     Build a production binary
-  routes    List the routes in src/routes (or the given directory)
-  version   Print the Tern version
-  help      Show this help
-`
+func pad(s string, width int) string {
+	if len(s) >= width {
+		return " "
+	}
+	return fmt.Sprintf("%*s", width-len(s), "")
+}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -32,16 +54,16 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usage)
+		printUsage(stderr)
 		return 2
 	}
 
 	switch cmd := args[0]; cmd {
 	case "help", "-h", "--help":
-		fmt.Fprint(stdout, usage)
+		printUsage(stdout)
 		return 0
 	case "version", "-v", "--version":
-		fmt.Fprintf(stdout, "tern %s\n", version.String())
+		fmt.Fprintf(stdout, "tern %s (%s, %s/%s)\n", version.String(), runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		return 0
 	case "routes":
 		return cmdRoutes(args[1:], stdout, stderr)
@@ -54,7 +76,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "new":
 		return cmdNew(args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "tern: unknown command %q\n\n%s", cmd, usage)
+		ui.New(stderr).Error(fmt.Errorf("unknown command %q", cmd))
+		printUsage(stderr)
 		return 2
 	}
 }

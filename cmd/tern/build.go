@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -19,10 +20,13 @@ import (
 	"time"
 
 	"github.com/Unfield/Tern/internal/codegen"
+	"github.com/Unfield/Tern/internal/ui"
+	"github.com/Unfield/Tern/internal/version"
 )
 
 // cmdBuild produces a production binary with the client embedded.
 func cmdBuild(args []string, stdout, stderr io.Writer) int {
+	p := ui.New(stdout)
 	fl := flag.NewFlagSet("build", flag.ContinueOnError)
 	fl.SetOutput(stderr)
 	out := fl.String("o", "", "output binary (default build/<directory name>)")
@@ -36,7 +40,7 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	if *out == "" {
 		wd, err := os.Getwd()
 		if err != nil {
-			fmt.Fprintf(stderr, "tern build: %v\n", err)
+			ui.New(stderr).Error(err)
 			return 1
 		}
 		*out = filepath.Join("build", filepath.Base(wd))
@@ -46,53 +50,103 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	}
 
 	start := time.Now()
-	step := func(name string, fn func() error) bool {
-		fmt.Fprintf(stdout, "  %s\n", name)
-		if err := fn(); err != nil {
-			fmt.Fprintf(stderr, "tern build: %v\n", err)
+	// Each step's tool output is captured and shown only if the step fails.
+	step := func(label string, fn func(log io.Writer) (string, error)) bool {
+		var log bytes.Buffer
+		s := p.Spin(label)
+		note, err := fn(&log)
+		if err != nil {
+			s.Fail()
+			if log.Len() > 0 {
+				p.Println()
+				p.Println(strings.TrimRight(log.String(), "\n"))
+			}
+			p.Println()
+			ui.New(stderr).Error(err)
 			return false
 		}
+		s.Done(note)
 		return true
 	}
 
-	fmt.Fprintln(stdout, "Building for production")
+	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern build")), p.Dim(version.String()))
 	var gen *codegen.Result
-	compile := func() error {
+	compile := func(log io.Writer) (string, error) {
 		cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
-		cmd.Stdout, cmd.Stderr = stdout, stderr
-		return cmd.Run()
+		cmd.Stdout, cmd.Stderr = log, log
+		if err := cmd.Run(); err != nil {
+			return "", errors.New("go build failed")
+		}
+		return "", nil
 	}
-	ok := step("generating routes and types", func() error {
+	ok := step("Generating routes and types", func(io.Writer) (string, error) {
 		var err error
 		gen, err = codegen.Generate(".")
-		return err
-	}) && step("building the client with Vite", func() error {
-		return runVite(stdout, stderr, "build", "--logLevel", "warn")
-	}) && step("building the server renderer", func() error {
-		return runVite(stdout, stderr, "build", "--ssr", "--logLevel", "warn")
-	}) && step("compressing assets", func() error {
-		return precompress(codegen.ClientOut)
-	}) && step("compiling the server", compile)
+		if err != nil {
+			return "", err
+		}
+		return plural(len(gen.Manifest.Routes), "route"), nil
+	}) && step("Building the client", func(log io.Writer) (string, error) {
+		return "", runVite(log, log, "build", "--logLevel", "warn")
+	}) && step("Building the server renderer", func(log io.Writer) (string, error) {
+		return "", runVite(log, log, "build", "--ssr", "--logLevel", "warn")
+	}) && step("Compressing assets", func(io.Writer) (string, error) {
+		return "", precompress(codegen.ClientOut)
+	}) && step("Compiling the server", compile)
 	if ok && gen.Prerender {
-		ok = step("prerendering pages", func() error {
+		ok = step("Prerendering pages", func(io.Writer) (string, error) {
 			n, err := prerender(*out)
-			if err == nil {
-				noun := "pages"
-				if n == 1 {
-					noun = "page"
-				}
-				fmt.Fprintf(stdout, "    %d %s\n", n, noun)
-			}
-			return err
-		}) && step("compressing prerendered pages", func() error {
-			return precompress(codegen.ClientOut)
-		}) && step("embedding prerendered pages", compile)
+			return plural(n, "page"), err
+		}) && step("Compressing prerendered pages", func(io.Writer) (string, error) {
+			return "", precompress(codegen.ClientOut)
+		}) && step("Embedding prerendered pages", compile)
 	}
 	if !ok {
 		return 1
 	}
-	fmt.Fprintf(stdout, "Built %s in %s\n", *out, time.Since(start).Round(time.Millisecond))
+
+	binSize := int64(0)
+	if info, err := os.Stat(*out); err == nil {
+		binSize = info.Size()
+	}
+	raw, gz := clientSize(codegen.ClientOut)
+	p.Println()
+	p.Printf("  %s %s %s\n", p.Green("✓"), p.Bold("Built "+*out), p.Dim("in "+ui.Duration(time.Since(start))))
+	p.Printf("    %s %s\n", p.Dim("binary "), ui.Size(binSize))
+	p.Printf("    %s %s %s\n", p.Dim("client "), ui.Size(raw), p.Dim("("+ui.Size(gz)+" gzipped)"))
+	p.Printf("\n  Run it with %s\n\n", p.Cyan("./"+filepath.ToSlash(*out)))
 	return 0
+}
+
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+// clientSize sums the client output, counting gzipped files at their
+// compressed size for the second total.
+func clientSize(dir string) (raw, gzipped int64) {
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || strings.HasPrefix(filepath.Base(p), ".") || strings.Contains(p, ".vite") {
+			return nil //nolint:nilerr // best effort
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil //nolint:nilerr // best effort
+		}
+		if strings.HasSuffix(p, ".gz") {
+			gzipped += info.Size()
+			return nil
+		}
+		raw += info.Size()
+		if _, err := os.Stat(p + ".gz"); err != nil {
+			gzipped += info.Size()
+		}
+		return nil
+	})
+	return raw, gzipped
 }
 
 // prerender runs the built app in prerender mode and saves the HTML and

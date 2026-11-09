@@ -26,6 +26,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/Unfield/Tern/internal/codegen"
+	"github.com/Unfield/Tern/internal/ui"
+	"github.com/Unfield/Tern/internal/version"
 )
 
 // cmdDev runs the development server: Vite for the client, the Go app
@@ -45,14 +47,14 @@ func cmdDev(args []string, stdout, stderr io.Writer) int {
 
 	root, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintf(stderr, "tern dev: %v\n", err)
+		ui.New(stderr).Error(err)
 		return 1
 	}
-	d := &devRunner{root: root, host: *host, port: *port, stdout: stdout, stderr: stderr, clients: map[chan struct{}]bool{}}
+	d := &devRunner{root: root, host: *host, port: *port, stdout: stdout, stderr: stderr, ui: ui.New(stdout), clients: map[chan struct{}]bool{}, started: time.Now()}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := d.run(ctx); err != nil {
-		fmt.Fprintf(stderr, "tern dev: %v\n", err)
+		ui.New(stderr).Error(err)
 		return 1
 	}
 	return 0
@@ -64,6 +66,9 @@ type devRunner struct {
 	port   int
 	stdout io.Writer
 	stderr io.Writer
+	ui     *ui.Printer
+	// started is when tern dev began, for the startup time in the banner.
+	started time.Time
 
 	vitePort   int
 	appPort    int
@@ -110,15 +115,50 @@ func (d *devRunner) run(ctx context.Context) error {
 	go func() { _ = srv.Serve(ln) }()
 	defer func() { _ = srv.Close() }()
 
-	shown := d.host
-	if shown == "" || shown == "0.0.0.0" || shown == "::" {
-		shown = "localhost"
-	}
-	fmt.Fprintf(d.stdout, "\n  Tern dev server running at http://%s\n\n", net.JoinHostPort(shown, strconv.Itoa(d.port)))
-
 	d.rebuild(false)
+	d.banner()
 	defer d.stopApp()
 	return d.watch(ctx)
+}
+
+// banner prints the startup message with the URLs to open.
+func (d *devRunner) banner() {
+	p := d.ui
+	port := strconv.Itoa(d.port)
+	p.Printf("\n  %s %s  %s\n\n", p.Brand(p.Bold("tern")), p.Dim(version.String()), p.Dim("ready in "+ui.Duration(time.Since(d.started))))
+	exposed := d.host == "" || d.host == "0.0.0.0" || d.host == "::"
+	local := d.host
+	if exposed {
+		local = "localhost"
+	}
+	p.Printf("  %s %s %s\n", p.Green("➜"), p.Bold("Local:  "), p.Cyan("http://"+net.JoinHostPort(local, port)+"/"))
+	if exposed {
+		for _, ip := range lanAddresses() {
+			p.Printf("  %s %s %s\n", p.Green("➜"), p.Bold("Network:"), p.Cyan("http://"+net.JoinHostPort(ip, port)+"/"))
+		}
+	} else {
+		p.Printf("  %s %s %s\n", p.Dim("➜"), p.Dim("Network:"), p.Dim("use -host 0.0.0.0 to expose"))
+	}
+	if problem := d.currentProblem(); problem != "" {
+		p.Println()
+		p.Failure("the app does not build yet; the error is shown in the browser too")
+	}
+	p.Println()
+}
+
+// lanAddresses returns this machine's non-loopback IPv4 addresses.
+func lanAddresses() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, a := range addrs {
+		if ipn, ok := a.(*net.IPNet); ok && !ipn.IP.IsLoopback() && ipn.IP.To4() != nil {
+			out = append(out, ipn.IP.String())
+		}
+	}
+	return out
 }
 
 func (d *devRunner) startVite() (*exec.Cmd, error) {
@@ -286,7 +326,10 @@ func (d *devRunner) setProblem(p string) {
 		close(d.ready) // release waiting requests so they see the problem
 	}
 	d.mu.Unlock()
-	fmt.Fprintf(d.stderr, "\n%s\n", p)
+	d.ui.Event(d.ui.Red("✗"), "%s", d.ui.Red("build failed"))
+	for _, line := range strings.Split(strings.TrimRight(p, "\n"), "\n") {
+		d.ui.Printf("    %s\n", line)
+	}
 	d.broadcastReload()
 }
 
@@ -294,6 +337,7 @@ func (d *devRunner) setProblem(p string) {
 func (d *devRunner) rebuild(reload bool) {
 	d.building.Lock()
 	defer d.building.Unlock()
+	began := time.Now()
 
 	d.mu.Lock()
 	select {
@@ -334,7 +378,7 @@ func (d *devRunner) rebuild(reload bool) {
 	}
 	d.mu.Unlock()
 	if reload {
-		fmt.Fprintln(d.stdout, "  server restarted")
+		d.ui.Event(d.ui.Green("↻"), "server restarted %s", d.ui.Dim("in "+ui.Duration(time.Since(began))))
 		d.broadcastReload()
 	}
 }
@@ -425,10 +469,10 @@ func (d *devRunner) watch(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintln(d.stdout, "\n  stopping")
+			d.ui.Printf("\n  %s\n", d.ui.Dim("stopping…"))
 			return nil
 		case err := <-w.Errors:
-			fmt.Fprintf(d.stderr, "tern dev: watcher: %v\n", err)
+			d.ui.Event(d.ui.Yellow("!"), "file watcher: %v", err)
 		case ev := <-w.Events:
 			rel, err := filepath.Rel(d.root, ev.Name)
 			if err != nil || ignored(rel) {

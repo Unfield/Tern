@@ -1,7 +1,10 @@
 // Package version reports the version of the Tern build.
 package version
 
-import "runtime/debug"
+import (
+	"regexp"
+	"runtime/debug"
+)
 
 // Version is set at build time with -ldflags "-X .../internal/version.Version=v0.1.0".
 // When unset, it falls back to the module version recorded by the Go toolchain.
@@ -37,8 +40,12 @@ func fromBuildInfo(info *debug.BuildInfo) string {
 	return "dev"
 }
 
+// pseudoVersion matches Go's pseudo-versions for untagged commits, such as
+// v0.3.2-0.20261109220016-7e6368b29d34, with an optional +dirty.
+var pseudoVersion = regexp.MustCompile(`-(0\.)?\d{14}-[0-9a-f]{12}(\+dirty)?$|\+dirty$`)
+
 func usable(v string) string {
-	if v == "" || v == "(devel)" {
+	if v == "" || v == "(devel)" || pseudoVersion.MatchString(v) {
 		return "dev"
 	}
 	return v

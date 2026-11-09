@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/Unfield/Tern/internal/codegen"
+	"github.com/Unfield/Tern/internal/ui"
 )
 
 // cmdGen regenerates tern.gen.go, the client manifest and route types.
@@ -13,15 +15,17 @@ func cmdGen(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "usage: tern gen")
 		return 2
 	}
+	start := time.Now()
 	res, err := codegen.Generate(".")
 	if err != nil {
-		fmt.Fprintf(stderr, "tern gen: %v\n", err)
+		ui.New(stderr).Error(err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "Generated %d routes", len(res.Manifest.Routes))
-	if len(res.Changed) > 0 {
-		fmt.Fprintf(stdout, " (%d files updated)", len(res.Changed))
+	p := ui.New(stdout)
+	note := "up to date"
+	if n := len(res.Changed); n > 0 {
+		note = plural(n, "file") + " updated"
 	}
-	fmt.Fprintln(stdout)
+	p.Success("Generated %s %s", plural(len(res.Manifest.Routes), "route"), p.Dim(note+" · "+ui.Duration(time.Since(start))))
 	return 0
 }

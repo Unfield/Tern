@@ -45,7 +45,9 @@ func (a *App) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.logger.Info("tern: listening", "addr", "http://"+displayAddr(ln.Addr()))
+	if a.dev == nil { // under tern dev, the dev server prints its own banner
+		a.logger.Info("tern: listening", "addr", "http://"+displayAddr(ln.Addr()))
+	}
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
@@ -55,7 +57,9 @@ func (a *App) Serve(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 	}
-	a.logger.Info("tern: shutting down")
+	if a.dev == nil {
+		a.logger.Info("tern: shutting down")
+	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	defer func() { _ = a.Close() }()

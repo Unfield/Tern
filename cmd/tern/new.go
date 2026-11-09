@@ -16,6 +16,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Unfield/Tern/internal/ui"
 	"github.com/Unfield/Tern/internal/version"
 )
 
@@ -53,39 +54,45 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 		*module = name
 	}
 	if err := checkEmpty(dir); err != nil {
-		fmt.Fprintf(stderr, "tern new: %v\n", err)
+		ui.New(stderr).Error(err)
 		return 1
 	}
+	p := ui.New(stdout)
+	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern new")), p.Dim(version.String()))
 
 	data := templateData{Name: name, Module: *module, ClientVersion: clientVersion()}
+	s := p.Spin("Creating " + dir)
 	if err := writeTemplate(dir, data); err != nil {
-		fmt.Fprintf(stderr, "tern new: %v\n", err)
+		s.Fail()
+		ui.New(stderr).Error(err)
 		return 1
 	}
+	s.Done("")
 
 	if !*skipInstall {
 		// Pin the CLI as a Go tool, so the project runs `go tool tern` at
 		// the same version as the kit package it imports.
 		ref := "github.com/Unfield/Tern/cmd/tern@" + moduleVersion()
+		s := p.Spin("Adding Tern to go.mod")
 		for _, args := range [][]string{{"get", "-tool", ref}, {"mod", "tidy"}} {
 			cmd := exec.Command("go", args...)
 			cmd.Dir = dir
 			if out, err := cmd.CombinedOutput(); err != nil {
-				fmt.Fprintf(stderr, "warning: go %s failed:\n%s\nRun it yourself once the problem is fixed.\n", strings.Join(args, " "), out)
+				s.Fail()
+				p.Warn("go %s failed; run it yourself once the problem is fixed:\n%s", strings.Join(args, " "), out)
+				s = nil
 				break
 			}
 		}
+		if s != nil {
+			s.Done(moduleVersion())
+		}
 	}
 
-	fmt.Fprintf(stdout, `Created %s.
-
-Next steps:
-
-  cd %s
-  npm install
-  npm run dev
-
-`, dir, dir)
+	p.Printf("\n  %s\n\n", p.Bold("Next steps"))
+	p.Printf("    %s %s\n", p.Dim("1."), p.Cyan("cd "+dir))
+	p.Printf("    %s %s\n", p.Dim("2."), p.Cyan("npm install"))
+	p.Printf("    %s %s\n\n", p.Dim("3."), p.Cyan("npm run dev"))
 	return 0
 }
 

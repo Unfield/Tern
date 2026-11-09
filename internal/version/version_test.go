@@ -33,6 +33,8 @@ func TestFromBuildInfo(t *testing.T) {
 	}{
 		{"main module", debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "v0.3.0"}}, "v0.3.0"},
 		{"local build", debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "(devel)"}}, "dev"},
+		{"untagged commit", debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "v0.3.2-0.20261109220016-7e6368b29d34+dirty"}}, "dev"},
+		{"prerelease tag", debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "v1.0.0-rc.1"}}, "v1.0.0-rc.1"},
 		{"go tool dependency", debug.BuildInfo{
 			Main: debug.Module{Path: "example.com/app"},
 			Deps: []*debug.Module{{Path: "golang.org/x/tools", Version: "v0.52.0"}, {Path: modulePath, Version: "v0.3.1"}},

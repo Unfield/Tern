@@ -87,7 +87,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 					port: vitePort,
 					strictPort: vitePort !== undefined,
 					// The browser talks to the Go app, which proxies HMR to Vite.
-					hmr: appPort ? { clientPort: appPort } : undefined,
+					ws: appPort ? { clientPort: appPort } : undefined,
 					fs: { allow: [root] }
 				},
 				optimizeDeps: {

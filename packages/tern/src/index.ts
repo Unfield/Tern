@@ -7,7 +7,7 @@
  * </script>
  * ```
  */
-export { page, navigating } from './runtime/state.svelte.js';
+export { page, navigating, env } from './runtime/state.svelte.js';
 export { goto, invalidate, invalidateAll, preloadData, applyAction } from './runtime/router.svelte.js';
 export { beforeNavigate, onNavigate, afterNavigate } from './runtime/navigation.js';
 export type { BeforeNavigateEvent, OnNavigateEvent } from './runtime/navigation.js';

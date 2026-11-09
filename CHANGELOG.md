@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - A plugin system: `kit.WithPlugins` and the `kit.Plugin` interface. A plugin's `Setup` can add hooks, middleware, matchers, HTTP handlers served before routes, HTML in every page's `<head>` (with the CSP nonce), and shutdown work.
+- Public environment variables: `PUBLIC_` variables in the server's environment are available in components as `env` from `@ternkit/tern`, during server rendering and in the browser.
 - Base paths: `{"basePath": "/app"}` in an optional `tern.json` serves the app under a URL prefix. Assets, `%tern.assets%`, `route()`, client routing, prerendering and `kit.Redirect` include it; `ctx.Path` and `ctx.BasePath` help with links built in Go.
 - Built-in plugins: `plugins/health` (liveness and readiness with checks), `plugins/requestlog` (structured access logs), `plugins/compress` (gzip that keeps streaming working) and `plugins/secure` (security headers).
 

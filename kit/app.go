@@ -39,6 +39,9 @@ type App struct {
 	// prerendering is set while `tern build` prerenders pages.
 	prerendering bool
 
+	// publicEnv holds PUBLIC_ environment variables, sent to the client.
+	publicEnv map[string]string
+
 	// Set up by plugins.
 	pluginMux       *http.ServeMux
 	hasPluginRoutes bool
@@ -72,6 +75,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	if err := a.setupPlugins(); err != nil {
 		return nil, err
 	}
+	a.publicEnv = publicEnv(os.Environ())
 	o = a.opts // plugins may have added hooks, middleware and matchers
 
 	list := make([]*routes.Route, 0, len(m.Routes))
@@ -371,6 +375,21 @@ func (a *App) redirect(c *Ctx, isData bool, re *RedirectError) {
 	}
 	c.applyHeaders()
 	http.Redirect(c.writer, c.Request, location, re.Status)
+}
+
+// publicEnvPrefix marks environment variables that are safe to send to the
+// browser.
+const publicEnvPrefix = "PUBLIC_"
+
+func publicEnv(environ []string) map[string]string {
+	env := map[string]string{}
+	for _, kv := range environ {
+		k, v, ok := strings.Cut(kv, "=")
+		if ok && strings.HasPrefix(k, publicEnvPrefix) {
+			env[k] = v
+		}
+	}
+	return env
 }
 
 // withBase adds the base path to an absolute app path such as "/login".

@@ -659,3 +659,19 @@ func TestPrerenderListIncludesEndpoints(t *testing.T) {
 		t.Errorf("errors = %v", out.Errors)
 	}
 }
+
+func TestPublicEnv(t *testing.T) {
+	t.Setenv("PUBLIC_API_URL", "https://api.example.com")
+	t.Setenv("SECRET_TOKEN", "do-not-send")
+	a, _ := newTestApp(t, testManifest())
+	body := do(t, a, "GET", "/", nil).Body.String()
+	if !strings.Contains(body, `"env":{"PUBLIC_API_URL":"https://api.example.com"}`) {
+		t.Errorf("public env missing from the page payload")
+	}
+	if strings.Contains(body, "do-not-send") {
+		t.Error("only PUBLIC_ variables may reach the browser")
+	}
+	if strings.Contains(do(t, a, "GET", "/__data.json", nil).Body.String(), "PUBLIC_API_URL") {
+		t.Error("data responses should not repeat the environment")
+	}
+}

@@ -27,6 +27,7 @@ type payload struct {
 	Location string            `json:"location,omitempty"`
 	Data     any               `json:"data,omitempty"`
 	Form     any               `json:"form,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
 	HasForm  bool              `json:"hasForm,omitempty"`
 }
 
@@ -115,6 +116,9 @@ func (s *shell) render(head, body, nonce, base string) string {
 
 // writeDocument responds with the HTML shell for a page or error.
 func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
+	if len(a.publicEnv) > 0 {
+		p.Env = a.publicEnv // full page loads only; the client keeps it
+	}
 	data, err := json.Marshal(p) // escapes <, > and & for safe inlining
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))

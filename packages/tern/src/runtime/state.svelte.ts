@@ -57,8 +57,24 @@ export function setNavigating(n: Navigation | null) {
 	navigatingState.current = n;
 }
 
+/**
+ * The server's PUBLIC_ environment variables, read when it started:
+ *
+ * ```js
+ * import { env } from '@ternkit/tern';
+ * fetch(`${env.PUBLIC_API_URL}/status`);
+ * ```
+ *
+ * Only variables whose names start with PUBLIC_ are sent to the browser.
+ */
+export const env: Record<string, string | undefined> = {};
+
 /** Updates page state for a rendered payload. */
 export function applyPayloadToPage(p: Payload, url: URL, state: Record<string, unknown>, data: Record<string, unknown>[]) {
+	if (p.env) {
+		for (const k of Object.keys(env)) delete env[k];
+		Object.assign(env, p.env);
+	}
 	page.url = url;
 	page.params = p.params ?? {};
 	page.route = { id: p.route ?? null };

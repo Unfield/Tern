@@ -48,6 +48,8 @@ export interface Payload {
 	uses?: (NodeUses | null)[];
 	/** Nodes the server skipped because the client already has their data. */
 	reused?: number[];
+	/** PUBLIC_ environment variables, on full page loads. */
+	env?: Record<string, string>;
 }
 
 export interface NodeUses {

@@ -506,6 +506,7 @@ Import from `@ternkit/tern` in your components:
 | Export | Purpose |
 |---|---|
 | `page` | reactive state for the current page: `url`, `params`, `route.id`, `status`, `error`, `data`, `form`, `state` |
+| `env` | the server's `PUBLIC_` environment variables, such as `env.PUBLIC_API_URL`; other variables never reach the browser |
 | `navigating.current` | the navigation in progress, or `null` |
 | `goto(href, opts)` | navigate; options: `replaceState`, `noScroll`, `keepFocus`, `invalidateAll`, `state` |
 | `invalidate(key)` | rerun the loads that called `ctx.Depends(key)`, and the page's load |

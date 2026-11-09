@@ -79,6 +79,12 @@ type RouteDef struct {
 	Page *PageDef
 	// Endpoint maps HTTP methods to handlers.
 	Endpoint map[string]HandlerFunc
+	// Prerender renders the page to static HTML at build time; set by
+	// `const Prerender = true` in the route's package.
+	Prerender bool
+	// Entries lists the parameters to prerender a dynamic route with; set
+	// by an exported Entries function in the route's package.
+	Entries func() ([]map[string]string, error)
 }
 
 // PageDef is a route's page.

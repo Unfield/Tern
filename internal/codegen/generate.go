@@ -39,6 +39,8 @@ type Result struct {
 	Changed []string
 	// GoChanged reports whether Go code changed, so the server must be rebuilt.
 	GoChanged bool
+	// Prerender reports whether any route is prerendered at build time.
+	Prerender bool
 }
 
 // Generate scans the project at root and writes all generated files.
@@ -73,6 +75,9 @@ func Generate(root string) (*Result, error) {
 	g.files[ServerOut+"/.keep"] = []byte("Placeholder so the server directory can be embedded before the first build.\n")
 
 	res := &Result{Manifest: m}
+	for _, rp := range pkgs {
+		res.Prerender = res.Prerender || rp.prerender
+	}
 	for _, name := range sortedKeys(g.files) {
 		changed, err := writeIfChanged(filepath.Join(root, filepath.FromSlash(name)), g.files[name])
 		if err != nil {
@@ -198,6 +203,12 @@ func (g *generator) goFile() error {
 				b.WriteString(", NoSSR: true")
 			}
 			b.WriteString("},\n")
+		}
+		if rp != nil && rp.prerender && r.Page != "" {
+			b.WriteString("\t\t\tPrerender: true,\n")
+		}
+		if rp != nil && rp.entries {
+			fmt.Fprintf(&b, "\t\t\tEntries: %s.Entries,\n", rp.alias)
 		}
 		if rp != nil && len(rp.methods) > 0 {
 			b.WriteString("\t\t\tEndpoint: map[string]kit.HandlerFunc{\n")

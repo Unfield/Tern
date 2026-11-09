@@ -101,8 +101,12 @@ func hashFile(fsys fs.FS, name string) (string, error) {
 }
 
 // serve writes a static asset and reports whether the path was one.
+// Prerendered pages are stored as <path>/index.html.
 func (a *assets) serve(w http.ResponseWriter, r *http.Request) bool {
 	f, ok := a.files[r.URL.Path]
+	if !ok && r.URL.RawQuery == "" {
+		f, ok = a.files[strings.TrimSuffix(r.URL.Path, "/")+"/index.html"]
+	}
 	if !ok {
 		if strings.HasPrefix(r.URL.Path, immutablePrefix) {
 			http.NotFound(w, r)

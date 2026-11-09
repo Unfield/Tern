@@ -141,6 +141,23 @@ test('pages are rendered on the server', async ({ request }) => {
 	expect(html).toContain('<title>Sign in · Todos</title>');
 });
 
+test('prerendered pages are served as static files', async ({ page, request }) => {
+	const res = await request.get('/about');
+	expect(res.status()).toBe(200);
+	expect(res.headers()['etag']).toBeTruthy();
+	expect(res.headers()['cache-control']).toBe('public, max-age=0, must-revalidate');
+	expect(await res.text()).toContain('<li>Go on the server</li>');
+
+	// A prerendered page still hydrates and navigates on the client.
+	await page.goto('/about');
+	await mark(page);
+	await page.getByRole('link', { name: 'Sign in' }).click();
+	await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+	await stillMarked(page);
+	await page.goBack();
+	await expect(page.getByTestId('features')).toContainText('One binary');
+});
+
 test.describe('without JavaScript', () => {
 	test.use({ javaScriptEnabled: false });
 

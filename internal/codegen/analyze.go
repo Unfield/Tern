@@ -32,6 +32,8 @@ type routePackage struct {
 	actionsAny bool // Actions is not a literal we can inspect
 	methods    []string
 	noSSR      bool // const SSR = false
+	prerender  bool // const Prerender = true
+	entries    bool // func Entries() ([]map[string]string, error)
 }
 
 // analyze type-checks the route packages and validates their exports.
@@ -132,11 +134,30 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 	if scanned.Load {
 		rp.load = checkLoad("Load")
 	}
-	if obj, ok := scope.Lookup("SSR").(*types.Const); ok {
-		if b, isBool := obj.Type().Underlying().(*types.Basic); !isBool || b.Info()&types.IsBoolean == 0 {
-			errs = append(errs, fmt.Sprintf("%s: SSR must be a boolean constant", pos(obj)))
+	boolConst := func(name string) (value, found bool) {
+		obj := scope.Lookup(name)
+		if obj == nil {
+			return false, false
+		}
+		c, ok := obj.(*types.Const)
+		if b, isBasic := obj.Type().Underlying().(*types.Basic); !ok || !isBasic || b.Info()&types.IsBoolean == 0 {
+			errs = append(errs, fmt.Sprintf("%s: %s must be a boolean constant", pos(obj), name))
+			return false, false
+		}
+		return constant.BoolVal(c.Val()), true
+	}
+	if v, ok := boolConst("SSR"); ok {
+		rp.noSSR = !v
+	}
+	if v, ok := boolConst("Prerender"); ok {
+		rp.prerender = v
+	}
+	if obj := scope.Lookup("Entries"); obj != nil {
+		fn, ok := obj.(*types.Func)
+		if !ok || !entriesSignature(fn.Type().(*types.Signature)) {
+			errs = append(errs, fmt.Sprintf("%s: Entries must have the signature func() ([]map[string]string, error)", pos(obj)))
 		} else {
-			rp.noSSR = !constant.BoolVal(obj.Val())
+			rp.entries = true
 		}
 	}
 	if scanned.LayoutLoad {
@@ -184,6 +205,18 @@ func loadSignature(sig *types.Signature) (types.Type, bool) {
 		return nil, false
 	}
 	return data, true
+}
+
+func entriesSignature(sig *types.Signature) bool {
+	if sig.TypeParams().Len() > 0 || sig.Params().Len() != 0 || sig.Results().Len() != 2 || !isError(sig.Results().At(1).Type()) {
+		return false
+	}
+	sl, ok := types.Unalias(sig.Results().At(0).Type()).Underlying().(*types.Slice)
+	if !ok {
+		return false
+	}
+	m, ok := types.Unalias(sl.Elem()).Underlying().(*types.Map)
+	return ok && types.Identical(m.Key(), types.Typ[types.String]) && types.Identical(m.Elem(), types.Typ[types.String])
 }
 
 func handlerSignature(sig *types.Signature) bool {

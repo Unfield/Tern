@@ -2,15 +2,19 @@ package main
 
 import (
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,8 +56,15 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	}
 
 	fmt.Fprintln(stdout, "Building for production")
+	var gen *codegen.Result
+	compile := func() error {
+		cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
+		cmd.Stdout, cmd.Stderr = stdout, stderr
+		return cmd.Run()
+	}
 	ok := step("generating routes and types", func() error {
-		_, err := codegen.Generate(".")
+		var err error
+		gen, err = codegen.Generate(".")
 		return err
 	}) && step("building the client with Vite", func() error {
 		return runVite(stdout, stderr, "build", "--logLevel", "warn")
@@ -61,16 +72,139 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 		return runVite(stdout, stderr, "build", "--ssr", "--logLevel", "warn")
 	}) && step("compressing assets", func() error {
 		return precompress(codegen.ClientOut)
-	}) && step("compiling the server", func() error {
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
-		cmd.Stdout, cmd.Stderr = stdout, stderr
-		return cmd.Run()
-	})
+	}) && step("compiling the server", compile)
+	if ok && gen.Prerender {
+		ok = step("prerendering pages", func() error {
+			n, err := prerender(*out)
+			if err == nil {
+				noun := "pages"
+				if n == 1 {
+					noun = "page"
+				}
+				fmt.Fprintf(stdout, "    %d %s\n", n, noun)
+			}
+			return err
+		}) && step("compressing prerendered pages", func() error {
+			return precompress(codegen.ClientOut)
+		}) && step("embedding prerendered pages", compile)
+	}
 	if !ok {
 		return 1
 	}
 	fmt.Fprintf(stdout, "Built %s in %s\n", *out, time.Since(start).Round(time.Millisecond))
 	return 0
+}
+
+// prerender runs the built app in prerender mode and saves the HTML and
+// data of every page marked with `const Prerender = true` into the client
+// output, so the next compile embeds them as static files.
+func prerender(bin string) (int, error) {
+	port, err := freePort()
+	if err != nil {
+		return 0, err
+	}
+	abs, err := filepath.Abs(bin)
+	if err != nil {
+		return 0, err
+	}
+	var logs strings.Builder
+	cmd := exec.Command(abs)
+	cmd.Env = append(os.Environ(), "TERN_PRERENDER=1", "HOST=127.0.0.1", "PORT="+strconv.Itoa(port))
+	cmd.Stdout, cmd.Stderr = &logs, &logs
+	if err := cmd.Start(); err != nil {
+		return 0, err
+	}
+	exited := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(exited) }()
+	defer func() {
+		_ = cmd.Process.Kill()
+		<-exited
+	}()
+
+	base := "http://127.0.0.1:" + strconv.Itoa(port)
+	client := &http.Client{Timeout: 30 * time.Second}
+	var list struct {
+		Paths  []string `json:"paths"`
+		Errors []string `json:"errors"`
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		select {
+		case <-exited:
+			return 0, fmt.Errorf("the app exited while prerendering:\n%s", logs.String())
+		default:
+		}
+		resp, err := client.Get(base + "/__tern/prerender")
+		if err == nil {
+			err = json.NewDecoder(resp.Body).Decode(&list)
+			_ = resp.Body.Close()
+			if err != nil {
+				return 0, fmt.Errorf("reading the prerender list: %w", err)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			return 0, fmt.Errorf("the app did not start for prerendering:\n%s", logs.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if len(list.Errors) > 0 {
+		return 0, errors.New(strings.Join(list.Errors, "\n"))
+	}
+
+	fetch := func(urlPath, file, accept string) error {
+		req, err := http.NewRequest(http.MethodGet, base+urlPath, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Accept", accept)
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("prerendering %s: status %d", urlPath, resp.StatusCode)
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(file, body, 0o644)
+	}
+	for _, p := range list.Paths {
+		dir, err := urlPathToDir(p)
+		if err != nil {
+			return 0, err
+		}
+		dataPath := strings.TrimSuffix(p, "/") + "/__data.json"
+		if err := fetch(p, filepath.Join(dir, "index.html"), "text/html"); err != nil {
+			return 0, err
+		}
+		if err := fetch(dataPath, filepath.Join(dir, "__data.json"), "application/json"); err != nil {
+			return 0, err
+		}
+	}
+	return len(list.Paths), nil
+}
+
+// urlPathToDir maps an escaped URL path to a directory in the client output.
+func urlPathToDir(p string) (string, error) {
+	dir := codegen.ClientOut
+	for _, seg := range strings.Split(strings.Trim(p, "/"), "/") {
+		if seg == "" {
+			continue
+		}
+		name, err := url.PathUnescape(seg)
+		if err != nil || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+			return "", fmt.Errorf("cannot prerender %q: invalid path segment", p)
+		}
+		dir = filepath.Join(dir, name)
+	}
+	return dir, nil
 }
 
 // viteBin returns the project's local Vite executable.

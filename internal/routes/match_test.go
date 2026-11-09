@@ -95,3 +95,33 @@ func TestNewRouterUnknownMatcher(t *testing.T) {
 		t.Fatalf("err = %v, want unknown matcher error", err)
 	}
 }
+
+func TestBuild(t *testing.T) {
+	tests := []struct {
+		id     string
+		params map[string]string
+		want   string
+	}{
+		{"/", nil, "/"},
+		{"/about", nil, "/about"},
+		{"/app.group/blog/slug.param", map[string]string{"slug": "hello world"}, "/blog/hello%20world"},
+		{"/lang.optional/docs", nil, "/docs"},
+		{"/lang.optional/docs", map[string]string{"lang": "de"}, "/de/docs"},
+		{"/files/path.rest", map[string]string{"path": "a/b c/d"}, "/files/a/b%20c/d"},
+		{"/files/path.rest", nil, "/files"},
+	}
+	for _, tt := range tests {
+		segs, err := ParseID(tt.id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := Build(segs, tt.params)
+		if err != nil || got != tt.want {
+			t.Errorf("Build(%s, %v) = %q, %v; want %q", tt.id, tt.params, got, err, tt.want)
+		}
+	}
+	segs, _ := ParseID("/blog/slug.param")
+	if _, err := Build(segs, nil); err == nil {
+		t.Error("missing required parameter should fail")
+	}
+}

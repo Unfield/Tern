@@ -59,6 +59,39 @@ func ParseID(id string) ([]Segment, error) {
 	return segs, nil
 }
 
+// Build returns the URL path for a route's segments with the given
+// parameters filled in, escaping each value. Optional parameters may be
+// omitted; a rest parameter may contain slashes.
+func Build(segs []Segment, params map[string]string) (string, error) {
+	var b strings.Builder
+	for _, s := range segs {
+		switch s.Kind {
+		case Static:
+			b.WriteString("/" + url.PathEscape(s.Value))
+		case Param:
+			v, ok := params[s.Value]
+			if !ok || v == "" {
+				return "", fmt.Errorf("missing parameter %q", s.Value)
+			}
+			b.WriteString("/" + url.PathEscape(v))
+		case OptionalParam:
+			if v := params[s.Value]; v != "" {
+				b.WriteString("/" + url.PathEscape(v))
+			}
+		case Rest:
+			if v := strings.Trim(params[s.Value], "/"); v != "" {
+				for _, part := range strings.Split(v, "/") {
+					b.WriteString("/" + url.PathEscape(part))
+				}
+			}
+		}
+	}
+	if b.Len() == 0 {
+		return "/", nil
+	}
+	return b.String(), nil
+}
+
 // Matcher reports whether a parameter value is acceptable, e.g. whether
 // "42" is an integer for [id=integer].
 type Matcher func(value string) bool

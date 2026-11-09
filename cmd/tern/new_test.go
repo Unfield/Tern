@@ -15,7 +15,7 @@ func TestNew(t *testing.T) {
 		t.Fatalf("exit code %d: %s", code, stderr.String())
 	}
 	for _, f := range []string{"go.mod", "main.go", "package.json", ".gitignore", "README.md", "vite.config.js", "tsconfig.json",
-		"src/app.html", "src/routes/+page.svelte", "src/routes/page.server.go", "src/routes/+layout.svelte", "static/favicon.svg"} {
+		"Dockerfile", ".dockerignore", "src/app.html", "src/routes/+page.svelte", "src/routes/page.server.go", "src/routes/+layout.svelte", "static/favicon.svg"} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
 			t.Errorf("missing %s", f)
 		}

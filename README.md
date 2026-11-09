@@ -95,6 +95,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md): how Tern works internally
+- [Deployment](docs/deployment.md): running Tern in production
 - [Roadmap](docs/ROADMAP.md): what is planned, and in what order
 - [Decision records](docs/adr): why things are the way they are
 

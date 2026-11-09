@@ -11,6 +11,7 @@ import (
 	route0 "example.com/app/src/routes"
 	route1 "example.com/app/src/routes/api/items/id.param.integer"
 	route2 "example.com/app/src/routes/blog/slug.param"
+	route3 "example.com/app/src/routes/docs/path.rest"
 )
 
 //go:embed src/app.html
@@ -44,9 +45,11 @@ var ternManifest = &kit.Manifest{
 			Page:    &kit.PageDef{Component: "src/routes/blog/slug.param/+page.svelte", Load: kit.LoadOf(route2.Load), Actions: route2.Actions},
 		},
 		{
-			ID:      "/docs/path.rest",
-			Layouts: []int{0},
-			Page:    &kit.PageDef{Component: "src/routes/docs/path.rest/+page.svelte"},
+			ID:        "/docs/path.rest",
+			Layouts:   []int{0},
+			Page:      &kit.PageDef{Component: "src/routes/docs/path.rest/+page.svelte"},
+			Prerender: true,
+			Entries:   route3.Entries,
 		},
 		{
 			ID:      "/",

@@ -554,3 +554,64 @@ func TestCookieSecureOnLocalhost(t *testing.T) {
 		t.Errorf("cookie on plain-HTTP localhost should not be Secure: %q", c)
 	}
 }
+
+func TestPrerenderList(t *testing.T) {
+	t.Setenv("TERN_PRERENDER", "1")
+	m := testManifest()
+	m.Routes[0].Prerender = true // "/"
+	m.Routes[1].Prerender = true // "/blog/slug.param"
+	m.Routes[1].Entries = func() ([]map[string]string, error) {
+		return []map[string]string{{"slug": "first"}, {"slug": "second post"}}, nil
+	}
+	a, _ := newTestApp(t, m)
+	var out struct {
+		Paths  []string `json:"paths"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.Unmarshal(do(t, a, "GET", "/__tern/prerender", nil).Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/", "/blog/first", "/blog/second%20post"}
+	if strings.Join(out.Paths, ",") != strings.Join(want, ",") || len(out.Errors) != 0 {
+		t.Errorf("got %+v, want paths %v", out, want)
+	}
+
+	m.Routes[1].Entries = nil
+	a, _ = newTestApp(t, m)
+	_ = json.Unmarshal(do(t, a, "GET", "/__tern/prerender", nil).Body.Bytes(), &out)
+	if len(out.Errors) != 1 || !strings.Contains(out.Errors[0], "needs an Entries function") {
+		t.Errorf("errors = %v", out.Errors)
+	}
+}
+
+func TestPrerenderListOnlyDuringBuild(t *testing.T) {
+	a, _ := newTestApp(t, testManifest())
+	if rec := do(t, a, "GET", "/__tern/prerender", nil); strings.Contains(rec.Body.String(), `"paths"`) {
+		t.Error("the prerender list must not be served outside tern build")
+	}
+}
+
+func TestPrerenderedPagesAreServed(t *testing.T) {
+	m := testManifest()
+	m.ClientEntry = "entry.js"
+	m.Client = fstest.MapFS{
+		".vite/manifest.json":    {Data: []byte(`{"entry.js": {"file": "_app/immutable/entry.js", "isEntry": true}}`)},
+		"index.html":             {Data: []byte("<p>prerendered home</p>")},
+		"blog/first/index.html":  {Data: []byte("<p>prerendered post</p>")},
+		"blog/first/__data.json": {Data: []byte(`{"type":"data"}`)},
+	}
+	a, _ := newTestApp(t, m)
+	for path, want := range map[string]string{
+		"/":                       "prerendered home",
+		"/blog/first":             "prerendered post",
+		"/blog/first/__data.json": `{"type":"data"}`,
+	} {
+		rec := do(t, a, "GET", path, nil)
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("GET %s = %q, want %q", path, rec.Body.String(), want)
+		}
+	}
+	if body := do(t, a, "GET", "/blog/other", nil).Body.String(); strings.Contains(body, "prerendered") {
+		t.Error("pages that were not prerendered must render dynamically")
+	}
+}

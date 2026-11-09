@@ -108,7 +108,15 @@ func save(ctx *kit.Ctx) (Saved, error) {
 	return Saved{OK: true}, nil
 }
 `,
-	"src/routes/docs/path.rest/+page.svelte":      ``,
+	"src/routes/docs/path.rest/+page.svelte": ``,
+	"src/routes/docs/path.rest/page.server.go": `package docs
+
+const Prerender = true
+
+func Entries() ([]map[string]string, error) {
+	return []map[string]string{{"path": "intro"}}, nil
+}
+`,
 	"src/routes/lang.optional/about/+page.svelte": ``,
 	"src/routes/api/items/id.param.integer/server.go": `package items
 
@@ -237,6 +245,8 @@ func TestGenerateSignatureErrors(t *testing.T) {
 		{"load returning a scalar", "func Load(ctx *kit.Ctx) (int, error) { return 0, nil }", "where T is a struct or map"},
 		{"handler without error", "func GET(ctx *kit.Ctx) {}", "GET must have the signature func(ctx *kit.Ctx) error"},
 		{"actions of the wrong type", "var Actions = map[string]int{}", "Actions must be a kit.Actions"},
+		{"prerender of the wrong type", "const Prerender = 1", "Prerender must be a boolean constant"},
+		{"entries with a bad signature", "func Entries() []string { return nil }", "Entries must have the signature func() ([]map[string]string, error)"},
 		{"compile error", "func Load(ctx *kit.Ctx) (map[string]int, error) { return nope, nil }", "undefined: nope"},
 	}
 	for _, tt := range tests {

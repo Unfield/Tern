@@ -33,6 +33,8 @@ type App struct {
 	dev     *devServer
 	ssr     ssr.Renderer
 	closers []io.Closer
+	// prerendering is set while `tern build` prerenders pages.
+	prerendering bool
 }
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -57,7 +59,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		o.logger = slog.Default()
 	}
 
-	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}}
+	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1"}
 
 	list := make([]*routes.Route, 0, len(m.Routes))
 	for i := range m.Routes {
@@ -162,6 +164,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		a.dev.proxy.ServeHTTP(w, r)
 		return
 	}
+	if a.prerendering && r.URL.Path == "/__tern/prerender" {
+		a.prerenderList(w)
+		return
+	}
 	safe := r.Method == http.MethodGet || r.Method == http.MethodHead
 	if a.assets != nil && safe && a.assets.serve(w, r) {
 		return
@@ -225,6 +231,40 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	default:
 		a.runEndpoint(c, def)
 	}
+}
+
+// prerenderList responds with the paths `tern build` should prerender.
+func (a *App) prerenderList(w http.ResponseWriter) {
+	var paths []string
+	var errs []string
+	for r, def := range a.defs {
+		if !def.Prerender || def.Page == nil {
+			continue
+		}
+		entries := []map[string]string{nil}
+		if len(r.Params()) > 0 {
+			if def.Entries == nil {
+				errs = append(errs, fmt.Sprintf("route %s has parameters, so it needs an Entries function to be prerendered", def.ID))
+				continue
+			}
+			var err error
+			if entries, err = def.Entries(); err != nil {
+				errs = append(errs, fmt.Sprintf("route %s: Entries: %v", def.ID, err))
+				continue
+			}
+		}
+		for _, params := range entries {
+			p, err := routes.Build(r.Segments, params)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("route %s: %v", def.ID, err))
+				continue
+			}
+			paths = append(paths, p)
+		}
+	}
+	slices.Sort(paths)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string][]string{"paths": slices.Compact(paths), "errors": errs})
 }
 
 // wantsPage reports whether a request to a route with a page should be

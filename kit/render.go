@@ -1,0 +1,175 @@
+package kit
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"html"
+	"net/http"
+	"strings"
+)
+
+// payload is the data sent to the client, both inline in the HTML shell
+// and from __data.json and enhanced form actions.
+type payload struct {
+	// Type is "data", "error", "redirect", "success" or "failure".
+	Type     string            `json:"type"`
+	Route    string            `json:"route,omitempty"`
+	Params   map[string]string `json:"params,omitempty"`
+	Status   int               `json:"status"`
+	Nodes    []json.RawMessage `json:"nodes,omitempty"`
+	Failed   *int              `json:"failed,omitempty"`
+	Error    *errorBody        `json:"error,omitempty"`
+	Location string            `json:"location,omitempty"`
+	Data     any               `json:"data,omitempty"`
+	Form     any               `json:"form,omitempty"`
+	HasForm  bool              `json:"hasForm,omitempty"`
+}
+
+type errorBody struct {
+	Message string `json:"message"`
+}
+
+func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
+	b, err := json.Marshal(p)
+	if err != nil {
+		a.logError(c, fmt.Errorf("kit: encoding response: %w", err))
+		b = []byte(`{"type":"error","status":500,"error":{"message":"Internal Error"}}`)
+		status = http.StatusInternalServerError
+	}
+	c.applyHeaders()
+	h := c.writer.Header()
+	h.Set("Content-Type", "application/json")
+	h.Set("Cache-Control", "private, no-store")
+	c.writer.WriteHeader(status)
+	_, _ = c.writer.Write(b)
+}
+
+// shell is a parsed src/app.html.
+type shell struct {
+	parts []string // text between placeholders
+	slots []string // placeholder names, len(parts)-1
+}
+
+var placeholders = []string{"%tern.head%", "%tern.body%", "%tern.assets%", "%tern.nonce%"}
+
+func parseShell(src string) (*shell, error) {
+	if src == "" {
+		return nil, errors.New("kit: src/app.html is empty")
+	}
+	for _, required := range []string{"%tern.head%", "%tern.body%"} {
+		if !strings.Contains(src, required) {
+			return nil, fmt.Errorf("kit: src/app.html must contain %s", required)
+		}
+	}
+	s := &shell{}
+	rest := src
+	for {
+		idx, which := -1, ""
+		for _, p := range placeholders {
+			if i := strings.Index(rest, p); i >= 0 && (idx < 0 || i < idx) {
+				idx, which = i, p
+			}
+		}
+		if idx < 0 {
+			s.parts = append(s.parts, rest)
+			return s, nil
+		}
+		s.parts = append(s.parts, rest[:idx])
+		s.slots = append(s.slots, which)
+		rest = rest[idx+len(which):]
+	}
+}
+
+func (s *shell) render(head, body, nonce string) string {
+	var b strings.Builder
+	for i, part := range s.parts {
+		b.WriteString(part)
+		if i < len(s.slots) {
+			switch s.slots[i] {
+			case "%tern.head%":
+				b.WriteString(head)
+			case "%tern.body%":
+				b.WriteString(body)
+			case "%tern.nonce%":
+				b.WriteString(nonce)
+			}
+		}
+	}
+	return b.String()
+}
+
+// writeDocument responds with the HTML shell for a page or error.
+func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
+	data, err := json.Marshal(p) // escapes <, > and & for safe inlining
+	if err != nil {
+		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))
+		status = http.StatusInternalServerError
+		data = []byte(`{"type":"error","status":500,"error":{"message":"Internal Error"}}`)
+	}
+
+	nonce := newNonce()
+	var head strings.Builder
+	shell := a.shell
+	if a.dev != nil {
+		var err error
+		if shell, err = a.dev.shell(); err != nil {
+			a.logError(c, err)
+			http.Error(c.writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, src := range a.dev.scripts() {
+			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(src), nonce)
+		}
+	} else if a.assets != nil {
+		scripts, styles := a.assets.forPage(a.components(def))
+		for _, href := range styles {
+			fmt.Fprintf(&head, "\n\t\t<link rel=\"stylesheet\" href=\"%s\">", html.EscapeString(href))
+		}
+		for _, href := range scripts[1:] {
+			fmt.Fprintf(&head, "\n\t\t<link rel=\"modulepreload\" href=\"%s\">", html.EscapeString(href))
+		}
+		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(scripts[0]), nonce)
+	}
+	fmt.Fprintf(&head, "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"%s\">%s</script>", nonce, data)
+
+	body := `<div id="tern-root" style="display: contents"></div>`
+	doc := shell.render(head.String(), body, nonce)
+
+	c.applyHeaders()
+	h := c.writer.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	if h.Get("Cache-Control") == "" {
+		h.Set("Cache-Control", "private, no-cache")
+	}
+	c.writer.WriteHeader(status)
+	if c.Request.Method != http.MethodHead {
+		_, _ = c.writer.Write([]byte(doc))
+	}
+}
+
+// components returns the Svelte files a page renders, for preloading.
+func (a *App) components(def *RouteDef) []string {
+	layouts := a.m.Fallback.Layouts
+	if def != nil {
+		layouts = def.Layouts
+	}
+	var out []string
+	for _, li := range layouts {
+		if c := a.m.Layouts[li].Component; c != "" {
+			out = append(out, c)
+		}
+	}
+	if def != nil && def.Page != nil {
+		out = append(out, def.Page.Component)
+	}
+	return out
+}
+
+func newNonce() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return base64.RawStdEncoding.EncodeToString(b[:])
+}

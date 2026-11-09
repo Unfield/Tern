@@ -1,0 +1,517 @@
+package kit
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"mime"
+	"net/http"
+	"os"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/Unfield/Tern/internal/routes"
+)
+
+// App serves a Tern application. It implements http.Handler, so it can be
+// used with any server or router; [App.ListenAndServe] runs it with
+// production-ready defaults.
+type App struct {
+	m       *Manifest
+	opts    options
+	router  *routes.Router
+	defs    map[*routes.Route]*RouteDef
+	handler http.Handler
+	logger  *slog.Logger
+	shell   *shell
+	assets  *assets
+	dev     *devServer
+}
+
+var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// New creates an App from a generated manifest. Generated code calls it
+// for you; see the ternApp function in tern.gen.go.
+func New(m *Manifest, opts ...Option) (*App, error) {
+	o := options{
+		matchers: map[string]func(string) bool{
+			"integer": func(v string) bool { _, err := strconv.ParseInt(v, 10, 64); return err == nil },
+			"uuid":    uuidRe.MatchString,
+		},
+		csrf:            true,
+		bodyLimit:       1 << 20,
+		multipartMemory: 8 << 20,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.logger == nil {
+		o.logger = slog.Default()
+	}
+
+	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}}
+
+	list := make([]*routes.Route, 0, len(m.Routes))
+	for i := range m.Routes {
+		def := &m.Routes[i]
+		segs, err := routes.ParseID(def.ID)
+		if err != nil {
+			return nil, fmt.Errorf("kit: route %s: %w", def.ID, err)
+		}
+		for _, li := range def.Layouts {
+			if li < 0 || li >= len(m.Layouts) {
+				return nil, fmt.Errorf("kit: route %s refers to layout %d, which does not exist", def.ID, li)
+			}
+		}
+		r := &routes.Route{ID: def.ID, Segments: segs}
+		a.defs[r] = def
+		list = append(list, r)
+	}
+	matchers := make(map[string]routes.Matcher, len(o.matchers))
+	for name, fn := range o.matchers {
+		matchers[name] = fn
+	}
+	router, err := routes.NewRouter(list, matchers)
+	if err != nil {
+		return nil, fmt.Errorf("kit: %w", err)
+	}
+	a.router = router
+
+	if url := os.Getenv("TERN_DEV_VITE_URL"); url != "" {
+		dev, err := newDevServer(url, os.Getenv("TERN_ROOT"), m.ClientEntry)
+		if err != nil {
+			return nil, err
+		}
+		a.dev = dev
+	} else {
+		if a.shell, err = parseShell(m.AppHTML); err != nil {
+			return nil, err
+		}
+		if m.Client != nil {
+			if a.assets, err = loadAssets(m.Client, m.ClientEntry); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	var h http.Handler = http.HandlerFunc(a.serve)
+	if o.csrf {
+		cop := http.NewCrossOriginProtection()
+		for _, origin := range o.trustedOrigins {
+			if err := cop.AddTrustedOrigin(origin); err != nil {
+				return nil, fmt.Errorf("kit: trusted origin: %w", err)
+			}
+		}
+		cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Cross-site request blocked", http.StatusForbidden)
+		}))
+		h = cop.Handler(h)
+	}
+	for _, mw := range slices.Backward(o.middleware) {
+		h = mw(h)
+	}
+	a.handler = h
+	return a, nil
+}
+
+// ServeHTTP implements http.Handler.
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.handler.ServeHTTP(w, r)
+}
+
+const dataSuffix = "/__data.json"
+
+func (a *App) serve(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	if a.dev != nil && a.dev.handles(r) {
+		a.dev.proxy.ServeHTTP(w, r)
+		return
+	}
+	safe := r.Method == http.MethodGet || r.Method == http.MethodHead
+	if a.assets != nil && safe && a.assets.serve(w, r) {
+		return
+	}
+
+	path := r.URL.EscapedPath()
+	isData := strings.HasSuffix(path, dataSuffix)
+	if isData {
+		path = strings.TrimSuffix(path, dataSuffix)
+		if path == "" {
+			path = "/"
+		}
+	} else if safe && path != "/" && strings.HasSuffix(path, "/") {
+		target := strings.TrimRight(path, "/")
+		if target == "" {
+			target = "/"
+		}
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusPermanentRedirect)
+		return
+	}
+
+	if !safe {
+		r.Body = http.MaxBytesReader(w, r.Body, a.opts.bodyLimit)
+	}
+
+	rw := &responseWriter{ResponseWriter: w}
+	c := newCtx(a, rw, r)
+	route, params, ok := a.router.Match(path)
+	var def *RouteDef
+	if ok {
+		def = a.defs[route]
+		c.routeID = def.ID
+		c.params = params
+	}
+
+	for _, hook := range a.opts.hooks {
+		if err := a.safely(func() error { return hook(c) }); err != nil {
+			a.failRequest(c, def, isData, err)
+			return
+		}
+	}
+
+	switch {
+	case def == nil:
+		a.renderError(c, nil, isData, NotFound())
+	case isData:
+		if def.Page == nil {
+			a.writeDataJSON(c, http.StatusNotFound, errorPayload(c, nil, NotFound(), a.dev != nil))
+			return
+		}
+		a.renderPage(c, def, true, http.StatusOK, nil)
+	case def.Page != nil && a.wantsPage(r, def):
+		if r.Method == http.MethodPost {
+			a.runAction(c, def)
+			return
+		}
+		a.renderPage(c, def, false, http.StatusOK, nil)
+	default:
+		a.runEndpoint(c, def)
+	}
+}
+
+// wantsPage reports whether a request to a route with a page should be
+// handled by the page rather than by an endpoint handler.
+func (a *App) wantsPage(r *http.Request, def *RouteDef) bool {
+	switch r.Method {
+	case http.MethodGet, http.MethodHead:
+		_, hasGet := def.Endpoint[http.MethodGet]
+		return !hasGet || acceptsHTML(r)
+	case http.MethodPost:
+		_, hasPost := def.Endpoint[http.MethodPost]
+		return !hasPost || r.Header.Get("X-Tern-Action") == "true" || acceptsHTML(r)
+	default:
+		return false
+	}
+}
+
+func acceptsHTML(r *http.Request) bool {
+	for _, part := range strings.Split(r.Header.Get("Accept"), ",") {
+		mt, _, _ := mime.ParseMediaType(strings.TrimSpace(part))
+		switch mt {
+		case "text/html":
+			return true
+		case "application/json":
+			return false
+		}
+	}
+	return false
+}
+
+// failRequest responds to an error raised before a route handler ran.
+func (a *App) failRequest(c *Ctx, def *RouteDef, isData bool, err error) {
+	var re *RedirectError
+	if errors.As(err, &re) {
+		a.redirect(c, isData, re)
+		return
+	}
+	if def != nil && def.Page == nil {
+		a.endpointError(c, err)
+		return
+	}
+	a.renderError(c, def, isData, err)
+}
+
+func (a *App) redirect(c *Ctx, isData bool, re *RedirectError) {
+	if isData {
+		a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: re.Location})
+		return
+	}
+	c.applyHeaders()
+	http.Redirect(c.writer, c.Request, re.Location, re.Status)
+}
+
+// runEndpoint dispatches to an exported GET, POST, … handler.
+func (a *App) runEndpoint(c *Ctx, def *RouteDef) {
+	method := c.Request.Method
+	h, ok := def.Endpoint[method]
+	if !ok && method == http.MethodHead {
+		h, ok = def.Endpoint[http.MethodGet]
+	}
+	if !ok {
+		allow := slices.Sorted(func(yield func(string) bool) {
+			for m := range def.Endpoint {
+				if !yield(m) {
+					return
+				}
+			}
+		})
+		if def.Page != nil {
+			allow = append(allow, http.MethodGet)
+			if def.Page.Actions != nil {
+				allow = append(allow, http.MethodPost)
+			}
+		}
+		if slices.Contains(allow, http.MethodGet) && !slices.Contains(allow, http.MethodHead) {
+			allow = append(allow, http.MethodHead)
+		}
+		slices.Sort(allow)
+		c.writer.Header().Set("Allow", strings.Join(slices.Compact(allow), ", "))
+		a.endpointError(c, Error(http.StatusMethodNotAllowed, method+" is not allowed"))
+		return
+	}
+	if err := a.safely(func() error { return h(c) }); err != nil {
+		a.endpointError(c, err)
+		return
+	}
+	if !c.writer.(*responseWriter).wrote {
+		c.applyHeaders()
+		c.writer.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (a *App) endpointError(c *Ctx, err error) {
+	var re *RedirectError
+	if errors.As(err, &re) {
+		a.redirect(c, false, re)
+		return
+	}
+	status, msg, expected := classify(err)
+	if !expected {
+		a.logError(c, err)
+		if a.dev != nil {
+			msg = err.Error()
+		}
+	}
+	if c.writer.(*responseWriter).wrote {
+		return // the handler already started its response
+	}
+	if acceptsHTML(c.Request) {
+		c.applyHeaders()
+		http.Error(c.writer, msg, status)
+		return
+	}
+	_ = c.JSON(status, map[string]string{"message": msg})
+}
+
+// runAction handles a form submission to a page.
+func (a *App) runAction(c *Ctx, def *RouteDef) {
+	enhanced := c.Request.Header.Get("X-Tern-Action") == "true"
+	fail := func(err error) {
+		if enhanced {
+			status, msg, expected := classify(err)
+			if !expected {
+				a.logError(c, err)
+				if a.dev != nil {
+					msg = err.Error()
+				}
+			}
+			a.writeDataJSON(c, http.StatusOK, payload{Type: "error", Status: status, Error: &errorBody{Message: msg}})
+			return
+		}
+		a.renderError(c, def, false, err)
+	}
+
+	if len(def.Page.Actions) == 0 {
+		c.writer.Header().Set("Allow", "GET, HEAD")
+		fail(Error(http.StatusMethodNotAllowed, "This page has no form actions"))
+		return
+	}
+	name := "default"
+	if q := c.Request.URL.RawQuery; strings.HasPrefix(q, "/") {
+		name, _, _ = strings.Cut(q[1:], "&")
+	}
+	action, ok := def.Page.Actions[name]
+	if !ok {
+		fail(Error(http.StatusNotFound, fmt.Sprintf("No action named %q", name)))
+		return
+	}
+	ct, _, _ := mime.ParseMediaType(c.Request.Header.Get("Content-Type"))
+	if ct != "application/x-www-form-urlencoded" && ct != "multipart/form-data" {
+		fail(Error(http.StatusUnsupportedMediaType, "Form actions expect form data"))
+		return
+	}
+
+	var result any
+	err := a.safely(func() error {
+		var err error
+		result, err = action(c)
+		return err
+	})
+
+	var re *RedirectError
+	var fe *FailError
+	switch {
+	case errors.As(err, &re):
+		if enhanced {
+			a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: re.Location})
+			return
+		}
+		a.redirect(c, false, re)
+	case errors.As(err, &fe):
+		if enhanced {
+			a.writeDataJSON(c, http.StatusOK, payload{Type: "failure", Status: fe.Status, Data: fe.Data})
+			return
+		}
+		a.renderPage(c, def, false, fe.Status, &formValue{fe.Data})
+	case err != nil:
+		fail(err)
+	case enhanced:
+		a.writeDataJSON(c, http.StatusOK, payload{Type: "success", Status: http.StatusOK, Data: result})
+	default:
+		a.renderPage(c, def, false, http.StatusOK, &formValue{result})
+	}
+}
+
+// formValue wraps an action result so a nil result still counts as set.
+type formValue struct{ v any }
+
+// renderPage runs the page's loads and responds with HTML or JSON.
+func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *formValue) {
+	nodes, failed, err := a.runLoads(c, a.loaders(def))
+	if err != nil {
+		var re *RedirectError
+		if errors.As(err, &re) {
+			a.redirect(c, isData, re)
+			return
+		}
+		a.renderErrorWithNodes(c, def, nodes[:failed], failed, isData, err)
+		return
+	}
+	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: nodes}
+	if form != nil {
+		p.Form = form.v
+		p.HasForm = true
+	}
+	if isData {
+		a.writeDataJSON(c, http.StatusOK, p)
+		return
+	}
+	a.writeDocument(c, status, def, p)
+}
+
+// loaders returns the load functions for a route's layouts and page, in
+// node order. Nodes without a load are nil.
+func (a *App) loaders(def *RouteDef) []LoadFunc {
+	var fns []LoadFunc
+	for _, li := range def.Layouts {
+		fns = append(fns, a.m.Layouts[li].Load)
+	}
+	if def.Page != nil {
+		fns = append(fns, def.Page.Load)
+	}
+	return fns
+}
+
+// renderError renders the nearest error page for err. def may be nil when
+// no route matched, in which case the fallback layouts are used.
+func (a *App) renderError(c *Ctx, def *RouteDef, isData bool, err error) {
+	layouts := a.m.Fallback.Layouts
+	if def != nil {
+		layouts = def.Layouts
+	}
+	var fns []LoadFunc
+	for _, li := range layouts {
+		fns = append(fns, a.m.Layouts[li].Load)
+	}
+	nodes, _, loadErr := a.runLoads(c, fns)
+	if loadErr != nil {
+		// A layout failed while rendering an error: render without layouts.
+		a.logLoadErr(c, loadErr)
+		nodes = nil
+	}
+	a.renderErrorWithNodes(c, def, nodes, len(nodes), isData, err)
+}
+
+func (a *App) logLoadErr(c *Ctx, err error) {
+	if _, _, expected := classify(err); !expected {
+		var re *RedirectError
+		if !errors.As(err, &re) {
+			a.logError(c, err)
+		}
+	}
+}
+
+func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []json.RawMessage, failed int, isData bool, err error) {
+	p := errorPayload(c, def, err, a.dev != nil)
+	if _, _, expected := classify(err); !expected {
+		a.logError(c, err)
+	}
+	p.Nodes = nodes
+	p.Failed = &failed
+	if isData {
+		a.writeDataJSON(c, http.StatusOK, p)
+		return
+	}
+	a.writeDocument(c, p.Status, def, p)
+}
+
+func errorPayload(c *Ctx, def *RouteDef, err error, dev bool) payload {
+	status, msg, expected := classify(err)
+	if !expected && dev {
+		msg = err.Error()
+	}
+	p := payload{Type: "error", Status: status, Params: c.params, Error: &errorBody{Message: msg}}
+	if def != nil {
+		p.Route = def.ID
+	}
+	return p
+}
+
+func (a *App) logError(c *Ctx, err error) {
+	a.logger.Error("unexpected error",
+		"method", c.Request.Method,
+		"path", c.Request.URL.Path,
+		"route", c.routeID,
+		"error", err,
+	)
+}
+
+// safely runs f, turning a panic into an error so one bad request cannot
+// take down the server.
+func (a *App) safely(f func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok && errors.Is(e, http.ErrAbortHandler) {
+				panic(r)
+			}
+			err = &panicError{value: r, stack: stack()}
+		}
+	}()
+	return f()
+}
+
+// responseWriter records whether a response has been started.
+type responseWriter struct {
+	http.ResponseWriter
+	wrote bool
+}
+
+func (w *responseWriter) WriteHeader(status int) {
+	w.wrote = true
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseWriter) Write(b []byte) (int, error) {
+	w.wrote = true
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

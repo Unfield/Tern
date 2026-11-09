@@ -1,13 +1,30 @@
 // Package kit is the server runtime for Tern applications.
 //
-// Route files such as +page.server.go import kit to define Load functions,
-// form actions and endpoints:
+// A route directory's Go package defines what the route does on the server,
+// by exporting:
 //
-//	func Load(ctx *kit.Ctx) (Data, error) {
-//		return Data{Title: "Hello"}, nil
+//	func Load(ctx *kit.Ctx) (T, error)        // data for +page.svelte
+//	func LayoutLoad(ctx *kit.Ctx) (T, error)  // data for +layout.svelte
+//	var Actions = kit.Actions{...}            // form actions for the page
+//	func GET(ctx *kit.Ctx) error              // endpoint handlers: GET, POST, …
+//
+// T must encode to a JSON object: a struct or a map. Its JSON is passed to
+// the Svelte component as data, with TypeScript types generated from T.
+//
+// Errors control the response. Return [Error] or [NotFound] for an expected
+// error page, [Redirect] to redirect, and [Fail] from an action to report a
+// validation error. Any other error is logged and shown as "Internal Error".
+//
+// `tern gen` writes tern.gen.go, which wires every route into a [Manifest]
+// and defines ternApp. A typical main.go:
+//
+//	func main() {
+//		app, err := ternApp(kit.WithHook(auth))
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//		if err := app.ListenAndServe(); err != nil {
+//			log.Fatal(err)
+//		}
 //	}
-//
-// The package is under active development; see
-// https://github.com/Unfield/Tern/blob/main/docs/ARCHITECTURE.md
-// for the planned API.
 package kit

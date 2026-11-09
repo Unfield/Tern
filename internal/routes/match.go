@@ -37,6 +37,28 @@ func rankAt(r *Route, i int) int {
 	return r.Segments[i].rank()
 }
 
+// ParseID returns the URL segments of a route ID such as
+// "/app.group/blog/slug.param". It is the inverse of how [Scan] builds IDs.
+func ParseID(id string) ([]Segment, error) {
+	if !strings.HasPrefix(id, "/") {
+		return nil, fmt.Errorf("route ID %q must start with /", id)
+	}
+	var segs []Segment
+	for _, name := range strings.Split(id[1:], "/") {
+		if name == "" {
+			continue
+		}
+		seg, group, err := parseDirName(name)
+		if err != nil {
+			return nil, err
+		}
+		if !group {
+			segs = append(segs, seg)
+		}
+	}
+	return segs, nil
+}
+
 // Matcher reports whether a parameter value is acceptable, e.g. whether
 // "42" is an integer for [id=integer].
 type Matcher func(value string) bool

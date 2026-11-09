@@ -58,7 +58,7 @@ jobs:
     runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22

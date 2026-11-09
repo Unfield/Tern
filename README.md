@@ -14,8 +14,8 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
-> [!WARNING]
-> Tern is pre-1.0. It is tested and usable, but APIs may still change between minor versions.
+> [!NOTE]
+> Tern 1.0 is stable: minor releases do not break the public API. See [the stability promise](docs/stability.md).
 
 ---
 
@@ -95,7 +95,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v0.2** | Server-side rendering and hydration | Done |
 | **v0.3** | Prerendering, streaming, deployment guides | Done |
 | **v0.4** | Typed links, navigation hooks, selective reloading, CSP, a shadcn-svelte dashboard example, docs site | Done |
-| **v1.0** | Plugins, base paths, API stability | In progress |
+| **v1.0** | Plugins, base paths, public environment variables, the stability promise | Done |
 
 ## Documentation
 
@@ -103,6 +103,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 - [Architecture](docs/ARCHITECTURE.md): how Tern works internally
 - [Deployment](docs/deployment.md): running Tern in production
 - [Benchmarks](docs/benchmarks.md): how fast the pieces are
+- [Stability](docs/stability.md): what the version numbers promise
 - [Roadmap](docs/ROADMAP.md): what is planned, and in what order
 - [Decision records](docs/adr): why things are the way they are
 

@@ -6,9 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-09
+
+Tern 1.0 is stable: the APIs described in [docs/stability.md](docs/stability.md) follow semantic versioning from here on.
+
 ### Added
 
 - A plugin system: `kit.WithPlugins` and the `kit.Plugin` interface. A plugin's `Setup` can add hooks, middleware, matchers, HTTP handlers served before routes, HTML in every page's `<head>` (with the CSP nonce), and shutdown work.
+- The [stability promise](docs/stability.md), and decision records for selective reloading and plugins.
 - Public environment variables: `PUBLIC_` variables in the server's environment are available in components as `env` from `@ternkit/tern`, during server rendering and in the browser.
 - Base paths: `{"basePath": "/app"}` in an optional `tern.json` serves the app under a URL prefix. Assets, `%tern.assets%`, `route()`, client routing, prerendering and `kit.Redirect` include it; `ctx.Path` and `ctx.BasePath` help with links built in Go.
 - Built-in plugins: `plugins/health` (liveness and readiness with checks), `plugins/requestlog` (structured access logs), `plugins/compress` (gzip that keeps streaming working) and `plugins/secure` (security headers).
@@ -71,7 +76,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Unfield/Tern/releases/tag/v1.0.0
 [0.4.0]: https://github.com/Unfield/Tern/releases/tag/v0.4.0
 [0.3.1]: https://github.com/Unfield/Tern/releases/tag/v0.3.1
 [0.3.0]: https://github.com/Unfield/Tern/releases/tag/v0.3.0

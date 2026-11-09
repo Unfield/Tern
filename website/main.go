@@ -43,6 +43,7 @@ func pages(repo string) []*page {
 		{Source: "docs/guide.md", Slug: "guide", Title: "Guide", Section: "Start"},
 		{Source: "docs/deployment.md", Slug: "deployment", Title: "Deployment", Section: "Start"},
 		{Source: "docs/benchmarks.md", Slug: "benchmarks", Title: "Benchmarks", Section: "Reference"},
+		{Source: "docs/stability.md", Slug: "stability", Title: "Stability", Section: "Reference"},
 		{Source: "docs/ARCHITECTURE.md", Slug: "architecture", Title: "Architecture", Section: "Reference"},
 		{Source: "docs/ROADMAP.md", Slug: "roadmap", Title: "Roadmap", Section: "Project"},
 		{Source: "CHANGELOG.md", Slug: "changelog", Title: "Changelog", Section: "Project"},

@@ -8,6 +8,8 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0002](0002-client-rendering-first.md) | Ship client-side rendering first, SSR in v0.2 | Accepted |
 | [0003](0003-route-files-as-go-packages.md) | Route directories are Go packages, with Go-safe names | Accepted |
 | [0004](0004-ssr-with-embedded-quickjs.md) | Server-side rendering with embedded QuickJS | Accepted |
+| [0005](0005-selective-reloading.md) | Selective reloading of layout data | Accepted |
+| [0006](0006-plugins.md) | A small plugin interface on top of net/http | Accepted |
 
 ## Template
 

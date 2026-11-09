@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-Tern is pre-1.0. Security fixes are made on the latest minor release only.
+Security fixes are made on the latest minor release. After a new major version, the previous major gets security fixes for six months.
 
 | Version | Supported |
 |---|---|
-| latest `0.x` | ✅ |
-| older | ❌ |
+| latest `1.x` | ✅ |
+| `0.x` | ❌ |
 
 ## Reporting a vulnerability
 

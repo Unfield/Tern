@@ -80,7 +80,7 @@ Significant design decisions are recorded as ADRs in [docs/adr](docs/adr). If yo
 
 ## Releases
 
-Maintainers cut releases from `main` using semantic versioning. Before v1.0, minor versions may contain breaking changes; they are always called out in the changelog.
+Maintainers cut releases from `main` using semantic versioning. Changes to anything covered by the [stability promise](docs/stability.md) must be backward compatible, except in a major release.
 
 To release:
 

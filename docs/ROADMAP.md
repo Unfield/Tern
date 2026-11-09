@@ -36,15 +36,18 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Deployment guide: Docker, systemd, Fly.io, reverse proxies ([docs/deployment.md](deployment.md))
 - [x] Assets: Vite imports (`import logo from '$lib/logo.svg'`) and `static/`, with immutable caching
 
+## v1.0: Stable
+
+- [x] Plugin system and built-in plugins (health, request logging, compression, security headers)
+- [x] Base paths (`tern.json`)
+- [x] Public environment variables
+- [x] Stability promise ([stability.md](stability.md))
+
 ## Next
 
-
-## Later
-
-- i18n helpers
-- Plugin system
+- Internationalization helpers
+- Image optimization
+- More plugins (metrics, rate limiting, sessions)
 - Service worker support
 
-## Toward v1.0
 
-v1.0 means a stable `kit` API and client API, complete documentation and a commitment to semantic versioning without breaking changes in minor releases.

@@ -41,6 +41,11 @@ type HandlerFunc func(*Ctx) error
 
 // Manifest describes an app's routes and assets. It is produced by
 // `tern gen` in tern.gen.go; you do not write it by hand.
+//
+// Manifest and the *Def types are the interface between generated code and
+// the runtime. They are not covered by Tern's compatibility promise and may
+// change in minor releases: `go get -tool` keeps the CLI that generates
+// them and the kit package that reads them at the same version.
 type Manifest struct {
 	// Layouts are shared by routes and referenced by index.
 	Layouts []LayoutDef

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '@ternkit/tern';
+	import { route } from '$routes';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -26,7 +27,7 @@
 						<input type="hidden" name="id" value={todo.id} />
 						<button class="check" aria-label={todo.done ? 'Mark as not done' : 'Mark as done'}>{todo.done ? '✓' : ''}</button>
 					</form>
-					<a href="/todos/{todo.id}">{todo.title}</a>
+					<a href={route('/todos/[id]', { id: todo.id })}>{todo.title}</a>
 					<form method="POST" action="?/delete" use:enhance>
 						<input type="hidden" name="id" value={todo.id} />
 						<button class="delete" aria-label="Delete {todo.title}">×</button>

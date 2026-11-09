@@ -101,7 +101,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	a.router = router
 
 	if url := os.Getenv("TERN_DEV_VITE_URL"); url != "" {
-		dev, err := newDevServer(url, os.Getenv("TERN_ROOT"), m.ClientEntry)
+		dev, err := newDevServer(url, os.Getenv("TERN_ROOT"), m.ClientEntry, m.BasePath)
 		if err != nil {
 			return nil, err
 		}
@@ -179,6 +179,18 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		a.dev.proxy.ServeHTTP(w, r)
 		return
 	}
+	if base := a.m.BasePath; base != "" {
+		switch p := r.URL.Path; {
+		case p == base || strings.HasPrefix(p, base+"/"):
+			r = stripBase(r, base)
+		case p == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead):
+			http.Redirect(w, r, base, http.StatusFound)
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}
 	if a.prerendering && r.URL.Path == "/__tern/prerender" {
 		a.prerenderList(w)
 		return
@@ -209,7 +221,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
 			target += "?" + r.URL.RawQuery
 		}
-		http.Redirect(w, r, target, http.StatusPermanentRedirect)
+		http.Redirect(w, r, a.withBase(target), http.StatusPermanentRedirect)
 		return
 	}
 
@@ -352,12 +364,45 @@ func (a *App) failRequest(c *Ctx, def *RouteDef, isData bool, err error) {
 }
 
 func (a *App) redirect(c *Ctx, isData bool, re *RedirectError) {
+	location := a.withBase(re.Location)
 	if isData {
-		a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: re.Location})
+		a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: location})
 		return
 	}
 	c.applyHeaders()
-	http.Redirect(c.writer, c.Request, re.Location, re.Status)
+	http.Redirect(c.writer, c.Request, location, re.Status)
+}
+
+// withBase adds the base path to an absolute app path such as "/login".
+// Full URLs, protocol-relative URLs and already-prefixed paths are kept.
+func (a *App) withBase(location string) string {
+	base := a.m.BasePath
+	if base == "" || !strings.HasPrefix(location, "/") || strings.HasPrefix(location, "//") ||
+		location == base || strings.HasPrefix(location, base+"/") || strings.HasPrefix(location, base+"?") {
+		return location
+	}
+	if location == "/" || strings.HasPrefix(location, "/?") || strings.HasPrefix(location, "/#") {
+		return base + location[1:] // the home page is the bare base path
+	}
+	return base + location
+}
+
+// stripBase returns r with the base path removed from its URL.
+func stripBase(r *http.Request, base string) *http.Request {
+	r2 := r.Clone(r.Context())
+	u := *r.URL
+	u.Path = strings.TrimPrefix(u.Path, base)
+	if u.Path == "" {
+		u.Path = "/"
+	}
+	if u.RawPath != "" {
+		u.RawPath = strings.TrimPrefix(u.RawPath, base)
+		if u.RawPath == "" {
+			u.RawPath = "/"
+		}
+	}
+	r2.URL = &u
+	return r2
 }
 
 // runEndpoint dispatches to an exported GET, POST, … handler.
@@ -473,7 +518,7 @@ func (a *App) runAction(c *Ctx, def *RouteDef) {
 	switch {
 	case errors.As(err, &re):
 		if enhanced {
-			a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: re.Location})
+			a.writeDataJSON(c, http.StatusOK, payload{Type: "redirect", Status: re.Status, Location: a.withBase(re.Location)})
 			return
 		}
 		a.redirect(c, false, re)

@@ -1,5 +1,6 @@
 import { svelte, type Options as SvelteOptions } from '@sveltejs/vite-plugin-svelte';
 import type { IncomingMessage } from 'node:http';
+import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 
@@ -39,8 +40,10 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		name: 'tern',
 		config(config, env): UserConfig {
 			root = path.resolve(config.root ?? process.cwd());
+			const basePath = readBasePath(root);
 			const shared: UserConfig = {
 				appType: 'custom',
+				base: basePath + '/',
 				resolve: {
 					alias: {
 						$lib: path.join(root, 'src/lib'),
@@ -132,6 +135,16 @@ export function tern(options: TernOptions = {}): Plugin[] {
 	}
 
 	return [...svelte(options.svelte), plugin];
+}
+
+/** Reads basePath from tern.json; the Go side validates it. */
+function readBasePath(root: string): string {
+	try {
+		const config = JSON.parse(fs.readFileSync(path.join(root, 'tern.json'), 'utf8')) as { basePath?: string };
+		return config.basePath ?? '';
+	} catch {
+		return '';
+	}
 }
 
 export default tern;

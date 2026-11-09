@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { route } from '$routes';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -13,5 +14,5 @@
 	<ul data-testid="features">
 		{#each data.features ?? [] as feature (feature)}<li>{feature}</li>{/each}
 	</ul>
-	<p><a href="/login">Sign in</a></p>
+	<p><a href={route('/login')}>Sign in</a></p>
 </main>

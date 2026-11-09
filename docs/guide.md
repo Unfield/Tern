@@ -19,6 +19,7 @@ This guide covers everything you need to build an app with Tern. If you know Sve
 - [The client API](#the-client-api)
 - [Reloading data](#reloading-data)
 - [Static files and assets](#static-files-and-assets)
+- [Configuration file](#configuration-file)
 - [Commands](#commands)
 
 ## Project structure
@@ -566,6 +567,23 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Files in `static/` are served at the root: `static/robots.txt` is `/robots.txt`.
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
+
+## Configuration file
+
+Tern works without configuration. An optional `tern.json` at the project root holds the few settings that the Go server, the code generator and Vite must agree on:
+
+```json
+{ "basePath": "/app" }
+```
+
+**`basePath`** serves the app under a URL prefix, for example behind a proxy that routes `/app/*` to it. With it set:
+
+- the app answers at `/app`, `/app/projects` and so on, and `/` redirects to `/app`
+- asset URLs, `%tern.assets%` in `app.html`, and `route()` links include the prefix
+- `kit.Redirect(303, "/login")` redirects to `/app/login`; use `ctx.Path("/login")` for other links built in Go
+- links outside the prefix are full page loads
+
+Write links with `route()` from `$routes` and `href="%tern.assets%/favicon.svg"` in `app.html`, so the app works with or without a base path.
 
 ## Commands
 

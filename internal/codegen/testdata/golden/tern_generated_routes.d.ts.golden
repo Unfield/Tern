@@ -9,6 +9,9 @@ export interface Routes {
 	"/docs/[...path]": { path?: string | string[] };
 }
 
+/** The app's base path from tern.json, such as '/app', or ''. */
+export const base: string;
+
 /** A route pattern, such as '/projects/[id]'. */
 export type RoutePattern = keyof Routes;
 

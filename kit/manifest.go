@@ -58,6 +58,9 @@ type Manifest struct {
 	// ServerBundle is the server renderer built by `vite build --ssr`, or
 	// "" to render on the client only.
 	ServerBundle string
+	// BasePath is the URL prefix the app is served under, from tern.json,
+	// such as "/app"; "" serves it at the root.
+	BasePath string
 }
 
 // LayoutDef is a layout directory.

@@ -17,12 +17,13 @@ type devServer struct {
 	proxy *httputil.ReverseProxy
 	root  string
 	entry string
+	base  string
 }
 
 // vitePrefixes are request paths served by the Vite dev server.
 var vitePrefixes = []string{"/@", "/node_modules/", "/src/", "/.tern/", "/__vite"}
 
-func newDevServer(viteURL, root, entry string) (*devServer, error) {
+func newDevServer(viteURL, root, entry, base string) (*devServer, error) {
 	u, err := url.Parse(viteURL)
 	if err != nil {
 		return nil, fmt.Errorf("kit: invalid TERN_DEV_VITE_URL: %w", err)
@@ -36,20 +37,27 @@ func newDevServer(viteURL, root, entry string) (*devServer, error) {
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, "Vite dev server unavailable: "+err.Error(), http.StatusBadGateway)
 	}
-	return &devServer{proxy: proxy, root: root, entry: entry}, nil
+	return &devServer{proxy: proxy, root: root, entry: entry, base: base}, nil
 }
 
 func (d *devServer) handles(r *http.Request) bool {
 	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		return true // Vite's HMR connection
 	}
+	path := r.URL.Path
+	if d.base != "" {
+		if !strings.HasPrefix(path, d.base+"/") {
+			return false
+		}
+		path = strings.TrimPrefix(path, d.base)
+	}
 	for _, p := range vitePrefixes {
-		if strings.HasPrefix(r.URL.Path, p) {
+		if strings.HasPrefix(path, p) {
 			return true
 		}
 	}
 	// Files in static/ are served by Vite as its public directory.
-	clean := filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/"))
+	clean := filepath.FromSlash(strings.TrimPrefix(path, "/"))
 	if clean == "" || strings.Contains(clean, "..") {
 		return false
 	}
@@ -66,8 +74,8 @@ func (d *devServer) shell() (*shell, error) {
 	return parseShell(string(b))
 }
 
-func (d *devServer) scripts() []string {
+func (d *devServer) scripts(base string) []string {
 	// /__tern/dev/client.js is served by `tern dev` and reloads the page
 	// after the Go server restarts.
-	return []string{"/@vite/client", "/__tern/dev/client.js", "/" + d.entry}
+	return []string{base + "/@vite/client", "/__tern/dev/client.js", base + "/" + d.entry}
 }

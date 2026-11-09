@@ -93,7 +93,7 @@ func parseShell(src string) (*shell, error) {
 	}
 }
 
-func (s *shell) render(head, body, nonce string) string {
+func (s *shell) render(head, body, nonce, base string) string {
 	var b strings.Builder
 	for i, part := range s.parts {
 		b.WriteString(part)
@@ -105,6 +105,8 @@ func (s *shell) render(head, body, nonce string) string {
 				b.WriteString(body)
 			case "%tern.nonce%":
 				b.WriteString(nonce)
+			case "%tern.assets%":
+				b.WriteString(base)
 			}
 		}
 	}
@@ -130,18 +132,19 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			http.Error(c.writer, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		for _, src := range a.dev.scripts() {
+		for _, src := range a.dev.scripts(a.m.BasePath) {
 			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(src), nonce)
 		}
 	} else if a.assets != nil {
 		scripts, styles := a.assets.forPage(a.components(def))
+		base := a.m.BasePath
 		for _, href := range styles {
-			fmt.Fprintf(&head, "\n\t\t<link rel=\"stylesheet\" href=\"%s\">", html.EscapeString(href))
+			fmt.Fprintf(&head, "\n\t\t<link rel=\"stylesheet\" href=\"%s\">", html.EscapeString(base+href))
 		}
 		for _, href := range scripts[1:] {
-			fmt.Fprintf(&head, "\n\t\t<link rel=\"modulepreload\" href=\"%s\">", html.EscapeString(href))
+			fmt.Fprintf(&head, "\n\t\t<link rel=\"modulepreload\" href=\"%s\">", html.EscapeString(base+href))
 		}
-		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(scripts[0]), nonce)
+		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(base+scripts[0]), nonce)
 	}
 	for _, fn := range a.head {
 		if h := fn(c, nonce); h != "" {
@@ -158,7 +161,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	headHTML := head.String()
 	body := `<div id="tern-root" style="display: contents"></div>`
 	if a.ssr != nil && (def == nil || def.Page == nil || !def.Page.NoSSR) {
-		res, err := a.ssr.Render(c.Request.Context(), data, absoluteURL(c.Request))
+		res, err := a.ssr.Render(c.Request.Context(), data, absoluteURL(c.Request, a.m.BasePath))
 		switch {
 		case err != nil:
 			// Render on the client instead; the page still works.
@@ -171,7 +174,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			body = `<div id="tern-root" data-tern-ssr style="display: contents">` + res.Body + `</div>`
 		}
 	}
-	doc := shell.render(headHTML, body, nonce)
+	doc := shell.render(headHTML, body, nonce, a.m.BasePath)
 
 	c.applyHeaders()
 	h := c.writer.Header()
@@ -205,12 +208,12 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 }
 
 // absoluteURL reconstructs the URL the client requested.
-func absoluteURL(r *http.Request) string {
+func absoluteURL(r *http.Request, base string) string {
 	scheme := "http"
 	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
 		scheme = "https"
 	}
-	return scheme + "://" + r.Host + r.URL.RequestURI()
+	return scheme + "://" + r.Host + base + r.URL.RequestURI()
 }
 
 // components returns the Svelte files a page renders, for preloading.

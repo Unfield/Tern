@@ -95,6 +95,13 @@ func (c *Ctx) URL() *url.URL {
 	return c.Request.URL
 }
 
+// BasePath returns the app's base path from tern.json, such as "/app", or "".
+func (c *Ctx) BasePath() string { return c.app.m.BasePath }
+
+// Path prefixes an app path such as "/projects/1" with the base path, for
+// links built in Go. kit.Redirect adds the base path itself.
+func (c *Ctx) Path(p string) string { return c.app.withBase(p) }
+
 // RouteID returns the matched route's ID, e.g. "/blog/slug.param".
 func (c *Ctx) RouteID() string { return c.routeID }
 

@@ -108,7 +108,7 @@ export async function goto(href: string | URL, opts: GotoOptions = {}): Promise<
 		throw new Error('Tern: goto() was called before the app started');
 	}
 	const url = new URL(href, location.href);
-	if (url.origin !== location.origin) {
+	if (!inApp(url)) {
 		location.href = url.href;
 		return;
 	}
@@ -200,6 +200,7 @@ function setForm(form: unknown) {
 
 function dataURL(url: URL, reuse: boolean): string {
 	const path = url.pathname.replace(/\/$/, '');
+	// The base path is part of the pathname; the server strips it.
 	let target = `${path}/__data.json${url.search}`;
 	if (reuse) {
 		const here = url.pathname + url.search;
@@ -285,7 +286,7 @@ async function navigate(
 
 	if (payload.type === 'redirect' && payload.location) {
 		const next = new URL(payload.location, url);
-		if (redirects >= MAX_REDIRECTS || next.origin !== location.origin) {
+		if (redirects >= MAX_REDIRECTS || !inApp(next)) {
 			location.href = next.href;
 			return;
 		}
@@ -455,11 +456,18 @@ function findAnchor(event: Event): HTMLAnchorElement | SVGAElement | null {
 	return null;
 }
 
+/** Reports whether url belongs to this app (its origin and base path). */
+function inApp(url: URL): boolean {
+	if (url.origin !== location.origin) return false;
+	const base = manifest.base ?? '';
+	return !base || url.pathname === base || url.pathname.startsWith(base + '/');
+}
+
 function anchorURL(a: HTMLAnchorElement | SVGAElement): URL | null {
 	const href = a instanceof SVGAElement ? a.href.baseVal : a.href;
 	if (!href) return null;
 	const url = new URL(href, document.baseURI);
-	if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) return null;
+	if (!inApp(url) || !/^https?:$/.test(url.protocol)) return null;
 	const target = a instanceof SVGAElement ? a.target.baseVal : a.target;
 	if (target && target !== '_self') return null;
 	if (a.hasAttribute('download') || (a.getAttribute('rel') ?? '').split(/\s+/).includes('external')) return null;
@@ -517,7 +525,7 @@ function listen() {
 			return;
 		}
 		const url = new URL(submitter?.hasAttribute('formaction') ? submitter.formAction : own.action);
-		if (url.origin !== location.origin) return;
+		if (!inApp(url)) return;
 		event.preventDefault();
 		url.search = new URLSearchParams(new FormData(form, submitter) as unknown as Record<string, string>).toString();
 		const filtering = url.pathname === location.pathname;

@@ -1,14 +1,15 @@
 <script lang="ts">
+	import { route } from '$routes';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
 </script>
 
 <header>
-	<a href="/">Todos</a>
+	<a href={route('/')}>Todos</a>
 	<span>
 		Signed in as <strong data-testid="user">{data.signedInAs}</strong>
-		<form method="POST" action="/logout">
+		<form method="POST" action={route('/logout')}>
 			<button class="link">Sign out</button>
 		</form>
 	</span>

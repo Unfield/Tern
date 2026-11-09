@@ -96,7 +96,11 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	}) && step("Compiling the server", compile)
 	if ok && gen.Prerender {
 		ok = step("Prerendering pages", func(io.Writer) (string, error) {
-			n, err := prerender(*out)
+			cfg, err := codegen.LoadConfig(".")
+			if err != nil {
+				return "", err
+			}
+			n, err := prerender(*out, cfg.BasePath)
 			return plural(n, "page"), err
 		}) && step("Compressing prerendered pages", func(io.Writer) (string, error) {
 			return "", precompress(codegen.ClientOut)
@@ -153,7 +157,7 @@ func clientSize(dir string) (raw, gzipped int64) {
 // prerender runs the built app in prerender mode and saves the HTML and
 // data of every page marked with `const Prerender = true` into the client
 // output, so the next compile embeds them as static files.
-func prerender(bin string) (int, error) {
+func prerender(bin, basePath string) (int, error) {
 	port, err := freePort()
 	if err != nil {
 		return 0, err
@@ -176,7 +180,8 @@ func prerender(bin string) (int, error) {
 		<-exited
 	}()
 
-	base := "http://127.0.0.1:" + strconv.Itoa(port)
+	origin := "http://127.0.0.1:" + strconv.Itoa(port)
+	base := origin + basePath
 	client := &http.Client{Timeout: 30 * time.Second}
 	var list struct {
 		Paths     []string `json:"paths"`
@@ -191,6 +196,10 @@ func prerender(bin string) (int, error) {
 		default:
 		}
 		resp, err := client.Get(base + "/__tern/prerender")
+		if err == nil && resp.StatusCode == http.StatusFound {
+			_ = resp.Body.Close()
+			err = errors.New("redirected")
+		}
 		if err == nil {
 			err = json.NewDecoder(resp.Body).Decode(&list)
 			_ = resp.Body.Close()

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { route } from '$routes';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -9,7 +10,7 @@
 </svelte:head>
 
 <main>
-	<p><a href="/">← All todos</a></p>
+	<p><a href={route('/')}>← All todos</a></p>
 	<h1 data-testid="detail-title">{data.todo.title}</h1>
 	<p>{data.todo.done ? 'Done' : 'Not done yet'} · created {new Date(data.todo.created).toLocaleString()}</p>
 
@@ -19,7 +20,7 @@
 	{:then similar}
 		{#if similar?.length}
 			<ul data-testid="similar">
-				{#each similar as todo (todo.id)}<li><a href="/todos/{todo.id}">{todo.title}</a></li>{/each}
+				{#each similar as todo (todo.id)}<li><a href={route('/todos/[id]', { id: todo.id })}>{todo.title}</a></li>{/each}
 			</ul>
 		{:else}
 			<p data-testid="similar">No similar todos.</p>

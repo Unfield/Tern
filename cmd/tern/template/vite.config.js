@@ -1,4 +1,4 @@
-import { tern } from '@unfield/tern/vite';
+import { tern } from '@ternkit/tern/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({

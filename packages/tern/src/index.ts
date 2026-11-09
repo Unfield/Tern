@@ -3,7 +3,7 @@
  *
  * ```svelte
  * <script>
- *   import { page, goto, enhance } from '@unfield/tern';
+ *   import { page, goto, enhance } from '@ternkit/tern';
  * </script>
  * ```
  */

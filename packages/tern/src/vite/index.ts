@@ -23,7 +23,7 @@ const RENDER_PATH = '/__tern/render';
  *
  * ```js
  * // vite.config.js
- * import { tern } from '@unfield/tern/vite';
+ * import { tern } from '@ternkit/tern/vite';
  * import { defineConfig } from 'vite';
  *
  * export default defineConfig({ plugins: [tern()] });
@@ -89,7 +89,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 				},
 				optimizeDeps: {
 					entries: [CLIENT_ENTRY, 'src/**/*.svelte'],
-					exclude: ['@unfield/tern']
+					exclude: ['@ternkit/tern']
 				}
 			};
 		},

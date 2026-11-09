@@ -25,7 +25,7 @@ class PageState {
  *
  * ```svelte
  * <script>
- *   import { page } from '@unfield/tern';
+ *   import { page } from '@ternkit/tern';
  * </script>
  *
  * <a href="/" aria-current={page.url.pathname === '/' ? 'page' : undefined}>Home</a>

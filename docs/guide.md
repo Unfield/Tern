@@ -191,7 +191,7 @@ Return these errors from loads, actions, endpoints and hooks:
 
 ```svelte
 <script lang="ts">
-	import { page } from '@unfield/tern';
+	import { page } from '@ternkit/tern';
 </script>
 
 <h1>{page.status}</h1>
@@ -231,7 +231,7 @@ var Actions = kit.Actions{
 
 ```svelte
 <script lang="ts">
-	import { enhance } from '@unfield/tern';
+	import { enhance } from '@ternkit/tern';
 	let { data, form }: PageProps = $props();
 </script>
 
@@ -425,7 +425,7 @@ func Entries() ([]map[string]string, error) {
 
 ## The client API
 
-Import from `@unfield/tern` in your components:
+Import from `@ternkit/tern` in your components:
 
 | Export | Purpose |
 |---|---|

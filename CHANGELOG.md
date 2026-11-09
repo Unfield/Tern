@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-09
+
+### Changed
+
+- The npm package is now `@ternkit/tern` (it was never published as `@unfield/tern`). Update imports to `@ternkit/tern` and `@ternkit/tern/vite`.
+
+### Fixed
+
+- Build scratch files from `svelte-package` are no longer committed.
+
 ## [0.3.0] - 2026-11-09
 
 The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap](docs/ROADMAP.md).
@@ -17,7 +27,7 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - `tern routes` command to list an app's routes.
 - `kit`, the server runtime: concurrent layout and page loads with `kit.Parent`, form actions with `kit.Fail` and enhanced JSON responses, endpoints, hooks, middleware, matchers (`integer` and `uuid` built in), cookies with secure defaults, cross-origin request protection, body limits, panic recovery, immutable asset caching with ETags and gzip, and graceful shutdown.
 - `tern gen`: generates `tern.gen.go`, the client route manifest, and TypeScript types for every route from the Go types of its loads and actions. Signatures are checked with errors at the source position.
-- `@unfield/tern`, the client runtime and Vite plugin: client-side routing over `__data.json`, `page` and `navigating` state, `goto`, `invalidateAll`, `preloadData`, `enhance` and `applyAction`, scroll restoration, focus management and route announcements.
+- `@ternkit/tern`, the client runtime and Vite plugin: client-side routing over `__data.json`, `page` and `navigating` state, `goto`, `invalidateAll`, `preloadData`, `enhance` and `applyAction`, scroll restoration, focus management and route announcements.
 - `tern dev`: one port for the app and Vite, hot module replacement, automatic Go rebuilds and browser reloads, and an in-browser error page for build errors.
 - `tern build`: a single binary with the client embedded and precompressed.
 - `tern new`: a starter project that pins the CLI with `go get -tool`.
@@ -28,5 +38,6 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Unfield/Tern/releases/tag/v0.3.1
 [0.3.0]: https://github.com/Unfield/Tern/releases/tag/v0.3.0

@@ -30,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   npm:
-    name: Publish @unfield/tern to npm
+    name: Publish @ternkit/tern to npm
     # Enable with the repository variable NPM_PUBLISH=true once npm
     # credentials are set up (see CONTRIBUTING.md).
     if: vars.NPM_PUBLISH == 'true'

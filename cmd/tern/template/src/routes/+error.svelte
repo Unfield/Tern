@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '@unfield/tern';
+	import { page } from '@ternkit/tern';
 </script>
 
 <svelte:head>

@@ -25,3 +25,6 @@ packages/*/dist/
 .env
 .env.*
 !.env.example
+
+# svelte-package scratch output
+.svelte-kit/

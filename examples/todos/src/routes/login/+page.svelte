@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '@unfield/tern';
+	import { enhance } from '@ternkit/tern';
 	import type { PageProps } from './$types';
 
 	let { form }: PageProps = $props();

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page, navigating } from '@unfield/tern';
+	import { page, navigating } from '@ternkit/tern';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();

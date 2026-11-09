@@ -153,7 +153,7 @@ func moduleVersion() string {
 	return "latest"
 }
 
-// clientVersion is the matching @unfield/tern npm version range.
+// clientVersion is the matching @ternkit/tern npm version range.
 func clientVersion() string {
 	if v := version.String(); strings.HasPrefix(v, "v") {
 		return "^" + strings.TrimPrefix(v, "v")

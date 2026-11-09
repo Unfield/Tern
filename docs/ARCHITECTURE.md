@@ -139,12 +139,12 @@ In development, the Go app asks Vite to render, so server rendering always uses 
 
 **Streaming.** A load can return slow data as `kit.Deferred[T]`, created with `kit.Defer(ctx, fn)`. The value is a placeholder in the payload and a `Promise<T>` in Svelte. The page renders and is sent without waiting (the server renders `{#await}` blocks in their pending state), then each value is written as it resolves: as an inline `<script>` before `</body>` on full page loads, or as one JSON line per value after the payload in `__data.json`.
 
-### 6. Client runtime (`packages/tern`, published as `@unfield/tern`)
+### 6. Client runtime (`packages/tern`, published as `@ternkit/tern`)
 
 - **Router:** link interception, history, scroll restoration, `goto`, `invalidate`, `invalidateAll`, preloading on hover.
 - **State:** `page` (url, params, data, form, status, error) and `navigating`, exposed as Svelte 5 reactive state.
 - **Forms:** `use:enhance` submits actions with `fetch` and applies the result; without JavaScript, forms post normally and Go handles them.
-- **Vite plugin (`@unfield/tern/vite`):** reads the route tree, builds per-route entry chunks, and writes a manifest Go uses to emit the right script and CSS tags.
+- **Vite plugin (`@ternkit/tern/vite`):** reads the route tree, builds per-route entry chunks, and writes a manifest Go uses to emit the right script and CSS tags.
 
 The client API mirrors SvelteKit's names and semantics where possible, so existing knowledge and docs carry over.
 

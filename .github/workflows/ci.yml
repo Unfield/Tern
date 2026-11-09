@@ -12,10 +12,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Runner routing
+#
+# Linux jobs run on the self-hosted Hetzner runner only when ALL of these hold:
+#   - the repository variable SELF_HOSTED_RUNNER is "true" (forks never have it)
+#   - the event is a push, which only maintainers can trigger
+# Pull requests always run on GitHub-hosted runners, because their code is
+# untrusted. Do not change this without reading infra/github-runner/README.md.
+
 jobs:
   go:
     name: Go ${{ matrix.go }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ (matrix.os == 'ubuntu-latest' && vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +43,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -47,7 +55,7 @@ jobs:
 
   client:
     name: Client package
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

@@ -28,17 +28,15 @@ func TestMatch(t *testing.T) {
 	r := newTestRouter(t,
 		"/",
 		"/about",
-		"/(marketing)/pricing",
-		"/blog/[slug]",
-		"/blog/[slug].json",
-		"/posts/[id=integer]",
-		"/posts/[slug]",
-		"/[[lang=locale]]/docs",
-		"/files/[...path]/edit",
-		"/files/[...path]",
-		"/v[major]-[minor]",
+		"/marketing.group/pricing",
+		"/blog/slug.param",
+		"/posts/id.param.integer",
+		"/posts/slug.param",
+		"/lang.optional.locale/docs",
+		"/files/path.rest/edit",
+		"/files/path.rest",
 		"/über",
-		"/[...catchall]",
+		"/catchall.rest",
 	)
 
 	tests := []struct {
@@ -49,24 +47,22 @@ func TestMatch(t *testing.T) {
 		{"/", "/", map[string]string{}},
 		{"/about", "/about", map[string]string{}},
 		{"/about/", "/about", map[string]string{}},
-		{"/pricing", "/(marketing)/pricing", map[string]string{}},
-		{"/blog/hello", "/blog/[slug]", map[string]string{"slug": "hello"}},
-		{"/blog/hello.json", "/blog/[slug].json", map[string]string{"slug": "hello"}},
-		{"/blog/hello%20world", "/blog/[slug]", map[string]string{"slug": "hello world"}},
-		{"/blog/a%2Fb", "/blog/[slug]", map[string]string{"slug": "a/b"}},
-		{"/blog/100%25", "/blog/[slug]", map[string]string{"slug": "100%"}},
-		{"/posts/42", "/posts/[id=integer]", map[string]string{"id": "42"}},
-		{"/posts/hello", "/posts/[slug]", map[string]string{"slug": "hello"}},
-		{"/docs", "/[[lang=locale]]/docs", map[string]string{}},
-		{"/de/docs", "/[[lang=locale]]/docs", map[string]string{"lang": "de"}},
-		{"/fr/docs", "/[...catchall]", map[string]string{"catchall": "fr/docs"}},
-		{"/files/a/b/c", "/files/[...path]", map[string]string{"path": "a/b/c"}},
-		{"/files", "/files/[...path]", map[string]string{"path": ""}},
-		{"/files/a/b/edit", "/files/[...path]/edit", map[string]string{"path": "a/b"}},
-		{"/files/edit", "/files/[...path]/edit", map[string]string{"path": ""}},
-		{"/v2-1", "/v[major]-[minor]", map[string]string{"major": "2", "minor": "1"}},
+		{"/pricing", "/marketing.group/pricing", map[string]string{}},
+		{"/blog/hello", "/blog/slug.param", map[string]string{"slug": "hello"}},
+		{"/blog/hello%20world", "/blog/slug.param", map[string]string{"slug": "hello world"}},
+		{"/blog/a%2Fb", "/blog/slug.param", map[string]string{"slug": "a/b"}},
+		{"/blog/100%25", "/blog/slug.param", map[string]string{"slug": "100%"}},
+		{"/posts/42", "/posts/id.param.integer", map[string]string{"id": "42"}},
+		{"/posts/hello", "/posts/slug.param", map[string]string{"slug": "hello"}},
+		{"/docs", "/lang.optional.locale/docs", map[string]string{}},
+		{"/de/docs", "/lang.optional.locale/docs", map[string]string{"lang": "de"}},
+		{"/fr/docs", "/catchall.rest", map[string]string{"catchall": "fr/docs"}},
+		{"/files/a/b/c", "/files/path.rest", map[string]string{"path": "a/b/c"}},
+		{"/files", "/files/path.rest", map[string]string{"path": ""}},
+		{"/files/a/b/edit", "/files/path.rest/edit", map[string]string{"path": "a/b"}},
+		{"/files/edit", "/files/path.rest/edit", map[string]string{"path": ""}},
 		{"/%C3%BCber", "/über", map[string]string{}},
-		{"/nope/really", "/[...catchall]", map[string]string{"catchall": "nope/really"}},
+		{"/nope/really", "/catchall.rest", map[string]string{"catchall": "nope/really"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -85,7 +81,7 @@ func TestMatch(t *testing.T) {
 }
 
 func TestMatchNoRoute(t *testing.T) {
-	r := newTestRouter(t, "/", "/blog/[slug]")
+	r := newTestRouter(t, "/", "/blog/slug.param")
 	for _, p := range []string{"/blog", "/blog/a/b", "/blog//", "relative", "", "/blog/%zz"} {
 		if route, _, ok := r.Match(p); ok {
 			t.Errorf("Match(%q) = %s, want no match", p, route.ID)
@@ -94,7 +90,7 @@ func TestMatchNoRoute(t *testing.T) {
 }
 
 func TestNewRouterUnknownMatcher(t *testing.T) {
-	_, err := NewRouter([]*Route{routeFor(t, "/[id=uuid]")}, nil)
+	_, err := NewRouter([]*Route{routeFor(t, "/id.param.uuid")}, nil)
 	if err == nil || !strings.Contains(err.Error(), `unknown matcher "uuid"`) {
 		t.Fatalf("err = %v, want unknown matcher error", err)
 	}

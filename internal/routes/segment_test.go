@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -9,22 +8,19 @@ import (
 func TestParseDirName(t *testing.T) {
 	tests := []struct {
 		name      string
-		wantParts []Part
+		want      Segment
 		wantGroup bool
 	}{
-		{name: "blog", wantParts: []Part{{Kind: Static, Value: "blog"}}},
-		{name: "(app)", wantGroup: true},
-		{name: "[slug]", wantParts: []Part{{Kind: Param, Value: "slug"}}},
-		{name: "[id=integer]", wantParts: []Part{{Kind: Param, Value: "id", Matcher: "integer"}}},
-		{name: "[[lang]]", wantParts: []Part{{Kind: OptionalParam, Value: "lang"}}},
-		{name: "[[lang=locale]]", wantParts: []Part{{Kind: OptionalParam, Value: "lang", Matcher: "locale"}}},
-		{name: "[...path]", wantParts: []Part{{Kind: Rest, Value: "path"}}},
-		{name: "[...path=file]", wantParts: []Part{{Kind: Rest, Value: "path", Matcher: "file"}}},
-		{name: "[slug].json", wantParts: []Part{{Kind: Param, Value: "slug"}, {Kind: Static, Value: ".json"}}},
-		{name: "v[major]-[minor]", wantParts: []Part{
-			{Kind: Static, Value: "v"}, {Kind: Param, Value: "major"},
-			{Kind: Static, Value: "-"}, {Kind: Param, Value: "minor"},
-		}},
+		{name: "blog", want: Segment{Kind: Static, Value: "blog"}},
+		{name: "v1.2", want: Segment{Kind: Static, Value: "v1.2"}},
+		{name: "sitemap.xml", want: Segment{Kind: Static, Value: "sitemap.xml"}},
+		{name: "app.group", wantGroup: true},
+		{name: "slug.param", want: Segment{Kind: Param, Value: "slug"}},
+		{name: "id.param.integer", want: Segment{Kind: Param, Value: "id", Matcher: "integer"}},
+		{name: "lang.optional", want: Segment{Kind: OptionalParam, Value: "lang"}},
+		{name: "lang.optional.locale", want: Segment{Kind: OptionalParam, Value: "lang", Matcher: "locale"}},
+		{name: "path.rest", want: Segment{Kind: Rest, Value: "path"}},
+		{name: "path.rest.file", want: Segment{Kind: Rest, Value: "path", Matcher: "file"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -35,8 +31,12 @@ func TestParseDirName(t *testing.T) {
 			if group != tt.wantGroup {
 				t.Errorf("group = %v, want %v", group, tt.wantGroup)
 			}
-			if !reflect.DeepEqual(seg.Parts, tt.wantParts) {
-				t.Errorf("parts = %+v, want %+v", seg.Parts, tt.wantParts)
+			if tt.wantGroup {
+				return
+			}
+			tt.want.Raw = tt.name
+			if seg != tt.want {
+				t.Errorf("segment = %+v, want %+v", seg, tt.want)
 			}
 		})
 	}
@@ -47,22 +47,17 @@ func TestParseDirNameErrors(t *testing.T) {
 		name    string
 		wantErr string
 	}{
-		{"()", "invalid group name"},
-		{"(a[b])", "invalid group name"},
-		{"a(b)", "parentheses are only allowed for groups"},
-		{"[slug", "unclosed '['"},
-		{"[[lang]", "unclosed '[['"},
-		{"slug]", "unmatched ']'"},
-		{"[a]]", "unmatched ']'"},
-		{"[]", "invalid parameter name"},
-		{"[1st]", "invalid parameter name"},
-		{"[my-slug]", "invalid parameter name"},
-		{"[id=]", "invalid matcher name"},
-		{"[id=is-int]", "invalid matcher name"},
-		{"[[...rest]]", "rest parameters are already optional"},
-		{"[a][b]", "must be separated by static text"},
-		{"x[[lang]]", "optional parameters must be the whole directory name"},
-		{"[...path].json", "rest parameters must be the whole directory name"},
+		{"[slug]", `rename it to "slug.param"`},
+		{"[id=integer]", `rename it to "id.param.integer"`},
+		{"[[lang]]", `rename it to "lang.optional"`},
+		{"[...path]", `rename it to "path.rest"`},
+		{"(app)", `rename it to "app.group"`},
+		{"[slug].json", "segments mixing text and parameters are not supported"},
+		{"my-slug.param", `"my-slug" is not a valid param name`},
+		{"1st.param", `"1st" is not a valid param name`},
+		{"id.param.is-int", `"is-int" is not a valid matcher name`},
+		{"id.param.a.b", "expected name.param or name.param.matcher"},
+		{"app.group.x", "groups cannot have a matcher"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -74,5 +69,18 @@ func TestParseDirNameErrors(t *testing.T) {
 				t.Errorf("error = %q, want it to contain %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGoSafeDir(t *testing.T) {
+	for _, ok := range []string{"blog", "slug.param", "my-page", "my_page", "v1.2"} {
+		if reason := goSafeDir(ok); reason != "" {
+			t.Errorf("goSafeDir(%q) = %q, want safe", ok, reason)
+		}
+	}
+	for _, bad := range []string{"über", "-x", ".x", "_x", "x.", "a b", "a~b", "a+b"} {
+		if goSafeDir(bad) == "" {
+			t.Errorf("goSafeDir(%q) = safe, want a reason", bad)
+		}
 	}
 }

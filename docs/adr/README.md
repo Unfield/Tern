@@ -6,7 +6,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 |---|---|---|
 | [0001](0001-use-real-svelte.md) | Use the official Svelte compiler instead of a custom component language | Accepted |
 | [0002](0002-client-rendering-first.md) | Ship client-side rendering first, SSR in v0.2 | Accepted |
-| [0003](0003-route-files-as-go-packages.md) | Route server files are Go packages wired up by code generation | Proposed |
+| [0003](0003-route-files-as-go-packages.md) | Route directories are Go packages, with Go-safe names | Accepted |
 
 ## Template
 

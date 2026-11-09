@@ -6,11 +6,11 @@ This is the planned order of work. It changes as we learn; the [issue tracker](h
 
 The goal: you can build a real app with Tern and deploy it as one binary.
 
-- [x] Route scanner and matcher (`[param]`, `[[optional]]`, `[...rest]`, `(group)`, `[id=matcher]`)
+- [x] Route scanner and matcher (`slug.param`, `lang.optional`, `path.rest`, `app.group`, `id.param.matcher`)
 - [ ] Manifest code generation for route packages
 - [ ] `kit`: `Ctx`, `Load`, layouts with `Parent()`, `Redirect`/`Error`/`NotFound`
 - [ ] Form actions with `Fail` and progressive enhancement
-- [ ] `+server.go` endpoints
+- [ ] Endpoints (`GET`, `POST`, … in a route's Go package)
 - [ ] `Handle` hook and `net/http` middleware
 - [ ] Go → TypeScript type generation, including layout data merging
 - [ ] Client runtime: router, `goto`, `invalidate`, `page` state, `use:enhance`

@@ -49,7 +49,7 @@ type Router struct {
 type compiledRoute struct {
 	route    *Route
 	re       *regexp.Regexp
-	params   []Part
+	params   []Segment
 	matchers []Matcher // parallel to params; nil when the param has no matcher
 }
 

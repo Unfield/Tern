@@ -12,7 +12,7 @@ This document describes how Tern is put together. It covers the target design fo
 
 ## Non-goals (for now)
 
-- Running server logic in JavaScript (no `+page.server.ts`).
+- Running server logic in JavaScript (no `+page.server.ts`; `Load` is always Go).
 - Supporting component frameworks other than Svelte.
 - Edge or serverless runtimes before the core is stable.
 
@@ -59,22 +59,31 @@ The CLI is a thin layer over packages in `internal/`; all logic is testable with
 
 ### 2. Routing (`internal/routes`)
 
-Routes come from the filesystem, using SvelteKit's conventions:
+Routes come from the filesystem. Each directory under `src/routes` is a URL segment:
 
 | File | Role |
 |---|---|
 | `+page.svelte` | Page component |
-| `+page.server.go` | Page `Load` and `Actions` |
-| `+layout.svelte` | Layout wrapping child routes |
-| `+layout.server.go` | Layout `Load` |
+| `+layout.svelte` | Layout wrapping this directory and its children |
 | `+error.svelte` | Error boundary |
-| `+server.go` | Raw endpoint (`GET`, `POST`, … handlers) |
+| `*.go` | The route's Go package (conventionally `page.server.go`, `layout.server.go`, `server.go`) |
 
-Segments: `about`, `[slug]`, `[[optional]]`, `[...rest]`, `(group)`. Matching priority follows SvelteKit: static segments beat dynamic ones, required beats optional, rest parameters come last.
+The Go package's role comes from what it exports: `Load` and `Actions` for the page, `LayoutLoad` for the layout, and `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD` for an endpoint.
+
+Dynamic segments use suffixes, because Go import paths cannot contain brackets ([ADR 0003](adr/0003-route-files-as-go-packages.md)):
+
+| Directory | Pattern | Matches |
+|---|---|---|
+| `about` | `/about` | `/about` |
+| `slug.param` | `/[slug]` | `/hello` |
+| `id.param.integer` | `/[id=integer]` | `/42`, if the `integer` matcher accepts it |
+| `lang.optional` | `/[[lang]]` | `/` and `/en` |
+| `path.rest` | `/[...path]` | `/`, `/a`, `/a/b/c` |
+| `app.group` | (none) | groups routes, e.g. to share a layout |
+
+Matching priority follows SvelteKit: static segments beat parameters, parameters with a matcher beat those without, required beats optional, and rest parameters come last.
 
 The scanner produces a **route tree** that is the single source of truth for codegen, the dev server and the client router.
-
-**Go packages and bracketed folders.** Folder names like `[slug]` and `(group)` are awkward or invalid as Go import paths, and `+page.server.go` files from many folders cannot share one package. Tern solves this with code generation; see [ADR 0003](adr/0003-route-files-as-go-packages.md).
 
 ### 3. Server runtime (`kit`)
 

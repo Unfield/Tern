@@ -32,13 +32,13 @@
 src/routes/
 ├── +layout.svelte
 ├── +page.svelte
-└── blog/[slug]/
-    ├── +page.server.go
+└── blog/slug.param/        # → /blog/[slug]
+    ├── page.server.go
     └── +page.svelte
 ```
 
 ```go
-// src/routes/blog/[slug]/+page.server.go
+// src/routes/blog/slug.param/page.server.go
 package page
 
 import "github.com/Unfield/Tern/kit"
@@ -58,7 +58,7 @@ func Load(ctx *kit.Ctx) (Data, error) {
 ```
 
 ```svelte
-<!-- src/routes/blog/[slug]/+page.svelte -->
+<!-- src/routes/blog/slug.param/+page.svelte -->
 <script lang="ts">
   import type { PageProps } from './$types';
   let { data }: PageProps = $props(); // fully typed from the Go struct

@@ -1,26 +1,52 @@
-# 0003. Route server files are Go packages wired up by code generation
+# 0003. Route directories are Go packages, with Go-safe names
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-09
 
 ## Context
 
-SvelteKit colocates server code with routes (`blog/[slug]/+page.server.ts`). We want the same with `+page.server.go`, but Go imposes constraints:
+SvelteKit colocates server code with routes (`blog/[slug]/+page.server.ts`). We want the same with Go, so a route's `Load` sits next to its `+page.svelte`.
 
-- Every directory is its own package, and the app's `main` must import each route package to call it.
-- Folder names such as `[slug]`, `[...rest]` and `(group)` contain characters that are invalid or unreliable in Go import paths across tools.
-- A route folder may contain both `+page.server.go` and `+layout.server.go`, which must not clash.
+We tested what Go accepts:
 
-## Decision (proposed)
+| Name | Result |
+|---|---|
+| directories `[slug]`, `(app)` | `malformed import path`. Worse, `go build ./...`, `go vet ./...` and `go test ./...` fail for the **whole module**, and gopls cannot load the package. |
+| directories `~slug`, `+slug`, `-slug` | `invalid input directory name` |
+| directory `_slug` | builds, but `./...` patterns silently skip it, so its tests and vet never run |
+| directories `slug.param`, `slug-x`, `slug_x` | work everywhere |
+| file `+page.server.go` | `invalid input file name` |
 
-- Each route folder containing `.go` files is a Go package. Authors may name the package anything; `page` is the convention.
-- `tern gen` writes `.tern/manifest.go`, which wires every route's `Load`, `Actions` and handlers into the router. Where a folder name is not a valid import path, the generator mirrors that package into `.tern/routes/` under a sanitized path (e.g. `blog/_slug_`) and imports the mirror.
-- Layout and page functions in the same folder are distinguished by name: `Load`/`Actions` for the page, `LayoutLoad` for the layout.
+Mirroring route packages into a generated tree with `//line` directives would fix compiler errors but not `go test ./...` or editor support for the original files, because the original directories would still be malformed packages.
 
-The mirroring approach needs a prototype before this ADR is accepted: we must confirm it keeps compiler errors, `go vet` and editor navigation pointing at the user's original files (for example via `//line` directives).
+## Decision
+
+1. **Directory names use suffixes**, which are valid Go import path elements:
+
+   | SvelteKit | Tern |
+   |---|---|
+   | `[slug]` | `slug.param` |
+   | `[id=integer]` | `id.param.integer` |
+   | `[[lang]]` | `lang.optional` |
+   | `[...path]` | `path.rest` |
+   | `(app)` | `app.group` |
+
+   Segments that mix text and parameters (`[slug].json`) are not supported; an endpoint can do the same job. The scanner rejects SvelteKit names with an error that gives the Tern name.
+
+2. **A route directory's Go code is an ordinary Go package.** File names are free; `page.server.go`, `layout.server.go` and `server.go` are the convention. Roles come from exported names:
+
+   | Export | Role |
+   |---|---|
+   | `func Load` | page data |
+   | `var Actions` | page form actions |
+   | `func LayoutLoad` | layout data |
+   | `func GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD` | endpoint |
+
+3. **Wiring is generated.** `tern gen` writes `tern.gen.go` into the app's root package. It imports each route package directly and registers its functions with the runtime.
 
 ## Consequences
 
-- Authors keep SvelteKit-style folder names.
-- Codegen becomes a required step; `tern dev` runs it automatically.
-- If mirroring proves too fragile, the fallback is a sanitized naming convention for dynamic folders, which would be a visible difference from SvelteKit.
+- `go build ./...`, `go test ./...`, `go vet ./...`, gopls and golangci-lint all work on route code with no special setup.
+- Compiler errors point at the user's own files.
+- Page and layout loads in one directory share a package, which is why the layout's function is named `LayoutLoad`.
+- Route URLs look different on disk from SvelteKit's. Patterns are still displayed in bracket notation (`/blog/[slug]`) wherever Tern prints them.

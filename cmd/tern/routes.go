@@ -42,7 +42,7 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ROUTE\tKIND\tLOAD\tLAYOUTS\tDIRECTORY")
 	for _, r := range list {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n", r.Pattern(), kind(r), check(r.PageServer != ""), len(r.Layouts), r.ID)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n", r.Pattern(), kind(r), check(r.HasLoad()), len(r.Layouts), r.ID)
 	}
 	if err := w.Flush(); err != nil {
 		fmt.Fprintf(stderr, "tern routes: %v\n", err)
@@ -53,7 +53,7 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 
 func kind(r *routes.Route) string {
 	switch {
-	case r.Page != "" && r.Endpoint != "":
+	case r.Page != "" && r.IsEndpoint():
 		return "page+endpoint"
 	case r.Page != "":
 		return "page"

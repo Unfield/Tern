@@ -1,72 +1,101 @@
 // Package routes discovers Tern routes on the filesystem and matches URLs
 // against them.
 //
-// Routes follow SvelteKit's conventions: every directory under the routes
-// root is a URL segment, and files starting with "+" define what the
-// directory does:
+// Every directory under the routes root is a URL segment. Svelte files
+// starting with "+" define the UI, and the Go package in the directory, if
+// any, defines the server side:
 //
-//	+page.svelte        page component
-//	+page.server.go     page Load and Actions
-//	+layout.svelte      layout wrapping this directory and its children
-//	+layout.server.go   layout Load
-//	+error.svelte       error boundary
-//	+server.go          endpoint (GET, POST, … handlers)
+//	+page.svelte      page component
+//	+layout.svelte    layout wrapping this directory and its children
+//	+error.svelte     error boundary
+//	*.go              Go package; exports Load and Actions (page),
+//	                  LayoutLoad (layout) and GET, POST, … (endpoint)
 //
-// Directory names may contain parameters ([slug], [[optional]],
-// [...rest], [id=matcher]) and groups ((name)), which organize routes
-// without affecting the URL.
+// Go import paths cannot contain brackets or parentheses, so dynamic
+// segments use suffixes: slug.param, id.param.integer, lang.optional,
+// path.rest and app.group.
 package routes
 
 import (
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"path"
 	"slices"
 	"strings"
 )
 
-// Route file names.
+// Svelte route file names.
 const (
-	FilePage         = "+page.svelte"
-	FilePageServer   = "+page.server.go"
-	FileLayout       = "+layout.svelte"
-	FileLayoutServer = "+layout.server.go"
-	FileError        = "+error.svelte"
-	FileEndpoint     = "+server.go"
+	FilePage   = "+page.svelte"
+	FileLayout = "+layout.svelte"
+	FileError  = "+error.svelte"
 )
 
-var knownFiles = []string{FilePage, FilePageServer, FileLayout, FileLayoutServer, FileError, FileEndpoint}
+var svelteFiles = []string{FilePage, FileLayout, FileError}
+
+// HTTPMethods are the endpoint handler names a route package may export.
+var HTTPMethods = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 
 // Route is a URL pattern backed by a page, an endpoint, or both.
 // All file paths are slash-separated and relative to the routes root.
 type Route struct {
 	// ID identifies the route by its directory, including groups,
-	// e.g. "/(app)/blog/[slug]". The root route's ID is "/".
+	// e.g. "/app.group/blog/slug.param". The root route's ID is "/".
 	ID string
 	// Dir is the route's directory, or "" for the root.
 	Dir string
 	// Segments are the URL segments, with groups removed.
 	Segments []Segment
-
-	Page       string // +page.svelte, or ""
-	PageServer string // +page.server.go, or ""
-	Endpoint   string // +server.go, or ""
-
+	// Page is the +page.svelte file, or "".
+	Page string
+	// Go is the route directory's Go package, or nil.
+	Go *GoPackage
 	// Layouts that wrap the page, outermost first.
 	Layouts []Layout
 	// ErrorPages are the +error.svelte files that apply, outermost first.
 	ErrorPages []string
 }
 
-// Layout is a directory that has a +layout.svelte, a +layout.server.go, or both.
-type Layout struct {
-	Dir       string
-	Component string // +layout.svelte, or ""
-	Server    string // +layout.server.go, or ""
+// GoPackage describes the Go package in a route directory.
+type GoPackage struct {
+	Dir   string
+	Name  string   // package name
+	Files []string // non-test .go files
+	// Load reports whether the package exports a page Load function.
+	Load bool
+	// Actions reports whether the package exports a page Actions variable.
+	Actions bool
+	// LayoutLoad reports whether the package exports a layout load function.
+	LayoutLoad bool
+	// Methods lists the exported endpoint handlers, in HTTPMethods order.
+	Methods []string
 }
 
-// Pattern returns the route's URL pattern, e.g. "/blog/[slug]".
+// Layout is a directory that has a +layout.svelte, a LayoutLoad, or both.
+type Layout struct {
+	Dir string
+	// Component is the +layout.svelte file, or "".
+	Component string
+	// Go is the directory's Go package if it exports LayoutLoad, or nil.
+	Go *GoPackage
+}
+
+// HasLoad reports whether the route's page has a Load function.
+func (r *Route) HasLoad() bool { return r.Go != nil && r.Go.Load }
+
+// HasActions reports whether the route's page has form actions.
+func (r *Route) HasActions() bool { return r.Go != nil && r.Go.Actions }
+
+// IsEndpoint reports whether the route handles requests with HTTP method
+// handlers (GET, POST, …).
+func (r *Route) IsEndpoint() bool { return r.Go != nil && len(r.Go.Methods) > 0 }
+
+// Pattern returns the route's URL pattern in bracket notation,
+// e.g. "/blog/[slug]".
 func (r *Route) Pattern() string {
 	if len(r.Segments) == 0 {
 		return "/"
@@ -74,19 +103,17 @@ func (r *Route) Pattern() string {
 	var b strings.Builder
 	for _, s := range r.Segments {
 		b.WriteByte('/')
-		b.WriteString(s.Raw)
+		b.WriteString(s.Pattern())
 	}
 	return b.String()
 }
 
-// Params returns the route's parameters in URL order.
-func (r *Route) Params() []Part {
-	var params []Part
+// Params returns the route's parameter segments in URL order.
+func (r *Route) Params() []Segment {
+	var params []Segment
 	for _, s := range r.Segments {
-		for _, p := range s.Parts {
-			if p.Kind != Static {
-				params = append(params, p)
-			}
+		if s.Kind != Static {
+			params = append(params, s)
 		}
 	}
 	return params
@@ -94,6 +121,8 @@ func (r *Route) Params() []Part {
 
 // Manifest is the result of scanning a routes directory.
 type Manifest struct {
+	// Root is the routes directory that was scanned.
+	Root string
 	// Routes, in matching priority order.
 	Routes []*Route
 }
@@ -109,19 +138,20 @@ func Scan(fsys fs.FS, root string) (*Manifest, error) {
 		return nil, fmt.Errorf("routes directory: %s is not a directory", root)
 	}
 
-	s := &scanner{fsys: fsys, root: root}
+	s := &scanner{fsys: fsys, root: root, fset: token.NewFileSet()}
 	s.walk("", nil)
 	s.checkConflicts()
 	if len(s.errs) > 0 {
 		return nil, errors.Join(s.errs...)
 	}
 	Sort(s.routes)
-	return &Manifest{Routes: s.routes}, nil
+	return &Manifest{Root: root, Routes: s.routes}, nil
 }
 
 type scanner struct {
 	fsys   fs.FS
 	root   string
+	fset   *token.FileSet
 	routes []*Route
 	errs   []error
 }
@@ -162,35 +192,52 @@ func (s *scanner) walk(dir string, parent *node) {
 	}
 
 	files := map[string]string{}
-	var subdirs []string
+	var goFiles, subdirs []string
 	for _, e := range entries {
 		name := e.Name()
+		rel := path.Join(dir, name)
 		switch {
 		case strings.HasPrefix(name, "."):
 			continue
 		case e.IsDir():
 			subdirs = append(subdirs, name)
+		case strings.HasSuffix(name, ".go"):
+			if strings.HasPrefix(name, "+") {
+				s.errorf(rel, "Go does not allow file names starting with '+'; rename it to %q", strings.TrimPrefix(name, "+"))
+				continue
+			}
+			if !strings.HasSuffix(name, "_test.go") && !strings.HasPrefix(name, "_") {
+				goFiles = append(goFiles, rel)
+			}
 		case !strings.HasPrefix(name, "+"):
-			continue // colocated helpers, components, Go files
-		case slices.Contains(knownFiles, name):
-			files[name] = path.Join(dir, name)
-		case strings.HasSuffix(name, "_test.go"):
-			continue
+			continue // colocated components, styles, assets
+		case slices.Contains(svelteFiles, name):
+			files[name] = rel
+		case strings.HasSuffix(name, ".ts") || strings.HasSuffix(name, ".js"):
+			s.errorf(rel, "load functions run in Go in Tern; export Load from a .go file in this directory instead")
 		default:
-			s.errorf(path.Join(dir, name), "unknown route file %q (expected one of %s)", name, strings.Join(knownFiles, ", "))
+			s.errorf(rel, "unknown route file %q (expected one of %s)", name, strings.Join(svelteFiles, ", "))
 		}
 	}
 
-	if files[FileLayout] != "" || files[FileLayoutServer] != "" {
-		n.layout = &Layout{Dir: dir, Component: files[FileLayout], Server: files[FileLayoutServer]}
+	var pkg *GoPackage
+	if len(goFiles) > 0 {
+		pkg = s.parseGoPackage(dir, goFiles)
+	}
+
+	if files[FileLayout] != "" || (pkg != nil && pkg.LayoutLoad) {
+		n.layout = &Layout{Dir: dir, Component: files[FileLayout]}
+		if pkg != nil && pkg.LayoutLoad {
+			n.layout.Go = pkg
+		}
 	}
 	n.errorPage = files[FileError]
 
-	if files[FilePageServer] != "" && files[FilePage] == "" {
-		s.errorf(files[FilePageServer], "%s requires a %s in the same directory", FilePageServer, FilePage)
+	if pkg != nil && (pkg.Load || pkg.Actions) && files[FilePage] == "" {
+		s.errorf(dir, "package %s exports Load or Actions, but there is no %s in this directory", pkg.Name, FilePage)
 	}
-	if files[FilePage] != "" || files[FileEndpoint] != "" {
-		s.addRoute(n, files)
+	if files[FilePage] != "" || (pkg != nil && len(pkg.Methods) > 0) {
+		s.addRoute(n, files[FilePage], pkg)
 	}
 
 	for _, sub := range subdirs {
@@ -198,15 +245,76 @@ func (s *scanner) walk(dir string, parent *node) {
 	}
 }
 
-func (s *scanner) addRoute(n *node, files map[string]string) {
-	r := &Route{
-		ID:         n.id,
-		Dir:        n.dir,
-		Segments:   n.segments,
-		Page:       files[FilePage],
-		PageServer: files[FilePageServer],
-		Endpoint:   files[FileEndpoint],
+// parseGoPackage reads the exported declarations of the Go files in dir.
+// Signatures are checked later, by the code generator, with full type
+// information.
+func (s *scanner) parseGoPackage(dir string, files []string) *GoPackage {
+	pkg := &GoPackage{Dir: dir, Files: files}
+	if dir != "" {
+		for _, elem := range strings.Split(dir, "/") {
+			if reason := goSafeDir(elem); reason != "" {
+				s.errorf(dir, "%s", reason)
+				return nil
+			}
+		}
 	}
+
+	methods := map[string]bool{}
+	for _, rel := range files {
+		src, err := fs.ReadFile(s.fsys, path.Join(s.root, rel))
+		if err != nil {
+			s.errorf(rel, "%v", err)
+			continue
+		}
+		f, err := parser.ParseFile(s.fset, path.Join(s.root, rel), src, parser.SkipObjectResolution)
+		if err != nil {
+			s.errs = append(s.errs, err)
+			continue
+		}
+		if pkg.Name == "" {
+			pkg.Name = f.Name.Name
+		} else if pkg.Name != f.Name.Name {
+			s.errorf(rel, "package %s conflicts with package %s in the same directory", f.Name.Name, pkg.Name)
+		}
+
+		for _, decl := range f.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				if d.Recv != nil {
+					continue
+				}
+				switch name := d.Name.Name; {
+				case name == "Load":
+					pkg.Load = true
+				case name == "LayoutLoad":
+					pkg.LayoutLoad = true
+				case slices.Contains(HTTPMethods, name):
+					methods[name] = true
+				}
+			case *ast.GenDecl:
+				if d.Tok != token.VAR {
+					continue
+				}
+				for _, spec := range d.Specs {
+					for _, id := range spec.(*ast.ValueSpec).Names {
+						if id.Name == "Actions" {
+							pkg.Actions = true
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, m := range HTTPMethods {
+		if methods[m] {
+			pkg.Methods = append(pkg.Methods, m)
+		}
+	}
+	return pkg
+}
+
+func (s *scanner) addRoute(n *node, page string, pkg *GoPackage) {
+	r := &Route{ID: n.id, Dir: n.dir, Segments: n.segments, Page: page, Go: pkg}
 	for a := n; a != nil; a = a.parent {
 		if a.layout != nil {
 			r.Layouts = append(r.Layouts, *a.layout)
@@ -229,7 +337,8 @@ func (s *scanner) addRoute(n *node, files map[string]string) {
 }
 
 // checkConflicts reports routes that would match exactly the same URLs,
-// such as "/(a)/about" and "/(b)/about", or "/[id]" and "/[slug]".
+// such as "/a.group/about" and "/b.group/about", or "/id.param" and
+// "/slug.param".
 func (s *scanner) checkConflicts() {
 	byKey := map[string]*Route{}
 	for _, r := range s.routes {

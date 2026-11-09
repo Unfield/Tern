@@ -19,7 +19,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] `tern build`: embedded single binary
 - [x] `tern new` with a starter template
 - [x] Example apps: the `tern new` starter and `examples/todos`, with end-to-end tests
-- [ ] Documentation site
+- [x] Documentation: [guide](guide.md), [deployment](deployment.md), [architecture](ARCHITECTURE.md)
 
 ## v0.2: Server-side rendering
 
@@ -35,6 +35,12 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Prerendering at build time (`const Prerender = true`, `Entries` for dynamic routes)
 - [x] Deployment guide: Docker, systemd, Fly.io, reverse proxies ([docs/deployment.md](deployment.md))
 - [x] Assets: Vite imports (`import logo from '$lib/logo.svg'`) and `static/`, with immutable caching
+
+## Next
+
+- A documentation website generated from `docs/`
+- `beforeNavigate` / `afterNavigate` hooks and finer-grained `invalidate`
+- Prerendering endpoints (for example `sitemap.xml`)
 
 ## Later
 

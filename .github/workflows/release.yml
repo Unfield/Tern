@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: CLI binaries and GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Test
+        run: go test -count=1 ./...
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  npm:
+    name: Publish @unfield/tern to npm
+    # Enable with the repository variable NPM_PUBLISH=true once npm
+    # credentials are set up (see CONTRIBUTING.md).
+    if: vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    needs: cli
+    permissions:
+      contents: read
+      id-token: write # npm provenance and trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: pnpm install --frozen-lockfile
+      - name: Set the package version from the tag
+        working-directory: packages/tern
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          npm version "$version" --no-git-tag-version
+          sed -i "s/export const VERSION = '.*';/export const VERSION = '$version';/" src/index.ts
+          pnpm build
+      - name: Publish
+        working-directory: packages/tern
+        env:
+          # Set NPM_TOKEN for the first publish; afterwards npm trusted
+          # publishing (configured on npmjs.com) works without a token.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          tag=latest
+          case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac
+          npm publish --provenance --access public --tag "$tag"

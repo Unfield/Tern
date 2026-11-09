@@ -90,10 +90,11 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 |---|---|---|
 | **v0.1** | Router, loads, actions, endpoints, typegen, dev server, single-binary build | Done |
 | **v0.2** | Server-side rendering and hydration | Done |
-| **v0.3** | Prerendering, streaming, deployment guides | In progress |
+| **v0.3** | Prerendering, streaming, deployment guides | Done |
 
 ## Documentation
 
+- [Guide](docs/guide.md): everything you need to build an app
 - [Architecture](docs/ARCHITECTURE.md): how Tern works internally
 - [Deployment](docs/deployment.md): running Tern in production
 - [Roadmap](docs/ROADMAP.md): what is planned, and in what order

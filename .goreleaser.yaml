@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: tern
+
+builds:
+  - id: tern
+    main: ./cmd/tern
+    binary: tern
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/Unfield/Tern/internal/version.Version={{ .Tag }}
+
+archives:
+  - id: tern
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "tern_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: Unfield
+    name: Tern
+  prerelease: auto
+  header: |
+    Install the CLI in a project with `go get -tool github.com/Unfield/Tern/cmd/tern@{{ .Tag }}`, or start a new one with:
+
+    ```sh
+    go run github.com/Unfield/Tern/cmd/tern@{{ .Tag }} new my-app
+    ```
+
+    See [CHANGELOG.md](https://github.com/Unfield/Tern/blob/{{ .Tag }}/CHANGELOG.md) for details.

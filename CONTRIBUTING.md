@@ -82,6 +82,15 @@ Significant design decisions are recorded as ADRs in [docs/adr](docs/adr). If yo
 
 Maintainers cut releases from `main` using semantic versioning. Before v1.0, minor versions may contain breaking changes; they are always called out in the changelog.
 
+To release:
+
+1. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under a new version heading and commit.
+2. Tag and push: `git tag v0.4.0 && git push origin v0.4.0`.
+
+The [release workflow](.github/workflows/release.yml) then tests, builds `tern` binaries for Linux, macOS and Windows with GoReleaser, and publishes a GitHub release. The Go module is available from the module proxy as soon as the tag exists.
+
+Publishing `@unfield/tern` to npm is part of the same workflow and is enabled by the repository variable `NPM_PUBLISH=true`. The first publish needs an npm automation token in the `NPM_TOKEN` secret; after that, configure [trusted publishing](https://docs.npmjs.com/trusted-publishers) for the package on npmjs.com and the token can be removed.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

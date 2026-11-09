@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
+The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap](docs/ROADMAP.md).
+
 ### Added
 
-- Project foundation: license, contribution guidelines, architecture docs, CI.
 - Route scanning: `+page.svelte`, `+layout.svelte` and `+error.svelte`, plus each route directory's Go package (`Load`, `Actions`, `LayoutLoad`, `GET`, `POST`, …). Dynamic directories use Go-safe names: `slug.param`, `id.param.matcher`, `lang.optional`, `path.rest` and `app.group`. All problems are reported at once, including conflicting routes, and SvelteKit-style names get a suggested rename.
 - URL matching by route priority, with correct handling of encoded characters and trailing slashes.
 - `tern routes` command to list an app's routes.
@@ -22,5 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Streaming: `kit.Defer` starts slow work without holding up the page. The value is a `Promise` in Svelte; it streams as an inline script on full page loads and as newline-delimited JSON on client navigations.
 - Prerendering: pages with `const Prerender = true` (and an `Entries` function for dynamic routes) are rendered to static HTML and data by `tern build` and served with ETags.
 - `tern new` projects include a multi-stage `Dockerfile` producing a distroless image.
-- Deployment guide.
+- The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
+
+[Unreleased]: https://github.com/Unfield/Tern/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Unfield/Tern/releases/tag/v0.3.0

@@ -7,18 +7,19 @@ This is the planned order of work. It changes as we learn; the [issue tracker](h
 The goal: you can build a real app with Tern and deploy it as one binary.
 
 - [x] Route scanner and matcher (`slug.param`, `lang.optional`, `path.rest`, `app.group`, `id.param.matcher`)
-- [ ] Manifest code generation for route packages
-- [ ] `kit`: `Ctx`, `Load`, layouts with `Parent()`, `Redirect`/`Error`/`NotFound`
-- [ ] Form actions with `Fail` and progressive enhancement
-- [ ] Endpoints (`GET`, `POST`, … in a route's Go package)
-- [ ] `Handle` hook and `net/http` middleware
-- [ ] Go → TypeScript type generation, including layout data merging
-- [ ] Client runtime: router, `goto`, `invalidate`, `page` state, `use:enhance`
-- [ ] Vite plugin and asset manifest
-- [ ] `tern dev`: single port, Go restart, Vite HMR, error overlay
-- [ ] `tern build`: embedded single binary
-- [ ] `tern new` with a starter template
-- [ ] Documentation site and two example apps
+- [x] Manifest code generation for route packages
+- [x] `kit`: `Ctx`, `Load`, layouts with `Parent()`, `Redirect`/`Error`/`NotFound`
+- [x] Form actions with `Fail` and progressive enhancement
+- [x] Endpoints (`GET`, `POST`, … in a route's Go package)
+- [x] Hooks (`kit.WithHook`) and `net/http` middleware
+- [x] Go → TypeScript type generation, including layout data merging
+- [x] Client runtime: router, `goto`, `invalidateAll`, `page` and `navigating` state, `use:enhance`, preloading
+- [x] Vite plugin and asset manifest
+- [x] `tern dev`: single port, Go restart, Vite HMR, error overlay
+- [x] `tern build`: embedded single binary
+- [x] `tern new` with a starter template
+- [x] Example apps: the `tern new` starter and `examples/todos`, with end-to-end tests
+- [ ] Documentation site
 
 ## v0.2: Server-side rendering
 

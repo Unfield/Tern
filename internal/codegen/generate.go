@@ -43,6 +43,10 @@ type Result struct {
 // Files whose content is unchanged are not rewritten, so file watchers
 // only see real changes.
 func Generate(root string) (*Result, error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
 	m, err := routes.Scan(os.DirFS(root), RoutesDir)
 	if err != nil {
 		return nil, err

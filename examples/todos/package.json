@@ -1,0 +1,19 @@
+{
+  "name": "todos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go tool tern dev",
+    "build": "go tool tern build",
+    "typecheck": "go tool tern gen && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@unfield/tern": "workspace:*",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.0",
+    "vite": "^8.3.7"
+  }
+}

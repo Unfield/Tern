@@ -67,5 +67,7 @@ func (d *devServer) shell() (*shell, error) {
 }
 
 func (d *devServer) scripts() []string {
-	return []string{"/@vite/client", "/" + d.entry}
+	// /__tern/dev/client.js is served by `tern dev` and reloads the page
+	// after the Go server restarts.
+	return []string{"/@vite/client", "/__tern/dev/client.js", "/" + d.entry}
 }

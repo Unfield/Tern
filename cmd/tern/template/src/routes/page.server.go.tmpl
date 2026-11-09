@@ -1,0 +1,49 @@
+package routes
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/Unfield/Tern/kit"
+)
+
+// Data is passed to +page.svelte. Its TypeScript type is generated for you.
+type Data struct {
+	Message    string    `json:"message"`
+	ServerTime time.Time `json:"serverTime"`
+}
+
+// Load runs on the server for every request to this page.
+func Load(ctx *kit.Ctx) (Data, error) {
+	return Data{
+		Message:    "Hello from Go!",
+		ServerTime: time.Now(),
+	}, nil
+}
+
+type Greeted struct {
+	Greeting string `json:"greeting"`
+}
+
+type Invalid struct {
+	Error string `json:"error"`
+	Name  string `json:"name"`
+}
+
+// Actions handle form submissions to this page.
+var Actions = kit.Actions{
+	"default": kit.Action(greet),
+}
+
+func greet(ctx *kit.Ctx) (Greeted, error) {
+	form, err := ctx.Form()
+	if err != nil {
+		return Greeted{}, err
+	}
+	name := strings.TrimSpace(form.Get("name"))
+	if name == "" {
+		return Greeted{}, kit.Fail(http.StatusBadRequest, Invalid{Error: "Please enter your name.", Name: name})
+	}
+	return Greeted{Greeting: "Nice to meet you, " + name + "!"}, nil
+}

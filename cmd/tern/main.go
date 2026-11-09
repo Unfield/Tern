@@ -14,6 +14,8 @@ const usage = `Tern: Svelte on the client, Go on the server.
 Usage:
   tern <command> [arguments]
 
+Run tern <command> -h for a command's options.
+
 Commands:
   new       Create a new Tern project
   dev       Start the development server
@@ -45,9 +47,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdRoutes(args[1:], stdout, stderr)
 	case "gen":
 		return cmdGen(args[1:], stdout, stderr)
-	case "new", "dev", "build":
-		fmt.Fprintf(stderr, "tern %s: not implemented yet\n", cmd)
-		return 1
+	case "dev":
+		return cmdDev(args[1:], stdout, stderr)
+	case "build":
+		return cmdBuild(args[1:], stdout, stderr)
+	case "new":
+		return cmdNew(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "tern: unknown command %q\n\n%s", cmd, usage)
 		return 2

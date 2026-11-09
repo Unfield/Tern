@@ -1,0 +1,37 @@
+# {{.Name}}
+
+A [Tern](https://github.com/Unfield/Tern) app: Svelte on the client, Go on the server.
+
+## Develop
+
+```sh
+npm install
+npm run dev        # or: go tool tern dev
+```
+
+Open <http://localhost:5173>. Svelte changes update instantly; Go changes rebuild and restart the server.
+
+## Build
+
+```sh
+npm run build      # or: go tool tern build
+./build/{{.Name}}
+```
+
+`tern build` produces a single binary with the client embedded. It listens on `PORT` (default 3000).
+
+## Project layout
+
+```
+src/
+  app.html              HTML template
+  routes/
+    +layout.svelte      layout for every page
+    +page.svelte        the home page
+    page.server.go      its Load function and form actions
+    about/+page.svelte  /about
+static/                 files served as-is
+main.go                 starts the server
+```
+
+The Tern CLI is pinned in `go.mod` as a Go tool, so `go tool tern` always matches the version of the `kit` package your code imports. Update both with `go get -tool github.com/Unfield/Tern/cmd/tern@latest`.

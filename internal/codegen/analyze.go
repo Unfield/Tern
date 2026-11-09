@@ -76,9 +76,7 @@ func analyze(root, routesDir string, m *routes.Manifest) (map[string]*routePacka
 	var errs []string
 	out := map[string]*routePackage{}
 	for _, p := range pkgs {
-		for _, e := range p.Errors {
-			errs = append(errs, e.Error())
-		}
+		errs = append(errs, packageErrors(root, p)...)
 		if len(p.Errors) > 0 {
 			continue
 		}
@@ -327,6 +325,29 @@ func findVarValue(p *packages.Package, obj *types.Var) ast.Expr {
 func isEmptyInterface(t types.Type) bool {
 	i, ok := types.Unalias(t).Underlying().(*types.Interface)
 	return ok && i.Empty()
+}
+
+// packageErrors formats a package's errors with paths relative to root.
+// go list repeats type errors as a list error; prefer the precise ones.
+func packageErrors(root string, p *packages.Package) []string {
+	precise := false
+	for _, e := range p.Errors {
+		if e.Kind != packages.ListError {
+			precise = true
+		}
+	}
+	var out []string
+	for _, e := range p.Errors {
+		if precise && e.Kind == packages.ListError {
+			continue
+		}
+		msg := e.Error()
+		if rel, err := filepath.Rel(root, e.Pos); err == nil && e.Pos != "" && !strings.HasPrefix(rel, "..") {
+			msg = rel + ": " + e.Msg
+		}
+		out = append(out, msg)
+	}
+	return out
 }
 
 func goListError(root string, patterns []string) string {

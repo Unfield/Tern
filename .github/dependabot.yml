@@ -16,6 +16,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # svelte-check and @sveltejs/package support TypeScript 5 and 6 only.
+      - dependency-name: typescript
+        versions: [">=7"]
 
   - package-ecosystem: github-actions
     directory: /

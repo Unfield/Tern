@@ -143,22 +143,32 @@ The Tern client reads the data and mounts the layout and page components. On cli
 
 The client API mirrors SvelteKit's names and semantics where possible, so existing knowledge and docs carry over.
 
-### 7. Dev server (`internal/dev`)
+### 7. Dev server (`cmd/tern/dev.go`)
 
-`tern dev` serves everything on **one port**:
+`tern dev` serves everything on **one port** (5173 by default):
 
-- The Go app runs as a child process and is rebuilt and restarted when `.go` files change.
-- Requests for modules, assets and HMR are proxied to a Vite dev server.
-- Adding or removing route files reruns codegen automatically.
-- Go compile errors are shown in the browser as an overlay.
+```
+browser ──▶ tern dev (5173) ──▶ Go app (internal port) ──▶ Vite (internal port)
+             │                     handles pages, data,       modules, assets,
+             │                     actions, endpoints          HMR websocket
+             └─ /__tern/dev/*: reload events and the error page
+```
+
+- The Go app is rebuilt and restarted when `.go`, `go.mod` or `go.sum` files change. Requests made during a restart wait for the new process instead of failing, and open pages reload once it is up.
+- Adding or removing route files reruns codegen; the server restarts only if the generated Go code changed.
+- Svelte, CSS and TypeScript changes go straight to Vite's hot module replacement.
+- If code generation or the Go build fails, every page shows the error until it is fixed, then reloads by itself.
 
 ### 8. Build (`internal/build`)
 
 1. `tern gen`
-2. `vite build` → `.tern/client`
-3. `go build` with the client embedded via `embed.FS`
+2. `vite build` → `.tern/output/client`
+3. Precompress text assets over 1 KiB with gzip
+4. `go build -trimpath` with the client embedded via `embed.FS`
 
 Output: one static binary serving the app, with hashed immutable assets and correct cache headers.
+
+Apps pin the CLI in their `go.mod` with `go get -tool github.com/Unfield/Tern/cmd/tern`, so `go tool tern` always matches the version of `kit` they import.
 
 ## Project layout of a Tern app
 
@@ -168,10 +178,10 @@ my-app/
 │   ├── routes/          # pages, layouts, server files
 │   ├── lib/             # shared Svelte/TS code ($lib)
 │   ├── app.html         # HTML template
-│   └── hooks.server.go  # optional Handle hook
 ├── static/              # copied as-is
 ├── .tern/               # generated; gitignored
-├── main.go              # tiny: tern.Serve(app)
+├── main.go              # calls ternApp() and ListenAndServe
+├── tern.gen.go          # generated; gitignored
 ├── go.mod
 ├── package.json
 └── vite.config.ts

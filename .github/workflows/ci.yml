@@ -31,7 +31,7 @@ jobs:
         go: [oldstable, stable]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
       - name: Verify go.mod is tidy
@@ -46,7 +46,7 @@ jobs:
     runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: stable
       - uses: golangci/golangci-lint-action@v8

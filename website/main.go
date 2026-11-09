@@ -16,14 +16,14 @@ import (
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
-	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
+	gmhtml "github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
-	gmhtml "github.com/yuin/goldmark/renderer/html"
 )
 
 const repoURL = "https://github.com/Unfield/Tern"

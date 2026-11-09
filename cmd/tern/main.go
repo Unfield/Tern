@@ -43,7 +43,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "routes":
 		return cmdRoutes(args[1:], stdout, stderr)
-	case "new", "dev", "gen", "build":
+	case "gen":
+		return cmdGen(args[1:], stdout, stderr)
+	case "new", "dev", "build":
 		fmt.Fprintf(stderr, "tern %s: not implemented yet\n", cmd)
 		return 1
 	default:

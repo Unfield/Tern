@@ -4,10 +4,21 @@
 // during development.
 import 'core-js/actual/url';
 import 'core-js/actual/url-search-params';
+import { IntlShim } from './intl.js';
 
 declare const __tern_log: ((level: string, message: string) => void) | undefined;
 
 const g = globalThis as Record<string, unknown>;
+
+// Some libraries read process.env.SOMETHING at runtime. Give them an empty
+// environment instead of a ReferenceError.
+if (typeof g.process === 'undefined') {
+	g.process = { env: { NODE_ENV: 'production' }, browser: false, version: '', versions: {} };
+}
+
+if (typeof g.Intl === 'undefined') {
+	g.Intl = IntlShim;
+}
 
 if (typeof g.queueMicrotask !== 'function') {
 	g.queueMicrotask = (fn: () => void) => void Promise.resolve().then(fn);

@@ -61,7 +61,10 @@ export function tern(options: TernOptions = {}): Plugin[] {
 					},
 					// One self-contained file: the renderer runs in an embedded engine
 					// without a module loader or Node built-ins.
-					ssr: { noExternal: true }
+					ssr: { noExternal: true },
+					// Libraries often read process.env.NODE_ENV; the engine has no
+					// process object, so replace it at build time.
+					define: { 'process.env.NODE_ENV': JSON.stringify('production') }
 				};
 			}
 

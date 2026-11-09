@@ -70,10 +70,14 @@ jobs:
       - run: pnpm -r typecheck
 
   e2e:
-    name: End-to-end tests
+    name: End-to-end tests (${{ matrix.example }})
     # Browsers need system packages installed with sudo, so this job always
     # uses GitHub-hosted runners.
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [todos, dashboard]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -86,14 +90,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Chromium
-        working-directory: examples/todos
+        working-directory: examples/${{ matrix.example }}
         run: pnpm exec playwright install --with-deps chromium
       - name: Run Playwright
-        working-directory: examples/todos
+        working-directory: examples/${{ matrix.example }}
         run: pnpm test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
-          path: examples/todos/test-results
+          name: playwright-report-${{ matrix.example }}
+          path: examples/${{ matrix.example }}/test-results
           retention-days: 7

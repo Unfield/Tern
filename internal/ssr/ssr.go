@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +46,7 @@ type Options struct {
 // demand; a VM that times out or fails is discarded and replaced.
 type Pool struct {
 	opts     Options
+	bundle   string
 	bytecode []byte
 	slots    chan *vm // idle VMs; nil entries are free slots
 	closed   chan struct{}
@@ -85,7 +87,7 @@ func NewPool(bundle string, opts Options) (*Pool, error) {
 		return nil, fmt.Errorf("ssr: compiling the server bundle: %w", err)
 	}
 
-	p := &Pool{opts: opts, bytecode: bytecode, slots: make(chan *vm, opts.Workers), closed: make(chan struct{})}
+	p := &Pool{opts: opts, bundle: bundle, bytecode: bytecode, slots: make(chan *vm, opts.Workers), closed: make(chan struct{})}
 	first, err := p.newVM()
 	if err != nil {
 		return nil, err
@@ -129,13 +131,34 @@ func (p *Pool) newVM() (*vm, error) {
 	}
 	if _, err := js.EvalBytecode(p.bytecode); err != nil {
 		_ = js.Close()
-		return nil, fmt.Errorf("ssr: loading the server bundle: %w", err)
+		return nil, fmt.Errorf("ssr: loading the server bundle: %w%s", err, p.loadStack())
 	}
 	if ok, _ := js.Eval("typeof globalThis.__tern_render === 'function'", quickjs.EvalGlobal); ok != true {
 		_ = js.Close()
 		return nil, errors.New("ssr: the server bundle does not define __tern_render")
 	}
 	return &vm{js: js}, nil
+}
+
+// loadStack re-runs the bundle in a scratch VM to capture the JavaScript
+// stack of a load error, which the bytecode error does not include.
+func (p *Pool) loadStack() string {
+	js, err := quickjs.NewVM()
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = js.Close() }()
+	g := js.GlobalObject()
+	atom, err := js.NewAtom("__tern_bundle")
+	if err != nil || js.SetProperty(g, atom, p.bundle) != nil {
+		return ""
+	}
+	out, _ := js.Eval("try { (0, eval)(globalThis.__tern_bundle); '' } catch (e) { e && e.stack ? String(e.stack) : '' }", quickjs.EvalGlobal)
+	stack, _ := out.(string)
+	if stack == "" {
+		return ""
+	}
+	return "\n" + strings.TrimRight(stack, "\n") + "\n(a library probably uses a browser or Node API at load time; see https://github.com/Unfield/Tern/blob/main/docs/guide.md#rendering)"
 }
 
 // Render renders payload, waiting for a free VM if all are busy.

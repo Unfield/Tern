@@ -155,8 +155,11 @@ func actionData(e *tsEmitter, rp *routePackage) string {
 	for _, t := range rp.failures {
 		add(t)
 	}
-	if rp.actionsAny {
-		members = append(members, "Record<string, unknown>")
+	if rp.actionsAny && !seen["{}"] {
+		// An action with an unknown result type (any) adds no known fields.
+		// Using {} rather than Record<string, unknown> keeps the other
+		// actions' fields precisely typed.
+		members = append(members, "{}")
 	}
 	if len(members) == 0 {
 		return "null"

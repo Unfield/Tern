@@ -61,5 +61,5 @@ export interface Invalid {
 export type RouteParams = { slug: string };
 export type PageServerData = Post;
 export type PageData = Merge<Merge<{}, Session>, PageServerData>;
-export type ActionData = Expand<OptionalUnion<Saved | Invalid | Record<string, unknown>>> | null;
+export type ActionData = Expand<OptionalUnion<Saved | Invalid | {}>> | null;
 export type PageProps = { data: PageData; form: ActionData };

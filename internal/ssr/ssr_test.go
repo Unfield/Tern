@@ -130,3 +130,10 @@ func TestBadBundles(t *testing.T) {
 		t.Errorf("missing render function: %v", err)
 	}
 }
+
+func TestLoadErrorIncludesStack(t *testing.T) {
+	_, err := NewPool("function boom() { undefinedThing(); }\nboom();\nglobalThis.__tern_render = () => '{}';", Options{})
+	if err == nil || !strings.Contains(err.Error(), "at boom") {
+		t.Fatalf("err = %v, want a JavaScript stack trace", err)
+	}
+}

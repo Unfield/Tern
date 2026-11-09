@@ -65,9 +65,11 @@ type devRunner struct {
 	stdout io.Writer
 	stderr io.Writer
 
-	vitePort int
-	appPort  int
-	proxy    *httputil.ReverseProxy
+	vitePort   int
+	appPort    int
+	viteExited chan struct{}
+	viteErr    error
+	proxy      *httputil.ReverseProxy
 
 	mu       sync.Mutex
 	app      *exec.Cmd
@@ -98,7 +100,7 @@ func (d *devRunner) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer stopProcess(vite)
+	defer d.stopVite(vite)
 
 	ln, err := net.Listen("tcp", net.JoinHostPort(d.host, strconv.Itoa(d.port)))
 	if err != nil {
@@ -133,6 +135,32 @@ func (d *devRunner) startVite() (*exec.Cmd, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting vite: %w", err)
 	}
+	// Wait until Vite accepts connections, so the first page can be
+	// server-rendered through it.
+	exited := make(chan struct{})
+	go func() {
+		d.viteErr = cmd.Wait()
+		close(exited)
+	}()
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		select {
+		case <-exited:
+			return nil, fmt.Errorf("vite exited during startup: %w", d.viteErr)
+		default:
+		}
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(d.vitePort), 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			stopProcess(cmd)
+			return nil, errors.New("vite did not start within 60 seconds")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	d.viteExited = exited
 	return cmd, nil
 }
 
@@ -503,6 +531,21 @@ func addTree(w *fsnotify.Watcher, dir string) error {
 		}
 		return w.Add(p)
 	})
+}
+
+// stopVite stops the Vite process, whose Wait already runs in startVite.
+func (d *devRunner) stopVite(cmd *exec.Cmd) {
+	if runtime.GOOS == "windows" {
+		_ = cmd.Process.Kill()
+	} else {
+		_ = cmd.Process.Signal(os.Interrupt)
+	}
+	select {
+	case <-d.viteExited:
+	case <-time.After(3 * time.Second):
+		_ = cmd.Process.Kill()
+		<-d.viteExited
+	}
 }
 
 func freePort() (int, error) {

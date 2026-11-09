@@ -404,6 +404,26 @@ function listen() {
 	document.addEventListener('mousedown', onTap);
 	document.addEventListener('touchstart', onTap, { passive: true });
 
+	// GET forms navigate on the client, like links. POST forms are handled
+	// by use:enhance or submit normally.
+	document.addEventListener('submit', (event) => {
+		if (event.defaultPrevented) return;
+		const form = event.target as HTMLFormElement;
+		const submitter = event.submitter as HTMLButtonElement | HTMLInputElement | null;
+		const own = HTMLFormElement.prototype.cloneNode.call(form) as HTMLFormElement;
+		const method = submitter?.hasAttribute('formmethod') ? submitter.formMethod : own.method;
+		const target = submitter?.getAttribute('formtarget') ?? own.target;
+		if (method !== 'get' || (target && target !== '_self') || form.closest('[data-tern-reload]:not([data-tern-reload="off"])')) {
+			return;
+		}
+		const url = new URL(submitter?.hasAttribute('formaction') ? submitter.formAction : own.action);
+		if (url.origin !== location.origin) return;
+		event.preventDefault();
+		url.search = new URLSearchParams(new FormData(form, submitter) as unknown as Record<string, string>).toString();
+		const filtering = url.pathname === location.pathname;
+		void navigate(url, { keepFocus: filtering, noScroll: filtering }, 'form', 0);
+	});
+
 	addEventListener('popstate', (event) => {
 		const index = event.state?.ternIndex;
 		if (index == null) return;

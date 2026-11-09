@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `examples/dashboard`: a shadcn-svelte, Tailwind 4, bits-ui, layerchart and SQLite dashboard with sidebar navigation, dialogs, selects, dropdown menus, toasts, charts, streamed data and dark mode, covered by end-to-end tests.
+- GET forms (such as search boxes) navigate on the client, keeping focus and scroll when they filter the current page.
+- Server rendering supports libraries that read `process.env` or use `Intl` while loading: `process.env.NODE_ENV` is replaced at build time, and the renderer provides a `process` stub and an `en-US` `Intl` (`NumberFormat`, `DateTimeFormat`, `PluralRules`, `Collator`, `RelativeTimeFormat`, `ListFormat`, `Locale`, `Segmenter`).
+- If the server bundle fails to load, the error includes the JavaScript stack trace.
+- Generated types include Vite's client types, so CSS and asset imports type-check.
+
+### Fixed
+
+- `tern dev` waits for Vite before serving, so the first pages are server-rendered.
+- An action with an `any` result no longer turns every field of `form` into `unknown`.
+
 ## [0.3.1] - 2026-11-09
 
 ### Changed

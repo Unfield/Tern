@@ -1,0 +1,46 @@
+name: Bug report
+description: Something is not working as expected
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug. Please search existing issues first.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: A link to a minimal repository, or exact steps to reproduce.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant terminal or browser console output.
+      render: shell
+  - type: input
+    id: tern-version
+    attributes:
+      label: Tern version
+      description: Output of `tern version`
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Go version, Node version, browser.
+      placeholder: |
+        OS: macOS 26
+        Go: 1.27.0
+        Node: 22.x
+        Browser: Firefox 140
+    validations:
+      required: true

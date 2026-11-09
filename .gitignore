@@ -1,0 +1,27 @@
+# Build output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Tern generated files
+.tern/
+
+# Node
+node_modules/
+packages/*/dist/
+*.tsbuildinfo
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.swp
+
+# Environment
+.env
+.env.*
+!.env.example

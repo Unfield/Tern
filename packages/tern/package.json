@@ -1,0 +1,29 @@
+{
+  "name": "@unfield/tern",
+  "version": "0.0.0",
+  "description": "Client runtime and Vite plugin for the Tern framework",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Unfield/Tern.git",
+    "directory": "packages/tern"
+  },
+  "homepage": "https://github.com/Unfield/Tern",
+  "bugs": "https://github.com/Unfield/Tern/issues",
+  "keywords": ["svelte", "go", "framework", "vite", "ssr"],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "svelte": "^5.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,22 @@
+# Architecture Decision Records
+
+An ADR captures one significant decision: the context, what was decided, and the consequences. ADRs are not rewritten once accepted; if a decision changes, a new ADR supersedes the old one.
+
+| # | Title | Status |
+|---|---|---|
+| [0001](0001-use-real-svelte.md) | Use the official Svelte compiler instead of a custom component language | Accepted |
+| [0002](0002-client-rendering-first.md) | Ship client-side rendering first, SSR in v0.2 | Accepted |
+| [0003](0003-route-files-as-go-packages.md) | Route server files are Go packages wired up by code generation | Proposed |
+
+## Template
+
+```markdown
+# NNNN. Title
+
+- Status: Proposed | Accepted | Superseded by NNNN
+- Date: YYYY-MM-DD
+
+## Context
+## Decision
+## Consequences
+```

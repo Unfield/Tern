@@ -1,0 +1,11 @@
+{
+  "name": "tern-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck"
+  }
+}

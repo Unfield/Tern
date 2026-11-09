@@ -178,6 +178,14 @@ test('prerendered pages are served as static files', async ({ page, request }) =
 	await expect(page.getByTestId('features')).toContainText('One binary');
 });
 
+test('prerendered endpoints are served as static files', async ({ request }) => {
+	const res = await request.get('/sitemap.xml');
+	expect(res.status()).toBe(200);
+	expect(res.headers()['content-type']).toContain('xml');
+	expect(res.headers()['etag']).toBeTruthy();
+	expect(await res.text()).toContain('<loc>https://todos.example.com/about</loc>');
+});
+
 test.describe('without JavaScript', () => {
 	test.use({ javaScriptEnabled: false });
 

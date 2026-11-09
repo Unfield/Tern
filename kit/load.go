@@ -6,13 +6,66 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"sync"
 )
 
 type loadResult struct {
+	once sync.Once
 	done chan struct{}
+	run  func()
 	data json.RawMessage
+	uses *nodeUses
 	err  error
+	ran  bool
+}
+
+// ensure runs the load once and waits for it.
+func (r *loadResult) ensure() {
+	r.once.Do(r.run)
+	<-r.done
+}
+
+// nodeUses records what a load read, so the client knows when it must run
+// again: route parameters (ctx.Param), the URL (ctx.URL), parent data
+// (kit.Parent) and explicit dependencies (ctx.Depends).
+type nodeUses struct {
+	mu     sync.Mutex
+	URL    bool     `json:"url,omitempty"`
+	Params []string `json:"params,omitempty"`
+	Deps   []string `json:"deps,omitempty"`
+	Parent bool     `json:"parent,omitempty"`
+}
+
+func (u *nodeUses) param(name string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if !slices.Contains(u.Params, name) {
+		u.Params = append(u.Params, name)
+	}
+}
+
+func (u *nodeUses) dep(key string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if !slices.Contains(u.Deps, key) {
+		u.Deps = append(u.Deps, key)
+	}
+}
+
+func (u *nodeUses) set(f func(*nodeUses)) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	f(u)
+}
+
+// loadOutcome is the result of running a chain of loads.
+type loadOutcome struct {
+	nodes  []json.RawMessage
+	uses   []*nodeUses
+	reused []int // nodes the client already has, skipped by request
+	failed int
+	err    error
 }
 
 // errParentFailed marks a load that stopped because a parent layout failed.
@@ -20,25 +73,21 @@ var errParentFailed = errors.New("kit: a parent layout failed")
 
 // runLoads runs the load functions for a chain of nodes (layouts, then the
 // page) concurrently. A load that calls Parent waits only for the nodes
-// above it. It returns each node's JSON data (nil for nodes without a load)
-// and, on failure, the index of the outermost failing node and its error.
-func (a *App) runLoads(c *Ctx, fns []LoadFunc) (nodes []json.RawMessage, failed int, err error) {
+// above it. Nodes in skip are not run unless a child's Parent call needs
+// their data; the client reuses what it already has for them.
+func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 	results := make([]*loadResult, len(fns))
-	for i := range fns {
-		results[i] = &loadResult{done: make(chan struct{})}
-	}
-
-	var wg sync.WaitGroup
 	for i, fn := range fns {
-		res := results[i]
+		res := &loadResult{done: make(chan struct{})}
+		results[i] = res
 		if fn == nil {
-			close(res.done)
+			res.run = func() { close(res.done) }
 			continue
 		}
 		parent := func() (map[string]json.RawMessage, error) {
 			merged := map[string]json.RawMessage{}
 			for _, p := range results[:i] {
-				<-p.done
+				p.ensure()
 				if p.err != nil {
 					return nil, errParentFailed
 				}
@@ -48,29 +97,47 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc) (nodes []json.RawMessage, failed 
 			}
 			return merged, nil
 		}
-		wg.Go(func() {
+		res.run = func() {
 			defer close(res.done)
+			res.ran = true
+			res.uses = &nodeUses{}
+			fork := c.fork(parent)
+			fork.uses = res.uses
 			var v any
 			res.err = a.safely(func() error {
 				var err error
-				v, err = fn(c.fork(parent))
+				v, err = fn(fork)
 				return err
 			})
 			if res.err == nil {
 				res.data, res.err = encodeNode(v)
 			}
-		})
+		}
+	}
+
+	var wg sync.WaitGroup
+	for i, res := range results {
+		if !skip[i] {
+			wg.Go(res.ensure)
+		}
 	}
 	wg.Wait()
 
-	nodes = make([]json.RawMessage, len(fns))
+	out := loadOutcome{nodes: make([]json.RawMessage, len(fns)), uses: make([]*nodeUses, len(fns)), failed: len(fns)}
 	for i, res := range results {
-		if res.err != nil && !errors.Is(res.err, errParentFailed) {
-			return nodes, i, res.err
+		if skip[i] && !res.ran {
+			out.reused = append(out.reused, i)
+			continue
 		}
-		nodes[i] = res.data
+		if res.err != nil && !errors.Is(res.err, errParentFailed) {
+			out.failed, out.err = i, res.err
+			out.nodes = out.nodes[:i]
+			return out
+		}
+		out.nodes[i] = res.data
+		out.uses[i] = res.uses
 	}
-	return nodes, len(fns), nil
+	return out
 }
 
 // encodeNode marshals a load result, which must encode to a JSON object.

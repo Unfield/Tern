@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -178,8 +179,9 @@ func prerender(bin string) (int, error) {
 	base := "http://127.0.0.1:" + strconv.Itoa(port)
 	client := &http.Client{Timeout: 30 * time.Second}
 	var list struct {
-		Paths  []string `json:"paths"`
-		Errors []string `json:"errors"`
+		Paths     []string `json:"paths"`
+		Endpoints []string `json:"endpoints"`
+		Errors    []string `json:"errors"`
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
@@ -242,7 +244,20 @@ func prerender(bin string) (int, error) {
 			return 0, err
 		}
 	}
-	return len(list.Paths), nil
+	for _, p := range list.Endpoints {
+		dir, err := urlPathToDir(path.Dir(p))
+		if err != nil {
+			return 0, err
+		}
+		name, err := url.PathUnescape(path.Base(p))
+		if err != nil {
+			return 0, err
+		}
+		if err := fetch(p, filepath.Join(dir, name), "*/*"); err != nil {
+			return 0, err
+		}
+	}
+	return len(list.Paths) + len(list.Endpoints), nil
 }
 
 // urlPathToDir maps an escaped URL path to a directory in the client output.

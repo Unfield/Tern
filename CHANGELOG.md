@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `examples/dashboard`: a shadcn-svelte, Tailwind 4, bits-ui, layerchart and SQLite dashboard with sidebar navigation, dialogs, selects, dropdown menus, toasts, charts, streamed data and dark mode, covered by end-to-end tests.
 - GET forms (such as search boxes) navigate on the client, keeping focus and scroll when they filter the current page.
 - Server rendering supports libraries that read `process.env` or use `Intl` while loading: `process.env.NODE_ENV` is replaced at build time, and the renderer provides a `process` stub and an `en-US` `Intl` (`NumberFormat`, `DateTimeFormat`, `PluralRules`, `Collator`, `RelativeTimeFormat`, `ListFormat`, `Locale`, `Segmenter`).
+- Typed links: `tern gen` writes a `$routes` module, and `route('/projects/[id]', { id })` builds URLs with the pattern and parameters checked by TypeScript.
+- Navigation hooks: `beforeNavigate` (can cancel, including leaving the page), `onNavigate` (can delay rendering, for view transitions) and `afterNavigate`.
+- Selective reloading: loads record what they read (`ctx.Param`, `ctx.URL`, `kit.Parent`, and keys from the new `ctx.Depends`). On client navigation, layouts whose inputs did not change are reused instead of rerun, and `invalidate(key)` reruns only the loads that depend on `key`.
+- Content Security Policy: `kit.WithContentSecurityPolicy` and `kit.WithContentSecurityPolicyReportOnly` add a per-request nonce to `script-src`.
+- Prerendered endpoints: a `GET` endpoint with `const Prerender = true`, such as `sitemap.xml`, becomes a static file at build time.
 - A redesigned CLI: colored help, a `tern dev` banner with local and network URLs and timestamped rebuilds, `tern build` steps with spinners and a size summary, and styled `routes`, `gen` and `new` output. Color turns off when output is not a terminal; `NO_COLOR` and `FORCE_COLOR` are honored.
 - `tern version` also prints the Go version and platform; untagged builds report `dev`.
 - If the server bundle fails to load, the error includes the JavaScript stack trace.

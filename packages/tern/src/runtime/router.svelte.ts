@@ -3,14 +3,17 @@ import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
 import { DeferredScope, readStreamed, revive, type Chunk } from './deferred.js';
+import { runAfter, runBefore, runOn } from './navigation.js';
 import { plan } from './select.js';
 import { applyPayloadToPage, page, setNavigating } from './state.svelte.js';
 import type {
 	ActionResult,
 	ClientManifest,
 	GotoOptions,
+	Navigation,
 	NavigationTarget,
 	NavigationType,
+	NodeUses,
 	Payload
 } from './types.js';
 
@@ -35,6 +38,21 @@ const props = $state<{ components: Component<any>[]; data: Record<string, unknow
 
 const preloads = new Map<string, { at: number; promise: Promise<Payload | null> }>();
 
+/** Layout data the client holds, by layout index, for reuse on navigation. */
+interface Held {
+	data: Record<string, unknown> | null;
+	uses: NodeUses | null;
+	params: Record<string, string>;
+	url: string;
+}
+const held = new Map<number, Held>();
+const invalidated = new Set<string>();
+let ignoreNextPop = false;
+
+/** Marks invalidate() reloads, which are not navigations: no hooks, no navigating state. */
+const RELOAD = Symbol('reload');
+type NavigateOptions = GotoOptions & { [RELOAD]?: boolean };
+
 /** Starts the client. Called by the generated entry module. */
 export async function start(m: ClientManifest): Promise<void> {
 	manifest = m;
@@ -50,7 +68,7 @@ export async function start(m: ClientManifest): Promise<void> {
 		scrollPositions = {};
 	}
 
-	historyIndex = history.state?.ternIndex ?? Date.now();
+	historyIndex = history.state?.ternIndex ?? 0;
 	if (history.state?.ternIndex == null) {
 		history.replaceState({ ...history.state, ternIndex: historyIndex, ternState: {} }, '');
 	}
@@ -72,6 +90,8 @@ export async function start(m: ClientManifest): Promise<void> {
 		mount(Root, { target, props });
 	}
 	started = true;
+	await tick();
+	runAfter({ from: null, to: current(), type: 'enter' });
 
 	const saved = scrollPositions[historyIndex];
 	if (saved) {
@@ -95,6 +115,22 @@ export async function goto(href: string | URL, opts: GotoOptions = {}): Promise<
 	await navigate(url, opts, 'goto', 0);
 }
 
+/**
+ * Reruns the loads that depend on key, as declared with ctx.Depends(key)
+ * in Go, plus the current page's load.
+ */
+export function invalidate(key: string): Promise<void> {
+	invalidated.add(key);
+	preloads.clear();
+	return navigate(new URL(location.href), {
+		replaceState: true,
+		noScroll: true,
+		keepFocus: true,
+		state: page.state,
+		[RELOAD]: true
+	}, 'goto', 0);
+}
+
 /** Reruns every load for the current page. */
 export function invalidateAll(): Promise<void> {
 	return navigate(new URL(location.href), {
@@ -102,7 +138,8 @@ export function invalidateAll(): Promise<void> {
 		noScroll: true,
 		keepFocus: true,
 		invalidateAll: true,
-		state: page.state
+		state: page.state,
+		[RELOAD]: true
 	}, 'goto', 0);
 }
 
@@ -161,14 +198,30 @@ function setForm(form: unknown) {
 	props.form = form;
 }
 
-function dataURL(url: URL): string {
+function dataURL(url: URL, reuse: boolean): string {
 	const path = url.pathname.replace(/\/$/, '');
-	return `${path}/__data.json${url.search}`;
+	let target = `${path}/__data.json${url.search}`;
+	if (reuse) {
+		const here = url.pathname + url.search;
+		const entries: { i: number; p: Record<string, string> }[] = [];
+		for (const [i, h] of held) {
+			if (!h.uses) continue; // no load: nothing to reuse
+			if (h.uses.url && h.url !== here) continue;
+			if (h.uses.deps?.some((d) => invalidated.has(d))) continue;
+			const p: Record<string, string> = {};
+			for (const name of h.uses.params ?? []) p[name] = h.params[name] ?? '';
+			entries.push({ i, p });
+		}
+		if (entries.length) {
+			target += (url.search ? '&' : '?') + 'x-tern-reuse=' + encodeURIComponent(JSON.stringify(entries));
+		}
+	}
+	return target;
 }
 
-async function fetchPayload(url: URL): Promise<Payload | null> {
+async function fetchPayload(url: URL, reuse = true): Promise<Payload | null> {
 	try {
-		const res = await fetch(dataURL(url), {
+		const res = await fetch(dataURL(url, reuse), {
 			headers: { accept: 'application/json' },
 			credentials: 'same-origin'
 		});
@@ -191,21 +244,39 @@ function takePreload(url: URL): Promise<Payload | null> | undefined {
 	return undefined;
 }
 
-async function navigate(url: URL, opts: GotoOptions, type: NavigationType, redirects: number, popIndex?: number): Promise<void> {
+async function navigate(
+	url: URL,
+	opts: NavigateOptions,
+	type: NavigationType,
+	redirects: number,
+	popIndex?: number,
+	fromIndex?: number
+): Promise<void> {
 	const id = ++token;
 
 	// A change of hash alone is a scroll, not a navigation.
 	if (type !== 'popstate' && !opts.invalidateAll && url.hash && samePage(url)) {
 		saveScroll();
-		history.pushState({ ternIndex: (historyIndex = Date.now()), ternState: $state.snapshot(opts.state ?? {}) }, '', url);
+		history.pushState({ ternIndex: (historyIndex = historyIndex + 1), ternState: $state.snapshot(opts.state ?? {}) }, '', url);
 		scrollToHash(url.hash);
 		return;
 	}
 
 	const from = current();
-	setNavigating({ from, to: { url, params: null, route: { id: null } }, type });
+	const nav: Navigation = { from, to: { url, params: null, route: { id: null } }, type };
+	const reload = opts[RELOAD] === true;
+	if (!reload && !runBefore(nav, false)) {
+		if (type === 'popstate' && popIndex != null && fromIndex != null) {
+			// The browser already moved; move back to where we were.
+			ignoreNextPop = true;
+			historyIndex = fromIndex;
+			history.go(fromIndex - popIndex);
+		}
+		return;
+	}
+	if (!reload) setNavigating(nav);
 
-	const payload = await (opts.invalidateAll ? undefined : takePreload(url)) ?? (await fetchPayload(url));
+	const payload = await (opts.invalidateAll ? undefined : takePreload(url)) ?? (await fetchPayload(url, !opts.invalidateAll));
 	if (id !== token) return;
 	if (!payload) {
 		location.href = url.href; // not a page, or the server is unreachable
@@ -218,11 +289,18 @@ async function navigate(url: URL, opts: GotoOptions, type: NavigationType, redir
 			location.href = next.href;
 			return;
 		}
-		return navigate(next, { ...opts, replaceState: true }, type, redirects + 1);
+		return navigate(next, { ...opts, replaceState: true, [RELOAD]: false }, type, redirects + 1);
 	}
 
 	if (type !== 'popstate') saveScroll(); // popstate saved before historyIndex changed
 	const state = opts.state ?? (type === 'popstate' ? history.state?.ternState ?? {} : {});
+
+	nav.to = { url, params: payload.params ?? {}, route: { id: payload.route ?? null } };
+	let finish!: () => void;
+	const complete = new Promise<void>((resolve) => (finish = resolve));
+	const cleanups = reload ? [] : await runOn(nav, complete);
+	if (id !== token) return;
+
 	const ok = await render(payload, url, state, id);
 	if (id !== token) return;
 	if (!ok) {
@@ -236,7 +314,7 @@ async function navigate(url: URL, opts: GotoOptions, type: NavigationType, redir
 		if (opts.replaceState) {
 			history.replaceState(entry, '', url);
 		} else {
-			entry.ternIndex = historyIndex = Date.now();
+			entry.ternIndex = historyIndex = historyIndex + 1;
 			history.pushState(entry, '', url);
 		}
 	}
@@ -254,6 +332,10 @@ async function navigate(url: URL, opts: GotoOptions, type: NavigationType, redir
 	if (!opts.keepFocus) {
 		resetFocus();
 	}
+	invalidated.clear();
+	finish();
+	if (!reload) runAfter(nav);
+	for (const fn of cleanups) fn();
 }
 
 function samePage(url: URL): boolean {
@@ -279,6 +361,16 @@ function loadRoute(id: string): Promise<Component<any>[]> {
 
 /** Renders a payload. It reports false if the payload is not a page. */
 async function render(p: Payload, url: URL, state: Record<string, unknown>, id: number): Promise<boolean> {
+	const route = p.route ? manifest.routes[p.route] : undefined;
+	const layouts = route ? route.layouts : manifest.fallback.layouts;
+	// Fill in the layout data the server skipped because we already have it.
+	if (p.reused?.length) {
+		p.nodes = [...(p.nodes ?? [])];
+		for (const k of p.reused) {
+			const li = layouts[k];
+			p.nodes[k] = li === undefined ? null : (held.get(li)?.data ?? null);
+		}
+	}
 	const what = plan(manifest, p);
 	let components: Component<any>[];
 	switch (what.kind) {
@@ -304,6 +396,14 @@ async function render(p: Payload, url: URL, state: Record<string, unknown>, id: 
 	nodes = p.nodes ?? [];
 
 	if (id !== token) return true; // superseded; the newer navigation renders
+
+	if (p.type === 'data') {
+		const here = url.pathname + url.search;
+		layouts.forEach((li, k) => {
+			if (p.reused?.includes(k)) return;
+			held.set(li, { data: p.nodes?.[k] ?? null, uses: p.uses?.[k] ?? null, params: p.params ?? {}, url: here });
+		});
+	}
 
 	applyPayloadToPage(p, url, state, what.data);
 	props.components = components;
@@ -424,12 +524,24 @@ function listen() {
 		void navigate(url, { keepFocus: filtering, noScroll: filtering }, 'form', 0);
 	});
 
+	addEventListener('beforeunload', (event) => {
+		if (!runBefore({ from: current(), to: null, type: 'leave' }, true)) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
+	});
+
 	addEventListener('popstate', (event) => {
+		if (ignoreNextPop) {
+			ignoreNextPop = false;
+			return;
+		}
 		const index = event.state?.ternIndex;
 		if (index == null) return;
 		saveScroll();
+		const fromIndex = historyIndex;
 		historyIndex = index;
-		void navigate(new URL(location.href), { state: event.state?.ternState ?? {} }, 'popstate', 0, index);
+		void navigate(new URL(location.href), { state: event.state?.ternState ?? {} }, 'popstate', 0, index, fromIndex);
 	});
 
 	addEventListener('pagehide', saveScroll);

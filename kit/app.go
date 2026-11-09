@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -196,8 +197,21 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, a.opts.bodyLimit)
 	}
 
+	var reuse string
+	if isData && strings.Contains(r.URL.RawQuery, reuseParam) {
+		// The reuse list is for Tern; loads see the URL without it.
+		q := r.URL.Query()
+		reuse = q.Get(reuseParam)
+		q.Del(reuseParam)
+		u := *r.URL
+		u.RawQuery = q.Encode()
+		r = r.Clone(r.Context())
+		r.URL = &u
+	}
+
 	rw := &responseWriter{ResponseWriter: w}
 	c := newCtx(a, rw, r)
+	c.reuse = reuse
 	route, params, ok := a.router.Match(path)
 	var def *RouteDef
 	if ok {
@@ -235,10 +249,9 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 
 // prerenderList responds with the paths `tern build` should prerender.
 func (a *App) prerenderList(w http.ResponseWriter) {
-	var paths []string
-	var errs []string
+	var paths, endpoints, errs []string
 	for r, def := range a.defs {
-		if !def.Prerender || def.Page == nil {
+		if !def.Prerender || (def.Page == nil && def.Endpoint[http.MethodGet] == nil) {
 			continue
 		}
 		entries := []map[string]string{nil}
@@ -259,12 +272,21 @@ func (a *App) prerenderList(w http.ResponseWriter) {
 				errs = append(errs, fmt.Sprintf("route %s: %v", def.ID, err))
 				continue
 			}
+			if def.Page == nil {
+				if path.Ext(p) == "" {
+					errs = append(errs, fmt.Sprintf("route %s: a prerendered endpoint needs a file extension in its URL, such as sitemap.xml, so its type is known", def.ID))
+					continue
+				}
+				endpoints = append(endpoints, p)
+				continue
+			}
 			paths = append(paths, p)
 		}
 	}
 	slices.Sort(paths)
+	slices.Sort(endpoints)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string][]string{"paths": slices.Compact(paths), "errors": errs})
+	_ = json.NewEncoder(w).Encode(map[string][]string{"paths": slices.Compact(paths), "endpoints": slices.Compact(endpoints), "errors": errs})
 }
 
 // wantsPage reports whether a request to a route with a page should be
@@ -455,17 +477,21 @@ type formValue struct{ v any }
 
 // renderPage runs the page's loads and responds with HTML or JSON.
 func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *formValue) {
-	nodes, failed, err := a.runLoads(c, a.loaders(def))
-	if err != nil {
+	var skip map[int]bool
+	if isData {
+		skip = a.reusable(c, def)
+	}
+	out := a.runLoads(c, a.loaders(def), skip)
+	if out.err != nil {
 		var re *RedirectError
-		if errors.As(err, &re) {
+		if errors.As(out.err, &re) {
 			a.redirect(c, isData, re)
 			return
 		}
-		a.renderErrorWithNodes(c, def, nodes[:failed], failed, isData, err)
+		a.renderErrorWithNodes(c, def, out.nodes, out.failed, isData, out.err, out.reused...)
 		return
 	}
-	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: nodes}
+	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: out.nodes, Uses: out.uses, Reused: out.reused}
 	if form != nil {
 		p.Form = form.v
 		p.HasForm = true
@@ -475,6 +501,52 @@ func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *f
 		return
 	}
 	a.writeDocument(c, status, def, p)
+}
+
+// reuseParam is the query parameter a client uses to list the layout data
+// it already has: a JSON array of {i: layout index, p: the params it read}.
+const reuseParam = "x-tern-reuse"
+
+type reuseEntry struct {
+	Layout int               `json:"i"`
+	Params map[string]string `json:"p"`
+}
+
+// reusable decides which of a route's layout loads can be skipped because
+// the client's copy of their data is still valid.
+func (a *App) reusable(c *Ctx, def *RouteDef) map[int]bool {
+	raw := c.reuse
+	if raw == "" {
+		return nil
+	}
+	var entries []reuseEntry
+	if json.Unmarshal([]byte(raw), &entries) != nil {
+		return nil
+	}
+	held := make(map[int]reuseEntry, len(entries))
+	for _, e := range entries {
+		held[e.Layout] = e
+	}
+	skip := map[int]bool{}
+	for k, li := range def.Layouts {
+		// Reuse is a prefix: once a layout reruns, the ones below it rerun
+		// too, since they may read its data.
+		e, ok := held[li]
+		if !ok {
+			break
+		}
+		same := true
+		for name, v := range e.Params {
+			if c.params[name] != v {
+				same = false
+			}
+		}
+		if !same {
+			break
+		}
+		skip[k] = true
+	}
+	return skip
 }
 
 // loaders returns the load functions for a route's layouts and page, in
@@ -501,10 +573,11 @@ func (a *App) renderError(c *Ctx, def *RouteDef, isData bool, err error) {
 	for _, li := range layouts {
 		fns = append(fns, a.m.Layouts[li].Load)
 	}
-	nodes, _, loadErr := a.runLoads(c, fns)
-	if loadErr != nil {
+	out := a.runLoads(c, fns, nil)
+	nodes := out.nodes
+	if out.err != nil {
 		// A layout failed while rendering an error: render without layouts.
-		a.logLoadErr(c, loadErr)
+		a.logLoadErr(c, out.err)
 		nodes = nil
 	}
 	a.renderErrorWithNodes(c, def, nodes, len(nodes), isData, err)
@@ -519,8 +592,13 @@ func (a *App) logLoadErr(c *Ctx, err error) {
 	}
 }
 
-func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []json.RawMessage, failed int, isData bool, err error) {
+func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []json.RawMessage, failed int, isData bool, err error, reused ...int) {
 	p := errorPayload(c, def, err, a.dev != nil)
+	for _, k := range reused {
+		if k < failed {
+			p.Reused = append(p.Reused, k)
+		}
+	}
 	if _, _, expected := classify(err); !expected {
 		a.logError(c, err)
 	}

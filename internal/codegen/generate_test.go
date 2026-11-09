@@ -176,6 +176,7 @@ func TestGenerate(t *testing.T) {
 		"tern.gen.go",
 		".tern/generated/manifest.js",
 		".tern/generated/client.js",
+		".tern/generated/routes.d.ts",
 		".tern/types/src/routes/$types.d.ts",
 		".tern/types/src/routes/blog/$types.d.ts",
 		".tern/types/src/routes/blog/slug.param/$types.d.ts",

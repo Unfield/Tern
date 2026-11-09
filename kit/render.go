@@ -20,6 +20,8 @@ type payload struct {
 	Params   map[string]string `json:"params,omitempty"`
 	Status   int               `json:"status"`
 	Nodes    []json.RawMessage `json:"nodes,omitempty"`
+	Uses     []*nodeUses       `json:"uses,omitempty"`
+	Reused   []int             `json:"reused,omitempty"`
 	Failed   *int              `json:"failed,omitempty"`
 	Error    *errorBody        `json:"error,omitempty"`
 	Location string            `json:"location,omitempty"`
@@ -168,6 +170,13 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	c.applyHeaders()
 	h := c.writer.Header()
 	h.Set("Content-Type", "text/html; charset=utf-8")
+	if a.opts.csp != "" {
+		name := "Content-Security-Policy"
+		if a.opts.cspReportOnly {
+			name += "-Report-Only"
+		}
+		h.Set(name, withNonce(a.opts.csp, nonce))
+	}
 	if h.Get("Cache-Control") == "" {
 		h.Set("Cache-Control", "private, no-cache")
 	}
@@ -212,6 +221,41 @@ func (a *App) components(def *RouteDef) []string {
 	}
 	if def != nil && def.Page != nil {
 		out = append(out, def.Page.Component)
+	}
+	return out
+}
+
+// withNonce adds 'nonce-…' to a policy's script-src directive, creating it
+// from default-src (or 'self') when absent.
+func withNonce(policy, nonce string) string {
+	token := "'nonce-" + nonce + "'"
+	directives := strings.Split(policy, ";")
+	var defaultSrc string
+	for i, d := range directives {
+		fields := strings.Fields(d)
+		if len(fields) == 0 {
+			continue
+		}
+		switch strings.ToLower(fields[0]) {
+		case "script-src":
+			directives[i] = strings.TrimSpace(d) + " " + token
+			return strings.Join(trimAll(directives), "; ")
+		case "default-src":
+			defaultSrc = strings.Join(fields[1:], " ")
+		}
+	}
+	if defaultSrc == "" {
+		defaultSrc = "'self'"
+	}
+	return strings.Join(append(trimAll(directives), "script-src "+defaultSrc+" "+token), "; ")
+}
+
+func trimAll(parts []string) []string {
+	out := parts[:0]
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
 	}
 	return out
 }

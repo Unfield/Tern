@@ -615,3 +615,47 @@ func TestPrerenderedPagesAreServed(t *testing.T) {
 		t.Error("pages that were not prerendered must render dynamically")
 	}
 }
+
+func TestContentSecurityPolicy(t *testing.T) {
+	a, _ := newTestApp(t, testManifest(), WithContentSecurityPolicy("default-src 'self'; img-src *"))
+	rec := do(t, a, "GET", "/", nil)
+	csp := rec.Header().Get("Content-Security-Policy")
+	m := regexp.MustCompile(`'nonce-([^']+)'`).FindStringSubmatch(csp)
+	if m == nil || !strings.HasPrefix(csp, "default-src 'self'; img-src *; script-src 'self' 'nonce-") {
+		t.Fatalf("CSP = %q", csp)
+	}
+	if !strings.Contains(rec.Body.String(), `nonce="`+m[1]+`"`) {
+		t.Error("Tern's scripts must carry the policy's nonce")
+	}
+	if other := do(t, a, "GET", "/", nil).Header().Get("Content-Security-Policy"); other == csp {
+		t.Error("the nonce must change on every request")
+	}
+
+	ro, _ := newTestApp(t, testManifest(), WithContentSecurityPolicyReportOnly("script-src 'self' https://cdn.example"))
+	got := do(t, ro, "GET", "/", nil).Header().Get("Content-Security-Policy-Report-Only")
+	if !strings.HasPrefix(got, "script-src 'self' https://cdn.example 'nonce-") {
+		t.Errorf("report-only CSP = %q", got)
+	}
+}
+
+func TestPrerenderListIncludesEndpoints(t *testing.T) {
+	t.Setenv("TERN_PRERENDER", "1")
+	m := testManifest()
+	ok := func(c *Ctx) error { return c.Text(200, "x") }
+	m.Routes = append(m.Routes,
+		RouteDef{ID: "/sitemap.xml", Prerender: true, Endpoint: map[string]HandlerFunc{"GET": ok}},
+		RouteDef{ID: "/feed", Prerender: true, Endpoint: map[string]HandlerFunc{"GET": ok}},
+	)
+	a, _ := newTestApp(t, m)
+	var out struct {
+		Endpoints []string `json:"endpoints"`
+		Errors    []string `json:"errors"`
+	}
+	_ = json.Unmarshal(do(t, a, "GET", "/__tern/prerender", nil).Body.Bytes(), &out)
+	if strings.Join(out.Endpoints, ",") != "/sitemap.xml" {
+		t.Errorf("endpoints = %v", out.Endpoints)
+	}
+	if len(out.Errors) != 1 || !strings.Contains(out.Errors[0], "needs a file extension") {
+		t.Errorf("errors = %v", out.Errors)
+	}
+}

@@ -42,6 +42,17 @@ export interface Payload {
 	data?: unknown;
 	form?: unknown;
 	hasForm?: boolean;
+	/** What each node's load read, so the client knows when to rerun it. */
+	uses?: (NodeUses | null)[];
+	/** Nodes the server skipped because the client already has their data. */
+	reused?: number[];
+}
+
+export interface NodeUses {
+	url?: boolean;
+	params?: string[];
+	deps?: string[];
+	parent?: boolean;
 }
 
 /** The result of submitting a form action with `use:enhance`. */
@@ -57,7 +68,7 @@ export interface NavigationTarget {
 	route: { id: string | null };
 }
 
-export type NavigationType = 'enter' | 'link' | 'goto' | 'popstate' | 'form';
+export type NavigationType = 'enter' | 'link' | 'goto' | 'popstate' | 'form' | 'leave';
 
 export interface Navigation {
 	from: NavigationTarget | null;

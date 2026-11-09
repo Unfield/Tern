@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { invalidate } from '@ternkit/tern';
 	import { BarChart } from 'layerchart';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import Circle from '@lucide/svelte/icons/circle';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -8,6 +11,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let refreshing = $state(false);
 
 	const stats = $derived([
 		{ label: 'Projects', value: data.stats.projects, hint: `${data.stats.activeProjects} active`, id: 'projects' },
@@ -41,9 +45,20 @@
 	<title>Overview · Acme Dashboard</title>
 </svelte:head>
 
-<div>
-	<h1 class="text-2xl font-semibold tracking-tight">Welcome back, {data.displayName}</h1>
-	<p class="text-muted-foreground">Here's what's happening with your projects.</p>
+<div class="flex flex-wrap items-start justify-between gap-4">
+	<div>
+		<h1 class="text-2xl font-semibold tracking-tight">Welcome back, {data.displayName}</h1>
+		<p class="text-muted-foreground">Here's what's happening with your projects.</p>
+	</div>
+	<Button
+		variant="outline"
+		disabled={refreshing}
+		onclick={async () => {
+			refreshing = true;
+			await invalidate('app:stats');
+			refreshing = false;
+		}}><RefreshCw class={refreshing ? 'animate-spin' : ''} /> Refresh</Button
+	>
 </div>
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

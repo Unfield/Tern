@@ -8,7 +8,9 @@
  * ```
  */
 export { page, navigating } from './runtime/state.svelte.js';
-export { goto, invalidateAll, preloadData, applyAction } from './runtime/router.svelte.js';
+export { goto, invalidate, invalidateAll, preloadData, applyAction } from './runtime/router.svelte.js';
+export { beforeNavigate, onNavigate, afterNavigate } from './runtime/navigation.js';
+export type { BeforeNavigateEvent, OnNavigateEvent } from './runtime/navigation.js';
 export { enhance } from './runtime/forms.js';
 export type { SubmitFunction, SubmitInput, SubmitResult } from './runtime/forms.js';
 export type { ActionResult, GotoOptions, Navigation, NavigationTarget, NavigationType } from './runtime/types.js';

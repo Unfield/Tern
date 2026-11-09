@@ -14,7 +14,9 @@ This guide covers everything you need to build an app with Tern. If you know Sve
 - [Rendering](#rendering)
 - [Streaming](#streaming)
 - [Prerendering](#prerendering)
+- [Typed links](#typed-links)
 - [The client API](#the-client-api)
+- [Reloading data](#reloading-data)
 - [Static files and assets](#static-files-and-assets)
 - [Commands](#commands)
 
@@ -317,6 +319,7 @@ func auth(ctx *kit.Ctx) error {
 | `kit.WithBodyLimit(n)` | maximum request body size (default 1 MiB) |
 | `kit.WithLogger(l)` | the `*slog.Logger` for errors and server events |
 | `kit.WithAddr(addr)` | the listen address (default `HOST:PORT` from the environment, port 3000) |
+| `kit.WithContentSecurityPolicy(policy)` | send a Content-Security-Policy with a per-request script nonce |
 | `kit.WithoutSSR()` | render every page on the client only |
 | `kit.WithSSRWorkers(n)`, `kit.WithSSRTimeout(d)` | tune server rendering |
 
@@ -351,7 +354,7 @@ Conversion follows `encoding/json` exactly:
 
 Pages render on the server and hydrate in the browser. Users see content before JavaScript loads, search engines see real HTML, and forms work without JavaScript.
 
-Server rendering runs your Svelte components in an embedded JavaScript engine inside the Go binary (QuickJS, pure Go, no cgo). Code that runs during rendering can use the JavaScript language and `URL`, but not browser APIs like `window` or `document`; use those in `onMount` or `$effect`, which only run in the browser. This matches the rules for SvelteKit.
+Server rendering runs your Svelte components in an embedded JavaScript engine inside the Go binary (QuickJS, pure Go, no cgo). Code that runs during rendering can use the JavaScript language, `URL`, `URLSearchParams`, `console`, `process.env` and an `Intl` that formats like `en-US` (the browser re-renders with the user's real locale), but not browser APIs like `window` or `document`; use those in `onMount` or `$effect`, which only run in the browser. This matches the rules for SvelteKit.
 
 If a server render fails or exceeds 5 seconds, Tern logs the error and sends the page for client rendering instead, so a rendering bug does not take the page down.
 
@@ -421,7 +424,23 @@ func Entries() ([]map[string]string, error) {
 }
 ```
 
+Endpoints can be prerendered too, for files such as `sitemap.xml` or `feed.xml`: add `const Prerender = true` to a route package with a `GET` handler. The URL needs a file extension, so the static file gets the right type.
+
 `tern build` saves each page's HTML and data into the binary and serves them as static files with ETags. Prerendered pages still hydrate and navigate on the client, and their form actions still run on the server. Hooks do not run for prerendered pages, so only prerender pages that are public.
+
+## Typed links
+
+`tern gen` writes a `$routes` module with every route's URL pattern. Build links with `route()` instead of string templates:
+
+```svelte
+<script lang="ts">
+	import { route } from '$routes';
+</script>
+
+<a href={route('/projects/[id]', { id: project.id })}>{project.name}</a>
+```
+
+TypeScript checks that the pattern exists and that required parameters are given, so renaming a route directory turns every stale link into a compile error. Optional parameters (`[[lang]]`) may be left out, and rest parameters (`[...path]`) accept a string or an array of segments. Parameter values are URL-encoded.
 
 ## The client API
 
@@ -432,7 +451,11 @@ Import from `@ternkit/tern` in your components:
 | `page` | reactive state for the current page: `url`, `params`, `route.id`, `status`, `error`, `data`, `form`, `state` |
 | `navigating.current` | the navigation in progress, or `null` |
 | `goto(href, opts)` | navigate; options: `replaceState`, `noScroll`, `keepFocus`, `invalidateAll`, `state` |
-| `invalidateAll()` | rerun the current page's loads |
+| `invalidate(key)` | rerun the loads that called `ctx.Depends(key)`, and the page's load |
+| `invalidateAll()` | rerun every load for the current page |
+| `beforeNavigate(fn)` | run before each navigation; `nav.cancel()` stops it (for example with unsaved changes) |
+| `onNavigate(fn)` | run before the new page renders; return a promise to delay it (view transitions) or a function to run afterwards |
+| `afterNavigate(fn)` | run after each navigation, including the first page load |
 | `preloadData(href)` | load a page's data and code ahead of time |
 | `enhance` | progressive form enhancement (`use:enhance`) |
 | `applyAction(result)` | apply an action result as `use:enhance` does |
@@ -448,7 +471,39 @@ Links to pages in the app navigate on the client. These attributes change link b
 | `data-tern-noscroll` | keep the scroll position |
 | `data-tern-replacestate` | replace the history entry instead of adding one |
 
-Links with `target`, `download`, `rel="external"`, or another origin are left to the browser. After each navigation, Tern restores scroll positions on back and forward, moves focus to the document, and announces the new page title to screen readers.
+Links with `target`, `download`, `rel="external"`, or another origin are left to the browser. Forms with `method="GET"`, such as search boxes, also navigate on the client; when they target the current page, focus and scroll position are kept so typing is not interrupted. After each navigation, Tern restores scroll positions on back and forward, moves focus to the document, and announces the new page title to screen readers.
+
+## Reloading data
+
+On a client-side navigation, Tern reruns a layout's load only when something it used changed:
+
+| Used in the load | Reruns when |
+|---|---|
+| `ctx.Param("id")` | that parameter changes |
+| `ctx.URL()` | the URL (path or query) changes |
+| `kit.Parent[T](ctx)` | a parent layout reruns |
+| `ctx.Depends("app:projects")` | the browser calls `invalidate('app:projects')` |
+
+Other layouts are reused from the browser's copy, so moving between pages under a layout does not repeat its queries. The page's own load always runs. Full page loads, form actions and `invalidateAll()` run every load.
+
+Reading `ctx.Request` directly is not tracked. If a layout depends on the request in a way Tern cannot see (for example a header), call `ctx.URL()` or `ctx.Depends` so it reruns when needed, or use `invalidateAll()` after the change.
+
+```go
+func LayoutLoad(ctx *kit.Ctx) (Shell, error) {
+	ctx.Depends("app:projects")
+	return loadShell(ctx)
+}
+```
+
+```svelte
+<button onclick={() => invalidate('app:projects')}>Refresh</button>
+```
+
+## Content Security Policy
+
+`kit.WithContentSecurityPolicy("default-src 'self'")` sends a `Content-Security-Policy` header on every page. Tern adds a fresh nonce to `script-src` for each request and puts it on its own scripts, so strict policies work without `'unsafe-inline'`. Use `%tern.nonce%` in `src/app.html` for your own inline scripts. `kit.WithContentSecurityPolicyReportOnly` sends the report-only header to try a policy first.
+
+Libraries that inject inline scripts during server rendering (for example a dark-mode script) need the nonce too; check whether they accept one, or move their script into `app.html` with `nonce="%tern.nonce%"`.
 
 ## Static files and assets
 

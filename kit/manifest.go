@@ -117,6 +117,8 @@ type options struct {
 	multipartMemory int64
 	logger          *slog.Logger
 	addr            string
+	csp             string
+	cspReportOnly   bool
 	ssr             bool
 	ssrWorkers      int
 	ssrTimeout      time.Duration
@@ -192,4 +194,20 @@ func WithSSRWorkers(n int) Option {
 // falls back to client rendering. The default is 5 seconds.
 func WithSSRTimeout(d time.Duration) Option {
 	return func(o *options) { o.ssrTimeout = d }
+}
+
+// WithContentSecurityPolicy sends a Content-Security-Policy header on every
+// page. Tern adds a per-request nonce to script-src (creating the directive
+// if needed) and puts it on its own scripts, so a strict policy such as
+// "default-src 'self'" works without 'unsafe-inline'. Use %tern.nonce% in
+// src/app.html for your own inline scripts.
+func WithContentSecurityPolicy(policy string) Option {
+	return func(o *options) { o.csp, o.cspReportOnly = policy, false }
+}
+
+// WithContentSecurityPolicyReportOnly is like WithContentSecurityPolicy but
+// sends Content-Security-Policy-Report-Only, to test a policy without
+// enforcing it.
+func WithContentSecurityPolicyReportOnly(policy string) Option {
+	return func(o *options) { o.csp, o.cspReportOnly = policy, true }
 }

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,6 +72,7 @@ func Generate(root string) (*Result, error) {
 	g.typeFiles()
 	g.tsconfig()
 	g.files[".tern/ambient.d.ts"] = []byte(ambientTypes)
+	g.linksModule()
 	g.serverEntry()
 	g.files[ClientOut+"/.keep"] = []byte("Placeholder so the client directory can be embedded before the first build.\n")
 	g.files[ServerOut+"/.keep"] = []byte("Placeholder so the server directory can be embedded before the first build.\n")
@@ -205,7 +207,7 @@ func (g *generator) goFile() error {
 			}
 			b.WriteString("},\n")
 		}
-		if rp != nil && rp.prerender && r.Page != "" {
+		if rp != nil && rp.prerender && (r.Page != "" || slices.Contains(rp.methods, "GET")) {
 			b.WriteString("\t\t\tPrerender: true,\n")
 		}
 		if rp != nil && rp.entries {
@@ -409,7 +411,8 @@ func (g *generator) tsconfig() {
 	"compilerOptions": {
 		"paths": {
 			"$lib": ["../src/lib"],
-			"$lib/*": ["../src/lib/*"]
+			"$lib/*": ["../src/lib/*"],
+			"$routes": ["./generated/routes"]
 		},
 		"rootDirs": ["..", "./types"],
 		"verbatimModuleSyntax": true,

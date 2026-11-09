@@ -20,6 +20,7 @@ func Load(ctx *kit.Ctx) (Overview, error) {
 	if err != nil {
 		return Overview{}, err
 	}
+	ctx.Depends("app:stats") // the Refresh button reruns this load with invalidate("app:stats")
 	stats, err := store.Stats(ctx, user)
 	if err != nil {
 		return Overview{}, err

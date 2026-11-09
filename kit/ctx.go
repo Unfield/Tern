@@ -39,6 +39,11 @@ type Ctx struct {
 
 	deferredSeq int
 	deferreds   []*deferred
+
+	// uses records what the running load reads; nil outside loads.
+	uses *nodeUses
+	// reuse is the client's list of layout data it already has.
+	reuse string
 }
 
 var _ context.Context = (*Ctx)(nil)
@@ -65,6 +70,7 @@ func (c *Ctx) fork(parent func() (map[string]json.RawMessage, error)) *Ctx {
 		writer:  c.writer,
 		parent:  parent,
 		root:    c.rootCtx(),
+		reuse:   c.reuse,
 	}
 }
 
@@ -80,17 +86,53 @@ func (c *Ctx) Err() error { return c.Request.Context().Err() }
 // Value implements context.Context.
 func (c *Ctx) Value(key any) any { return c.Request.Context().Value(key) }
 
-// URL returns the request URL.
-func (c *Ctx) URL() *url.URL { return c.Request.URL }
+// URL returns the request URL. A load that reads it runs again on every
+// client navigation that changes the URL.
+func (c *Ctx) URL() *url.URL {
+	if c.uses != nil {
+		c.uses.set(func(u *nodeUses) { u.URL = true })
+	}
+	return c.Request.URL
+}
 
 // RouteID returns the matched route's ID, e.g. "/blog/slug.param".
 func (c *Ctx) RouteID() string { return c.routeID }
 
-// Param returns the value of a route parameter, or "" if it is absent.
-func (c *Ctx) Param(name string) string { return c.params[name] }
+// Param returns the value of a route parameter, or "" if it is absent. A
+// load that reads a parameter runs again when the parameter changes.
+func (c *Ctx) Param(name string) string {
+	if c.uses != nil {
+		c.uses.param(name)
+	}
+	return c.params[name]
+}
 
 // Params returns all route parameters. The map must not be modified.
-func (c *Ctx) Params() map[string]string { return c.params }
+func (c *Ctx) Params() map[string]string {
+	if c.uses != nil {
+		for name := range c.params {
+			c.uses.param(name)
+		}
+	}
+	return c.params
+}
+
+// Depends declares that the running load depends on keys, such as
+// "app:projects" or a URL it fetches. Calling invalidate("app:projects")
+// in the browser reruns every load that depends on it.
+//
+// On client navigation, a layout's load only runs again when something it
+// used changed: a parameter read with Param, the URL read with URL, the
+// data of a parent it read with Parent, or an invalidated dependency.
+// Reading Request directly is not tracked; use these methods instead.
+func (c *Ctx) Depends(keys ...string) {
+	if c.uses == nil {
+		return
+	}
+	for _, k := range keys {
+		c.uses.dep(k)
+	}
+}
 
 // Header returns a request header value.
 func (c *Ctx) Header(name string) string { return c.Request.Header.Get(name) }
@@ -224,6 +266,9 @@ func Parent[T any](c *Ctx) (T, error) {
 	var out T
 	if c.parent == nil {
 		return out, errors.New("kit.Parent: only available in Load and LayoutLoad")
+	}
+	if c.uses != nil {
+		c.uses.set(func(u *nodeUses) { u.Parent = true })
 	}
 	merged, err := c.parent()
 	if err != nil {

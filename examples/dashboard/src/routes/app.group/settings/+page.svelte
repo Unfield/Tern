@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '@ternkit/tern';
+	import { beforeNavigate, enhance } from '@ternkit/tern';
 	import { toast } from 'svelte-sonner';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -10,6 +10,12 @@
 
 	let { data, form }: PageProps = $props();
 	const values = $derived(form?.values ?? data.profile);
+
+	// Warn before leaving with unsaved changes.
+	let dirty = $state(false);
+	beforeNavigate((nav) => {
+		if (dirty && !confirm('You have unsaved changes. Leave this page?')) nav.cancel();
+	});
 </script>
 
 <svelte:head>
@@ -30,10 +36,14 @@
 		<form
 			method="POST"
 			class="grid gap-5"
+			oninput={() => (dirty = true)}
 			use:enhance={() =>
 				async ({ result, update }) => {
 					await update({ reset: false });
-					if (result.type === 'success') toast.success('Settings saved');
+					if (result.type === 'success') {
+						dirty = false;
+						toast.success('Settings saved');
+					}
 				}}
 		>
 			<div class="grid gap-2">

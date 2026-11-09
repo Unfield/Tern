@@ -205,3 +205,41 @@ test('the stats API returns JSON for the signed-in user', async ({ page }) => {
 	expect(stats.projects).toBe(3);
 	expect(stats.perDay).toHaveLength(14);
 });
+
+test('layout loads are reused across navigations and invalidate reruns only dependents', async ({ page }) => {
+	await signIn(page);
+	const reusedFor = async (action: () => Promise<void>) => {
+		const response = page.waitForResponse((r) => r.url().includes('__data.json'));
+		await action();
+		const first = (await (await response).text()).split('\n')[0]!;
+		return (JSON.parse(first).reused ?? []) as number[];
+	};
+
+	expect(await reusedFor(() => page.getByRole('link', { name: 'Projects', exact: true }).click())).toEqual([0, 1]);
+	await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
+
+	// Both layouts (the root and the app shell with the sidebar) come from the client's cache.
+	expect(await reusedFor(() => page.getByTestId('sidebar-projects').getByRole('link', { name: 'Mobile app' }).click())).toEqual([0, 1]);
+	await expect(page.getByTestId('project-name')).toHaveText('Mobile app');
+	await expect(page.getByTestId('sidebar-projects')).toContainText('Website redesign');
+
+	await page.getByRole('link', { name: 'Overview' }).click();
+	await expect(page.getByTestId('stat-projects')).toHaveText('3');
+	// invalidate('app:stats') reruns the overview's load but not the layouts.
+	expect(await reusedFor(() => page.getByRole('button', { name: 'Refresh' }).click())).toEqual([0, 1]);
+});
+
+test('beforeNavigate can stop navigation with unsaved changes', async ({ page }) => {
+	await signIn(page);
+	await page.goto('/settings');
+	await page.getByLabel('Display name').fill('Changed');
+
+	page.once('dialog', (d) => void d.dismiss());
+	await page.getByRole('link', { name: 'Projects', exact: true }).click();
+	await expect(page).toHaveURL(/\/settings$/);
+	await expect(page.getByLabel('Display name')).toHaveValue('Changed');
+
+	page.once('dialog', (d) => void d.accept());
+	await page.getByRole('link', { name: 'Projects', exact: true }).click();
+	await expect(page).toHaveURL(/\/projects$/);
+});

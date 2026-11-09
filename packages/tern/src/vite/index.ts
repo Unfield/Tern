@@ -41,7 +41,12 @@ export function tern(options: TernOptions = {}): Plugin[] {
 			root = path.resolve(config.root ?? process.cwd());
 			const shared: UserConfig = {
 				appType: 'custom',
-				resolve: { alias: { $lib: path.join(root, 'src/lib') } }
+				resolve: {
+					alias: {
+						$lib: path.join(root, 'src/lib'),
+						$routes: path.join(root, '.tern/generated/routes.js')
+					}
+				}
 			};
 
 			if (env.isSsrBuild) {

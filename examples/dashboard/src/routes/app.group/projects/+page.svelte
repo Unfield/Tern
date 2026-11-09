@@ -12,6 +12,7 @@
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import { route } from '$routes';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -30,7 +31,7 @@
 		if (data.query) params.set('q', data.query);
 		if (status !== 'all') params.set('status', status);
 		const qs = params.toString();
-		void goto(`/projects${qs ? `?${qs}` : ''}`, { keepFocus: true, noScroll: true });
+		void goto(`${route('/projects')}${qs ? `?${qs}` : ''}`, { keepFocus: true, noScroll: true });
 	}
 </script>
 
@@ -112,7 +113,7 @@
 			{#each data.projects ?? [] as p (p.id)}
 				<Table.Row>
 					<Table.Cell>
-						<a href="/projects/{p.id}" class="font-medium hover:underline">{p.name}</a>
+						<a href={route('/projects/[id]', { id: p.id })} class="font-medium hover:underline">{p.name}</a>
 						{#if p.description}<p class="text-muted-foreground line-clamp-1 text-sm">{p.description}</p>{/if}
 					</Table.Cell>
 					<Table.Cell><Badge variant={statusVariant[p.status as keyof typeof statusVariant] ?? 'outline'}>{p.status}</Badge></Table.Cell>

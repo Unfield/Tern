@@ -39,8 +39,6 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 ## Next
 
 - A documentation website generated from `docs/`
-- `beforeNavigate` / `afterNavigate` hooks and finer-grained `invalidate`
-- Prerendering endpoints (for example `sitemap.xml`)
 
 ## Later
 

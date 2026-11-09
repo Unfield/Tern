@@ -11,6 +11,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { route } from '$routes';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -81,9 +82,9 @@
 					<Sidebar.Menu data-testid="sidebar-projects">
 						{#each data.projects ?? [] as p (p.id)}
 							<Sidebar.MenuItem>
-								<Sidebar.MenuButton isActive={page.url.pathname === `/projects/${p.id}`}>
+								<Sidebar.MenuButton isActive={page.url.pathname === route('/projects/[id]', { id: p.id })}>
 									{#snippet child({ props })}
-										<a href="/projects/{p.id}" {...props}><span>{p.name}</span></a>
+										<a href={route('/projects/[id]', { id: p.id })} {...props}><span>{p.name}</span></a>
 									{/snippet}
 								</Sidebar.MenuButton>
 							</Sidebar.MenuItem>

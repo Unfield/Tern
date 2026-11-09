@@ -54,6 +54,9 @@ func (e *tsEmitter) typeOf(t types.Type) string {
 		if obj := n.Obj(); obj.Pkg() != nil && obj.Pkg().Path() == "encoding/json" && obj.Name() == "RawMessage" {
 			return "unknown"
 		}
+		if obj := n.Obj(); obj.Pkg() != nil && obj.Pkg().Path() == kitPath && obj.Name() == "Deferred" && n.TypeArgs().Len() == 1 {
+			return "Promise<" + e.typeOf(n.TypeArgs().At(0)) + ">"
+		}
 	}
 	if _, isPtr := t.(*types.Pointer); !isPtr {
 		if hasMethod(t, "MarshalJSON") {

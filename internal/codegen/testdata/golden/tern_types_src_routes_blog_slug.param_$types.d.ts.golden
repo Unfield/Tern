@@ -26,6 +26,11 @@ export interface Comment {
 	replies: Array<Comment> | null;
 }
 
+/** Go type example.com/app/src/routes/blog/slug.param.Base */
+export interface Base {
+	title: string;
+}
+
 /** Go type example.com/app/src/routes/blog/slug.param.Post */
 export interface Post {
 	title: string;
@@ -40,6 +45,7 @@ export interface Post {
 	by_id: Record<string, string> | null;
 	"odd-name": string;
 	Untagged: boolean;
+	related: Promise<Array<Base> | null>;
 }
 
 /** Go type example.com/app/src/routes/blog/slug.param.Saved */

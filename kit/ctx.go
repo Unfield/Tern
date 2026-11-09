@@ -36,6 +36,9 @@ type Ctx struct {
 	parent func() (map[string]json.RawMessage, error)
 	// root is the Ctx that owns response state, when this one is a fork.
 	root *Ctx
+
+	deferredSeq int
+	deferreds   []*deferred
 }
 
 var _ context.Context = (*Ctx)(nil)

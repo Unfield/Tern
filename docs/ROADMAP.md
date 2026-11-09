@@ -31,7 +31,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 
 ## v0.3: Performance and deployment
 
-- [ ] Streaming deferred data from `Load`
+- [x] Streaming deferred data from loads (`kit.Defer`, rendered with `{#await}`)
 - [x] Prerendering at build time (`const Prerender = true`, `Entries` for dynamic routes)
 - [x] Deployment guide: Docker, systemd, Fly.io, reverse proxies ([docs/deployment.md](deployment.md))
 - [x] Assets: Vite imports (`import logo from '$lib/logo.svg'`) and `static/`, with immutable caching

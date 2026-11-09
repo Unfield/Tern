@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import DefaultError from '../runtime/DefaultError.svelte';
 import Passthrough from '../runtime/Passthrough.svelte';
 import Root from '../runtime/Root.svelte';
+import { revive } from '../runtime/deferred.js';
 import { plan } from '../runtime/select.js';
 import { applyPayloadToPage } from '../runtime/state.svelte.js';
 /**
@@ -13,6 +14,8 @@ export function createRenderer(manifest) {
     const layout = (i) => manifest.layouts[i]?.component ?? Passthrough;
     return (payloadJSON, href) => {
         const p = JSON.parse(payloadJSON);
+        // Deferred values are still loading: render their pending state.
+        p.nodes = revive(p.nodes, () => new Promise(() => { }));
         const what = plan(manifest, p);
         let components;
         switch (what.kind) {

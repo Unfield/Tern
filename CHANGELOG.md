@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `tern build`: a single binary with the client embedded and precompressed.
 - `tern new`: a starter project that pins the CLI with `go get -tool`.
 - `examples/todos` with Playwright end-to-end tests.
+- Streaming: `kit.Defer` starts slow work without holding up the page. The value is a `Promise` in Svelte; it streams as an inline script on full page loads and as newline-delimited JSON on client navigations.
 - Prerendering: pages with `const Prerender = true` (and an `Entries` function for dynamic routes) are rendered to static HTML and data by `tern build` and served with ETags.
 - `tern new` projects include a multi-stage `Dockerfile` producing a distroless image.
 - Deployment guide.

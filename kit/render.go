@@ -45,6 +45,14 @@ func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
 	h.Set("Cache-Control", "private, no-store")
 	c.writer.WriteHeader(status)
 	_, _ = c.writer.Write(b)
+	if p.Type == "data" && len(c.pendingDeferreds()) > 0 {
+		// Deferred values follow as one JSON object per line.
+		_, _ = c.writer.Write([]byte("\n"))
+		_ = http.NewResponseController(c.writer).Flush()
+		a.streamDeferred(c, func(chunk []byte) {
+			_, _ = c.writer.Write(append(chunk, '\n'))
+		})
+	}
 }
 
 // shell is a parsed src/app.html.
@@ -133,6 +141,10 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		}
 		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(scripts[0]), nonce)
 	}
+	streaming := len(c.pendingDeferreds()) > 0 && c.Request.Method != http.MethodHead
+	if streaming {
+		fmt.Fprintf(&head, "\n\t\t<script nonce=\"%s\">%s</script>", nonce, resolveScript)
+	}
 	fmt.Fprintf(&head, "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"%s\">%s</script>", nonce, data)
 
 	headHTML := head.String()
@@ -160,9 +172,21 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		h.Set("Cache-Control", "private, no-cache")
 	}
 	c.writer.WriteHeader(status)
-	if c.Request.Method != http.MethodHead {
-		_, _ = c.writer.Write([]byte(doc))
+	if c.Request.Method == http.MethodHead {
+		return
 	}
+	if !streaming {
+		_, _ = c.writer.Write([]byte(doc))
+		return
+	}
+	// Send the page now, then each deferred value as it resolves.
+	before, after := splitBody(doc)
+	_, _ = c.writer.Write([]byte(before))
+	_ = http.NewResponseController(c.writer).Flush()
+	a.streamDeferred(c, func(chunk []byte) {
+		fmt.Fprintf(c.writer, "<script nonce=\"%s\">__tern_resolve(%s)</script>\n", nonce, chunk)
+	})
+	_, _ = c.writer.Write([]byte(after))
 }
 
 // absoluteURL reconstructs the URL the client requested.

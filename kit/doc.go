@@ -11,6 +11,9 @@
 // T must encode to a JSON object: a struct or a map. Its JSON is passed to
 // the Svelte component as data, with TypeScript types generated from T.
 //
+// Slow data can be streamed: put a [Deferred] in the data, created with
+// [Defer], and render it with {#await} in Svelte.
+//
 // Errors control the response. Return [Error] or [NotFound] for an expected
 // error page, [Redirect] to redirect, and [Fail] from an action to report a
 // validation error. Any other error is logged and shown as "Internal Error".

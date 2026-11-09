@@ -80,6 +80,26 @@ test('links navigate on the client and history works', async ({ page }) => {
 	await stillMarked(page);
 });
 
+test('deferred data streams in after the page renders', async ({ page }) => {
+	await signIn(page);
+	for (const title of ['Buy oat milk', 'Buy bread', 'Call mom']) {
+		await page.getByLabel('New todo').fill(title);
+		await page.getByRole('button', { name: 'Add' }).click();
+		await expect(page.getByRole('link', { name: title })).toBeVisible();
+	}
+
+	// Client-side navigation: the data response streams line by line.
+	await page.getByRole('link', { name: 'Buy bread' }).click();
+	await expect(page.getByTestId('detail-title')).toHaveText('Buy bread');
+	await expect(page.getByTestId('similar-loading')).toBeVisible();
+	await expect(page.getByTestId('similar')).toHaveText('Buy oat milk');
+
+	// Full page load: the HTML arrives first, then an inline script resolves the value.
+	await page.reload();
+	await expect(page.getByTestId('detail-title')).toHaveText('Buy bread');
+	await expect(page.getByTestId('similar')).toHaveText('Buy oat milk');
+});
+
 test('unknown todos show the error page', async ({ page }) => {
 	await signIn(page);
 	const res = await page.goto('/todos/999999');

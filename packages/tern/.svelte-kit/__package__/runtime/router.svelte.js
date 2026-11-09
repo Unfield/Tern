@@ -2,6 +2,7 @@ import { hydrate, mount, tick } from 'svelte';
 import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
+import { DeferredScope, readStreamed, revive } from './deferred.js';
 import { plan } from './select.js';
 import { applyPayloadToPage, page, setNavigating } from './state.svelte.js';
 const MAX_REDIRECTS = 20;
@@ -42,6 +43,13 @@ export async function start(m) {
     history.scrollRestoration = 'manual';
     const url = new URL(location.href);
     const payload = JSON.parse(el.textContent ?? '{}');
+    // Deferred values stream in as inline scripts calling __tern_resolve.
+    const w = window;
+    const scope = new DeferredScope();
+    payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
+    for (const chunk of Object.values(w.__tern_d ?? {}))
+        scope.settle(chunk);
+    w.__tern_on = (chunk) => scope.settle(chunk);
     await render(payload, url, history.state?.ternState ?? {}, token);
     if (target.hasAttribute('data-tern-ssr')) {
         hydrate(Root, { target, props });
@@ -141,7 +149,7 @@ async function fetchPayload(url) {
         if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
             return null;
         }
-        return (await res.json());
+        return await readStreamed(res);
     }
     catch {
         return null;

@@ -84,6 +84,7 @@ type Post struct {
 	ByID     map[int]string    ` + "`json:\"by_id\"`" + `
 	Odd      string            ` + "`json:\"odd-name\"`" + `
 	Untagged bool
+	Related  kit.Deferred[[]Base] `+"`json:\"related\"`"+`
 }
 
 type Saved struct {

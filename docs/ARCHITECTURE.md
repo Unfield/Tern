@@ -137,6 +137,8 @@ The server and the client use one function to decide what renders for a payload 
 
 In development, the Go app asks Vite to render, so server rendering always uses the latest source.
 
+**Streaming.** A load can return slow data as `kit.Deferred[T]`, created with `kit.Defer(ctx, fn)`. The value is a placeholder in the payload and a `Promise<T>` in Svelte. The page renders and is sent without waiting (the server renders `{#await}` blocks in their pending state), then each value is written as it resolves: as an inline `<script>` before `</body>` on full page loads, or as one JSON line per value after the payload in `__data.json`.
+
 ### 6. Client runtime (`packages/tern`, published as `@unfield/tern`)
 
 - **Router:** link interception, history, scroll restoration, `goto`, `invalidate`, `invalidateAll`, preloading on hover.

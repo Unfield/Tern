@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
 ### Added
 
 - `examples/dashboard`: a shadcn-svelte, Tailwind 4, bits-ui, layerchart and SQLite dashboard with sidebar navigation, dialogs, selects, dropdown menus, toasts, charts, streamed data and dark mode, covered by end-to-end tests.
@@ -62,6 +64,7 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Unfield/Tern/releases/tag/v0.4.0
 [0.3.1]: https://github.com/Unfield/Tern/releases/tag/v0.3.1
 [0.3.0]: https://github.com/Unfield/Tern/releases/tag/v0.3.0

@@ -229,7 +229,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 // absoluteURL reconstructs the URL the client requested.
 func absoluteURL(r *http.Request, base string) string {
 	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+	if isHTTPS(r) {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host + base + r.URL.RequestURI()

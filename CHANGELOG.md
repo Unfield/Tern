@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
+- The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.
+- The guide has a recipe for signing in with a password: sessions, a sign-in action, a hook, guarded pages and signing out.
+
+### Changed
+
+- Once `kit.WithTrustedProxies` is set, `X-Forwarded-Proto` is only believed from those proxies.
+- Compact numbers during server rendering round like browsers do (`12K`, not `12.3K`; `999,999` is `1M`).
+
+### Fixed
+
+- The guide's hook example called `sessions.User`, which doesn't exist.
+
 ## [1.3.0] - 2026-11-10
 
 ### Added

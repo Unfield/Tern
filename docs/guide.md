@@ -359,8 +359,8 @@ func main() {
 
 // auth runs before every page, data, action and endpoint request.
 func auth(ctx *kit.Ctx) error {
-	if user, ok := sessions.User(ctx); ok {
-		ctx.Locals["user"] = user
+	if id := sessions.Get(ctx).GetString("user"); id != "" {
+		ctx.Locals["user"] = id
 	}
 	return nil
 }
@@ -374,6 +374,7 @@ func auth(ctx *kit.Ctx) error {
 | `kit.WithTrustedOrigins(...)` | allow cross-origin form posts from these origins |
 | `kit.WithoutCSRFProtection()` | disable cross-origin request protection |
 | `kit.WithBodyLimit(n)` | maximum request body size (default 1 MiB) |
+| `kit.WithTrustedProxies(cidrs...)` | the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed; see `ctx.ClientIP()` |
 | `kit.WithLogger(l)` | the `*slog.Logger` for errors and server events |
 | `kit.WithAddr(addr)` | the listen address (default `HOST:PORT` from the environment, port 3000) |
 | `kit.WithContentSecurityPolicy(policy)` | send a Content-Security-Policy with a per-request script nonce |
@@ -655,6 +656,113 @@ Libraries that inject inline scripts during server rendering (for example a dark
 ## Authentication
 
 Tern's building blocks for sign-in work together: `plugins/sessions` remembers who is signed in, `plugins/oauth` signs users in with other providers, `plugins/oidc` lets other apps sign in with yours, and `rbac` checks permissions.
+
+### Sign in with a password
+
+The pieces: a form action signs the user in, a hook reads the session on every request, and a layout guards the pages that need it. [examples/todos](../examples/todos) is a working app built this way.
+
+**1. Sessions.** Add the plugin in `main.go`, with a secret of at least 32 characters that stays the same across restarts:
+
+```go
+app, err := ternApp(
+	kit.WithPlugins(
+		sessions.New(os.Getenv("SESSION_SECRET")),
+		ratelimit.New(ratelimit.Rate(10, time.Minute)), // slows down password guessing
+	),
+	kit.WithHook(loadUser),
+)
+```
+
+The session is an encrypted, `HttpOnly` cookie, so the browser's scripts can't read it and users can't change it.
+
+**2. Signing in**, in `src/routes/login/page.server.go`:
+
+```go
+type LoginFailed struct {
+	Email string `json:"email"`
+	Error string `json:"error"`
+}
+
+var Actions = kit.Actions{
+	"default": kit.Action(func(ctx *kit.Ctx) (struct{}, error) {
+		form, err := ctx.Form()
+		if err != nil {
+			return struct{}{}, err
+		}
+		email := form.Get("email")
+		user, err := users.CheckPassword(ctx, email, form.Get("password"))
+		if err != nil {
+			// The same message whether the email or the password was wrong.
+			return struct{}{}, kit.Fail(400, LoginFailed{Email: email, Error: "Wrong email or password."})
+		}
+		if err := sessions.Get(ctx).Set("user", user.ID); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/app")
+	}),
+}
+```
+
+```svelte
+<form method="POST" use:enhance>
+	<input name="email" type="email" autocomplete="username" value={form?.email ?? ''} required />
+	<input name="password" type="password" autocomplete="current-password" required />
+	<button>Sign in</button>
+	{#if form?.error}<p role="alert">{form.error}</p>{/if}
+</form>
+```
+
+Store passwords only as hashes from a slow password hash, such as `golang.org/x/crypto/bcrypt` or argon2id.
+
+**3. Knowing who is signed in.** A hook runs before every page, data request, action and endpoint, and puts the user in `ctx.Locals`:
+
+```go
+func loadUser(ctx *kit.Ctx) error {
+	id := sessions.Get(ctx).GetString("user")
+	if id == "" {
+		return nil
+	}
+	user, err := users.Find(ctx, id)
+	if err != nil {
+		return nil //nolint:nilerr // a deleted user is signed out
+	}
+	ctx.Locals["user"] = user
+	return nil
+}
+```
+
+Plugins' hooks run before yours, so the session is ready. Live components see the same `Locals` through `c.Locals()`.
+
+**4. Guarding pages.** Put the pages that need a user in a group directory, such as `src/routes/app.group/`. A group shares a layout without adding to the URL. Its layout load runs for every page inside, including data requests during client-side navigation:
+
+```go
+// src/routes/app.group/layout.server.go
+func LayoutLoad(ctx *kit.Ctx) (Account, error) {
+	user, ok := ctx.Locals["user"].(*users.User)
+	if !ok {
+		return Account{}, kit.Redirect(http.StatusSeeOther, "/login")
+	}
+	return Account{Name: user.Name}, nil
+}
+```
+
+- **Actions and endpoints:** a layout load guards pages, but actions and endpoints don't run it. Check the user in each one too, or guard a whole path with a hook, as `policy.Hook` in [Roles and permissions](#roles-and-permissions) does.
+
+**5. Signing out**, as an action, since signing out changes state and must not be a link:
+
+```go
+"logout": kit.Action(func(ctx *kit.Ctx) (struct{}, error) {
+	sessions.Get(ctx).Clear()
+	return struct{}{}, kit.Redirect(http.StatusSeeOther, "/")
+}),
+```
+
+```svelte
+<form method="POST" action="/app?/logout" use:enhance><button>Sign out</button></form>
+```
+
+- **Why `use:enhance` reruns every load:** after an action, `use:enhance` follows the redirect and reruns the loads, so layouts that showed the user see the cleared session. No page is left showing stale, signed-in data.
+- **Cookie sessions can't be revoked on the server:** a copied cookie stays valid until it expires. To sign a user out everywhere, store a session version on the user and compare it in the hook.
 
 ### Sign in with GitHub, Google or OpenID Connect
 

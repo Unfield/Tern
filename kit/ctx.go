@@ -307,7 +307,7 @@ func Parent[T any](c *Ctx) (T, error) {
 }
 
 func isLocalHTTP(r *http.Request) bool {
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+	if isHTTPS(r) {
 		return false
 	}
 	host := r.Host

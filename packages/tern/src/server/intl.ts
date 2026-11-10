@@ -20,38 +20,81 @@ class NumberFormat {
 	format(value: number | bigint): string {
 		let n = Number(value);
 		const o = this.#o;
-		if (!Number.isFinite(n)) return Number.isNaN(n) ? 'NaN' : n > 0 ? '∞' : '-∞';
+		const sign = String(o.signDisplay ?? 'auto');
+		if (!Number.isFinite(n)) {
+			if (Number.isNaN(n)) return 'NaN';
+			return (n < 0 ? (sign === 'never' ? '' : '-') : sign === 'always' || sign === 'exceptZero' ? '+' : '') + '∞';
+		}
+		const negative = n < 0 || Object.is(n, -0);
 		let suffix = '';
 		if (o.style === 'percent') {
 			n *= 100;
 			suffix = '%';
 		}
+		const isCurrency = o.style === 'currency';
+		const explicit = o.maximumFractionDigits !== undefined || o.minimumFractionDigits !== undefined;
+		let max = (o.maximumFractionDigits as number | undefined) ?? (isCurrency ? 2 : o.style === 'percent' ? 0 : 3);
+		const min = (o.minimumFractionDigits as number | undefined) ?? (isCurrency ? 2 : 0);
+		let abs = Math.abs(n);
 		if (o.notation === 'compact') {
-			const abs = Math.abs(n);
-			for (const [limit, s] of [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']] as const) {
-				if (abs >= limit) {
-					n /= limit;
-					suffix = s + suffix;
+			const long = o.compactDisplay === 'long';
+			const units = [
+				[1e12, 'T', ' trillion'],
+				[1e9, 'B', ' billion'],
+				[1e6, 'M', ' million'],
+				[1e3, 'K', ' thousand'],
+			] as const;
+			// Like en-US: two significant digits, but never fewer than the
+			// integer part needs.
+			const digits = (x: number) => (explicit ? Math.max(min, Math.min(max, 20)) : x >= 10 || x === 0 ? 0 : Math.max(0, 1 - Math.floor(Math.log10(x))));
+			const rounded = (x: number) => Number(x.toFixed(digits(x)));
+			let unit = '';
+			for (let i = 0; i < units.length; i++) {
+				const [limit, short, name] = units[i]!;
+				if (rounded(abs) >= limit) {
+					abs /= limit;
+					unit = long ? name : short;
+					// 999,999 rounds to 1000K, which is 1M.
+					if (rounded(abs) >= 1000 && i > 0) {
+						abs /= 1000;
+						unit = long ? units[i - 1]![2] : units[i - 1]![1];
+					}
 					break;
 				}
 			}
+			suffix = unit + suffix;
+			max = digits(abs);
 		}
-		const isCurrency = o.style === 'currency';
-		const max = (o.maximumFractionDigits as number | undefined) ?? (isCurrency ? 2 : o.style === 'percent' ? 0 : o.notation === 'compact' ? 1 : 3);
-		const min = (o.minimumFractionDigits as number | undefined) ?? (isCurrency ? 2 : 0);
-		let s = Math.abs(n).toFixed(Math.max(min, Math.min(max, 20)));
+		let s = abs.toFixed(o.notation === 'compact' && !explicit ? max : Math.max(min, Math.min(max, 20)));
 		if (s.includes('.')) {
 			let [int, frac = ''] = s.split('.');
 			while (frac.length > min && frac.endsWith('0')) frac = frac.slice(0, -1);
 			s = frac ? `${int}.${frac}` : int!;
 		}
+		const zero = !/[1-9]/.test(s);
 		const [int, frac] = s.split('.');
 		s = (o.useGrouping === false ? int! : group(int!)) + (frac ? `.${frac}` : '');
 		if (isCurrency) {
 			const code = String(o.currency ?? 'USD').toUpperCase();
 			s = (code === 'USD' ? '$' : code === 'EUR' ? '€' : code === 'GBP' ? '£' : `${code} `) + s;
 		}
-		return (n < 0 ? '-' : '') + s + suffix;
+		let prefix = '';
+		switch (sign) {
+			case 'never':
+				break;
+			case 'always':
+				prefix = negative ? '-' : '+';
+				break;
+			case 'exceptZero':
+				prefix = zero ? '' : negative ? '-' : '+';
+				break;
+			case 'negative':
+				prefix = negative && !zero ? '-' : '';
+				break;
+			default:
+				prefix = negative ? '-' : '';
+		}
+		return prefix + s + suffix;
 	}
 	formatToParts(value: number) {
 		return [{ type: 'literal', value: this.format(value) }];

@@ -134,6 +134,7 @@ type options struct {
 	middleware      []func(http.Handler) http.Handler
 	matchers        map[string]func(string) bool
 	trustedOrigins  []string
+	trustedProxies  []string
 	crossOriginOK   []string
 	openAPI         *openAPIOptions
 	csrf            bool

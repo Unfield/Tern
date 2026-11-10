@@ -199,7 +199,11 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	for _, mw := range slices.Backward(o.middleware) {
 		h = mw(h)
 	}
-	a.handler = h
+	proxies, err := parseProxies(o.trustedProxies)
+	if err != nil {
+		return nil, err
+	}
+	a.handler = proxies.handler(h)
 	return a, nil
 }
 

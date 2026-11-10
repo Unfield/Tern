@@ -46,6 +46,16 @@ Tern works behind nginx, Caddy, Traefik, or a cloud load balancer:
 - The proxy must pass the `Host` header through unchanged.
 - If the proxy terminates TLS, it must set `X-Forwarded-Proto: https`. Tern uses it to mark cookies `Secure` and to build absolute URLs for server rendering.
 - Leave `Origin` and `Sec-Fetch-Site` intact; cross-origin protection reads them.
+- Tell Tern which addresses are your proxies, so it can find the client's real IP:
+
+```go
+app, err := ternApp(kit.WithTrustedProxies("127.0.0.1", "10.0.0.0/8"))
+```
+
+- **`ctx.ClientIP()`:** returns the client's address; middleware can call `kit.ClientIP(r)`. The rate limiting plugin uses it.
+- **Which address it picks:** if the request came from a trusted proxy, it reads `X-Forwarded-For` from the right and returns the first address that isn't a proxy. Entries further left were written by the client and could be anything, so they're never used. A request from any other peer gets its own address.
+- **`X-Forwarded-Proto`:** once proxies are configured, it is only believed from them.
+- **Without the option:** `ClientIP` is the proxy's address, and `X-Forwarded-Proto` is believed from anyone.
 
 Example Caddyfile:
 

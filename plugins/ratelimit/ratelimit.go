@@ -7,14 +7,13 @@
 // PATCH, DELETE), such as form actions and API writes, are limited. A
 // client over the limit gets 429 Too Many Requests with Retry-After.
 //
-// Clients are identified by their IP address from RemoteAddr. Behind a
-// reverse proxy, use KeyFunc to read a trusted header instead.
+// Clients are identified by their IP address from kit.ClientIP. Behind a
+// reverse proxy, configure the app with kit.WithTrustedProxies.
 package ratelimit
 
 import (
 	"context"
 	"math"
-	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -39,8 +38,8 @@ func Burst(n int) Option { return func(p *Plugin) { p.burst = float64(n) } }
 // Methods sets which methods are limited. Pass none to limit every request.
 func Methods(m ...string) Option { return func(p *Plugin) { p.methods = m } }
 
-// KeyFunc identifies the client for a request. The default is the IP in
-// RemoteAddr. Return "" to exempt a request.
+// KeyFunc identifies the client for a request. The default is
+// kit.ClientIP. Return "" to exempt a request.
 func KeyFunc(fn func(*http.Request) string) Option { return func(p *Plugin) { p.key = fn } }
 
 // Plugin limits request rates. Create it with New.
@@ -63,7 +62,7 @@ type bucket struct {
 func New(opts ...Option) *Plugin {
 	p := &Plugin{
 		methods: []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
-		key:     remoteIP,
+		key:     kit.ClientIP,
 		buckets: map[string]*bucket{},
 		now:     time.Now,
 	}
@@ -72,14 +71,6 @@ func New(opts ...Option) *Plugin {
 		o(p)
 	}
 	return p
-}
-
-func remoteIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
 
 // Name implements kit.Plugin.

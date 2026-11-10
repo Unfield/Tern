@@ -1,6 +1,7 @@
 import { svelte, type Options as SvelteOptions } from '@sveltejs/vite-plugin-svelte';
 import type { IncomingMessage } from 'node:http';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 import { imagePlugin } from './image.js';
@@ -8,7 +9,16 @@ import { imagePlugin } from './image.js';
 export interface TernOptions {
 	/** Options passed to @sveltejs/vite-plugin-svelte. */
 	svelte?: Partial<SvelteOptions>;
+	/**
+	 * Packages to bundle in their "browser" build for server rendering, for
+	 * libraries whose default build needs Node APIs such as Buffer while the
+	 * browser build is portable. nanoid is included by default.
+	 */
+	ssrBrowserBuilds?: string[];
 }
+
+/** Packages whose browser build works in the server renderer and whose default build needs Node. */
+const BROWSER_BUILDS = ['nanoid'];
 
 /** Paths shared with the Go code generator; keep in sync with internal/codegen. */
 const CLIENT_ENTRY = '.tern/generated/client.js';
@@ -37,6 +47,8 @@ const RENDER_PATH = '/__tern/render';
  */
 export function tern(options: TernOptions = {}): Plugin[] {
 	let root = process.cwd();
+	let ssrBuild = false;
+	const browserBuilds = new Set([...BROWSER_BUILDS, ...(options.ssrBrowserBuilds ?? [])]);
 
 	const plugin: Plugin = {
 		name: 'tern',
@@ -75,6 +87,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 			}
 
 			if (env.isSsrBuild) {
+				ssrBuild = true;
 				return {
 					...shared,
 					publicDir: false,
@@ -90,8 +103,10 @@ export function tern(options: TernOptions = {}): Plugin[] {
 						}
 					},
 					// One self-contained file: the renderer runs in an embedded engine
-					// without a module loader or Node built-ins.
-					ssr: { noExternal: true },
+					// without a module loader or Node built-ins. Without the "node"
+					// condition, libraries resolve to their portable builds instead of
+					// ones that use Buffer or node:crypto.
+					ssr: { noExternal: true, resolve: { conditions: ['module', 'development|production'] } },
 					// Libraries often read process.env.NODE_ENV; the engine has no
 					// process object, so replace it at build time.
 					define: { 'process.env.NODE_ENV': JSON.stringify('production') }
@@ -163,7 +178,17 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		return mod.render(payload, href);
 	}
 
-	return [imagePlugin(), ...svelte(options.svelte), plugin];
+	// Runs before Vite's own resolver, which would pick the default build.
+	const browserBuildsPlugin: Plugin = {
+		name: 'tern:ssr-browser-builds',
+		enforce: 'pre',
+		resolveId(id, importer) {
+			if (!ssrBuild || !browserBuilds.has(id)) return undefined;
+			return browserBuild(id, importer ?? path.join(root, 'package.json'));
+		}
+	};
+
+	return [browserBuildsPlugin, imagePlugin(), ...svelte(options.svelte), plugin];
 }
 
 /** The $service-worker module: what this build produced, for caching. */
@@ -196,6 +221,22 @@ function serviceWorkerModule(root: string, base: string): string {
 		`export const prerendered = ${JSON.stringify(prerendered.sort())};`,
 		`export const version = ${JSON.stringify(version)};`
 	].join('\n');
+}
+
+/** The file a package's "browser" export points to, or undefined to resolve normally. */
+function browserBuild(pkg: string, importer: string): string | undefined {
+	try {
+		const require = createRequire(importer);
+		const manifestPath = require.resolve(`${pkg}/package.json`);
+		const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { exports?: unknown; browser?: unknown };
+		const dot = (manifest.exports as Record<string, unknown> | undefined)?.['.'];
+		let target = typeof dot === 'object' && dot !== null ? (dot as Record<string, unknown>).browser : undefined;
+		if (typeof target === 'object' && target !== null) target = (target as Record<string, unknown>).default ?? (target as Record<string, unknown>).import;
+		if (typeof target !== 'string' && typeof manifest.browser === 'string') target = manifest.browser;
+		return typeof target === 'string' ? path.join(path.dirname(manifestPath), target) : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Lists files below dir, relative to it, with forward slashes. */

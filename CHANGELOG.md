@@ -10,9 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A render cache: server-rendered HTML is cached by the page's data and URL (32 MiB by default, `kit.WithSSRCache`), and concurrent renders of the same page are coalesced.
 - Rendering VMs are replaced after 10,000 renders, which bounds memory held by libraries across renders.
+- More web APIs while server rendering: `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `crypto.getRandomValues`, `crypto.randomUUID`, `structuredClone`, `Event`, `CustomEvent`, `EventTarget`, `AbortController`, `AbortSignal`, `performance.now()`, and timers that never fire. `fetch` rejects with an explanation.
+- A compatibility suite renders 23 popular libraries in Tern on every push and checks the HTML matches Node's.
+- `tern({ ssrBrowserBuilds })` bundles a package's browser build for server rendering; `nanoid` uses it by default.
 
 ### Changed
 
+- The server bundle resolves libraries without the `node` export condition, so they use portable builds instead of ones needing `Buffer` or `node:crypto`.
 - Server rendering defaults to at most 4 workers (`kit.WithSSRWorkers` still overrides it). The VMs share a lock in the C runtime, so more workers rendered slower; uncached throughput is up by half.
 
 ### Fixed

@@ -417,7 +417,24 @@ Conversion follows `encoding/json` exactly:
 
 Pages render on the server and hydrate in the browser. Users see content before JavaScript loads, search engines see real HTML, and forms work without JavaScript.
 
-Server rendering runs your Svelte components in an embedded JavaScript engine inside the Go binary (QuickJS, pure Go, no cgo). Code that runs during rendering can use the JavaScript language, `URL`, `URLSearchParams`, `console`, `process.env` and an `Intl` that formats like `en-US` (the browser re-renders with the user's real locale), but not browser APIs like `window` or `document`; use those in `onMount` or `$effect`, which only run in the browser. This matches the rules for SvelteKit.
+Server rendering runs your Svelte components in an embedded JavaScript engine inside the Go binary (QuickJS, pure Go, no cgo). Browser APIs like `window` and `document` are not available while rendering; use them in `onMount` or `$effect`, which only run in the browser. This matches the rules for SvelteKit.
+
+Besides the JavaScript language, code that runs during rendering can use:
+
+- `URL` and `URLSearchParams`
+- `TextEncoder` and `TextDecoder` (UTF-8), `atob` and `btoa`
+- `crypto.getRandomValues` and `crypto.randomUUID`, backed by Go's `crypto/rand`
+- `structuredClone`
+- `Event`, `CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal`
+- `performance.now()` and `queueMicrotask`
+- `console`, which logs through the app's logger, and `process.env.NODE_ENV`
+- an `Intl` that formats like `en-US`; the browser re-renders with the user's real locale
+
+Timers (`setTimeout`, `setInterval`) can be called but never fire, as in any server renderer: the HTML is sent when the render returns. `fetch` rejects with an explanation; load data in Go instead.
+
+The server bundle resolves libraries without the `node` export condition, so they use their portable builds rather than ones that need Node's `Buffer` or `node:crypto`. A few packages only have a portable build under the `browser` condition; Tern uses it for `nanoid`, and `tern({ ssrBrowserBuilds: ['some-package'] })` in `vite.config.js` adds others.
+
+Every push renders these libraries in Tern and checks the HTML is identical to Node's: bits-ui, @lucide/svelte, svelte-sonner, mode-watcher, paneforge, runed, @tanstack/svelte-query, date-fns, dayjs, marked, highlight.js, KaTeX, nanoid, uuid, zod, valibot, d3, floating-ui, clsx, tailwind-merge, lodash, svelte-i18n and layerchart (see [tests/ssr-compat](../tests/ssr-compat)).
 
 Rendered HTML is cached by the page's data and URL (32 MiB by default, `kit.WithSSRCache`), so a page that looks the same for many visitors renders once. Keep what a component renders on the server a function of its data: output that depends on the clock or `Math.random()` does not hydrate cleanly, and it could be served from the cache.
 

@@ -70,6 +70,10 @@ jobs:
       - run: pnpm -r typecheck
       - name: Client unit tests
         run: pnpm --filter @ternkit/tern test
+      - name: Server-render popular libraries and compare with Node
+        run: |
+          pnpm --filter ssr-compat build
+          TERN_REQUIRE_COMPAT=1 go test -count=1 -run TestCompat -v ./internal/ssr/
 
   template:
     name: Starter template

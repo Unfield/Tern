@@ -1,0 +1,39 @@
+{
+  "name": "ssr-compat",
+  "private": true,
+  "type": "module",
+  "description": "Renders popular Svelte libraries in Tern's server renderer (QuickJS). Built in CI and checked by internal/ssr TestCompat.",
+  "scripts": {
+    "build": "vite build --ssr && node node-render.js"
+  },
+  "devDependencies": {
+    "@floating-ui/dom": "^1.8.0",
+    "@lucide/svelte": "^1.70.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tanstack/svelte-query": "^6.4.1",
+    "@ternkit/tern": "workspace:*",
+    "bits-ui": "^2.20.6",
+    "clsx": "^2.1.1",
+    "d3-scale": "^4.0.3",
+    "d3-shape": "^3.2.1",
+    "date-fns": "^4.4.0",
+    "dayjs": "^1.11.23",
+    "highlight.js": "^11.12.0",
+    "katex": "^0.19.1",
+    "layerchart": "^2.9.2",
+    "lodash-es": "^4.18.1",
+    "marked": "^18.2.0",
+    "mode-watcher": "^1.1.0",
+    "nanoid": "^6.0.2",
+    "paneforge": "^1.0.2",
+    "runed": "^0.38.0",
+    "svelte": "^5.57.3",
+    "svelte-i18n": "^4.0.1",
+    "svelte-sonner": "^1.2.3",
+    "tailwind-merge": "^3.7.0",
+    "uuid": "^14.0.3",
+    "valibot": "^1.5.0",
+    "vite": "^8.3.7",
+    "zod": "^4.6.7"
+  }
+}

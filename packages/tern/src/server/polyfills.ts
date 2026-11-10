@@ -4,10 +4,13 @@
 // during development.
 import { IntlShim } from './intl.js';
 import { URL, URLSearchParams } from './url.js';
+import { install } from './web.js';
 
 declare const __tern_log: ((level: string, message: string) => void) | undefined;
 
 const g = globalThis as Record<string, unknown>;
+
+install(g);
 
 // Some libraries read process.env.SOMETHING at runtime. Give them an empty
 // environment instead of a ReferenceError.

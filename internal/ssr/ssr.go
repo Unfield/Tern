@@ -4,6 +4,8 @@ package ssr
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -139,6 +141,30 @@ func (p *Pool) newVM() (*vm, error) {
 			logger.Info(msg, "source", "ssr")
 		}
 		return nil, nil
+	})
+	if err != nil {
+		_ = js.Close()
+		return nil, fmt.Errorf("ssr: %w", err)
+	}
+	// crypto.getRandomValues in the server polyfills.
+	err = js.RegisterHostFunc("__tern_random", func(args []any) (any, error) {
+		n := 0
+		if len(args) > 0 {
+			switch v := args[0].(type) {
+			case int:
+				n = v
+			case int64:
+				n = int(v)
+			case float64:
+				n = int(v)
+			}
+		}
+		if n < 0 || n > 65536 {
+			return nil, errors.New("getRandomValues: at most 65536 bytes")
+		}
+		b := make([]byte, n)
+		_, _ = rand.Read(b)
+		return hex.EncodeToString(b), nil
 	})
 	if err != nil {
 		_ = js.Close()

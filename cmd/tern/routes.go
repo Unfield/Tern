@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,12 +18,22 @@ const defaultRoutesDir = "src/routes"
 // cmdRoutes prints the routes found in a routes directory.
 func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 	dir := defaultRoutesDir
-	switch len(args) {
+	jsonOut := false
+	var positional []string
+	for _, a := range args {
+		switch a {
+		case "-json", "--json":
+			jsonOut = true
+		default:
+			positional = append(positional, a)
+		}
+	}
+	switch len(positional) {
 	case 0:
 	case 1:
-		dir = args[0]
+		dir = positional[0]
 	default:
-		fmt.Fprintln(stderr, "usage: tern routes [dir]")
+		fmt.Fprintln(stderr, "usage: tern routes [dir] [-json]")
 		return 2
 	}
 
@@ -33,13 +44,43 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 	}
 	p := ui.New(stdout)
 	if len(m.Routes) == 0 {
-		p.Printf("No routes found in %s\n", dir)
+		if jsonOut {
+			_, _ = stdout.Write([]byte("[]\n"))
+		} else {
+			p.Printf("No routes found in %s\n", dir)
+		}
 		return 0
 	}
 
 	// Show routes alphabetically by URL; matching order is an internal detail.
 	list := slices.Clone(m.Routes)
 	slices.SortFunc(list, func(a, b *routes.Route) int { return strings.Compare(a.Pattern(), b.Pattern()) })
+
+	if jsonOut {
+		type routeJSON struct {
+			Pattern string `json:"pattern"`
+			ID      string `json:"id"`
+			Kind    string `json:"kind"`
+			Load    bool   `json:"load"`
+			Layouts int    `json:"layouts"`
+		}
+		out := make([]routeJSON, 0, len(list))
+		for _, r := range list {
+			out = append(out, routeJSON{
+				Pattern: r.Pattern(),
+				ID:      r.ID,
+				Kind:    kind(r),
+				Load:    r.HasLoad(),
+				Layouts: len(r.Layouts),
+			})
+		}
+		enc := json.NewEncoder(stdout)
+		if err := enc.Encode(out); err != nil {
+			ui.New(stderr).Error(err)
+			return 1
+		}
+		return 0
+	}
 
 	rows := [][]string{{"ROUTE", "KIND", "LOAD", "LAYOUTS", "DIRECTORY"}}
 	for _, r := range list {

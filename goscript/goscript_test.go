@@ -89,3 +89,38 @@ func TestEffectsAndCycles(t *testing.T) {
 	}()
 	Effect(c, func() { a.Set(a.Get() + 1) })
 }
+
+func TestLiveAndGlobals(t *testing.T) {
+	visits := Global(0)
+	Register("shared", func(c *Component) {
+		visits.Show(c, "visits")
+		user, _ := c.Locals()["user"].(string)
+		Derived(c, "greeting", func() string { return user + " sees " + jsonString(visits.Get()) })
+		c.Func("visit", func() { visits.Update(func(n int) int { return n + 1 }) })
+	})
+	a, b := map[string]string{}, map[string]string{}
+	ia, err := MountLive("shared", nil, map[string]any{"user": "ada"}, func(n string, v []byte) { a[n] = string(v) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	ib, _ := MountLive("shared", nil, map[string]any{"user": "bob"}, func(n string, v []byte) { b[n] = string(v) })
+	if _, err := ia.Call("visit", []byte("[]")); err != nil {
+		t.Fatal(err)
+	}
+	if a["visits"] != "1" || b["visits"] != "1" || b["greeting"] != `"bob sees 1"` {
+		t.Errorf("after ada's visit: a=%v b=%v", a, b)
+	}
+	ib.Destroy()
+	b = map[string]string{}
+	_, _ = ia.Call("visit", []byte("[]"))
+	if a["visits"] != "2" || len(b) != 0 {
+		t.Errorf("after bob left: a=%v b=%v", a, b)
+	}
+	state, err := InitialState("shared", nil, map[string]any{"user": "cy"})
+	if err != nil || string(state["greeting"]) != `"cy sees 2"` {
+		t.Errorf("InitialState = %v, %v", state, err)
+	}
+	if Registered("nope") || !Registered("shared") {
+		t.Error("Registered")
+	}
+}

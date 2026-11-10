@@ -4,7 +4,9 @@ const port = 4177;
 
 export default defineConfig({
 	testDir: 'tests',
-	fullyParallel: true,
+	// Live components count everyone online, so tests run one at a time.
+	fullyParallel: false,
+	workers: 1,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
 	reporter: process.env.CI ? [['github'], ['list']] : 'list',

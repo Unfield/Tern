@@ -1,12 +1,14 @@
 package kit
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
+	"maps"
 	"net/http"
 	"strings"
 )
@@ -178,7 +180,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	headHTML := head.String()
 	body := `<div id="tern-root" style="display: contents"></div>`
 	if a.ssr != nil && (def == nil || def.Page == nil || !def.Page.NoSSR) {
-		res, err := a.ssr.Render(c.Request.Context(), data, absoluteURL(c.Request, a.m.BasePath))
+		res, err := a.ssr.Render(context.WithValue(c.Request.Context(), liveLocalsKey{}, maps.Clone(c.Locals)), data, absoluteURL(c.Request, a.m.BasePath))
 		switch {
 		case err != nil:
 			// Render on the client instead; the page still works.

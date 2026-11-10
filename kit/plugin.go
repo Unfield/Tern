@@ -86,14 +86,18 @@ func (s *Setup) Handle(pattern string, h http.Handler) {
 // "GET /auth/{provider}/login"; read wildcards with ctx.Request.PathValue.
 // Endpoints take precedence over the app's routes.
 func (s *Setup) Endpoint(pattern string, fn HandlerFunc) {
-	s.app.ctxMux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+	s.app.ctxMux.HandleFunc(pattern, s.app.endpointHandler(fn))
+	s.app.hasCtxRoutes = true
+}
+
+func (a *App) endpointHandler(fn HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(ctxKey{}).(*Ctx)
 		c.Request = r // with the pattern's path values
-		if err := c.app.safely(func() error { return fn(c) }); err != nil {
-			c.app.endpointError(c, err)
+		if err := a.safely(func() error { return fn(c) }); err != nil {
+			a.endpointError(c, err)
 		}
-	})
-	s.app.hasCtxRoutes = true
+	}
 }
 
 type ctxKey struct{}

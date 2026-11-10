@@ -24,5 +24,6 @@ We wanted to learn what each costs before committing to an API.
 ## Consequences
 
 - The measurements in [docs/experimental-go-script.md](../experimental-go-script.md) show that Go WebAssembly is slower than V8 for tight loops (23 ms vs 16 ms on a prime sieve) and costs a 1.3 MB download. Performance is not a reason to use it.
-- The value is sharing Go between server and browser. The planned next step is server-run "live" components with the same API, over WebSockets.
+- The value is sharing Go between server and browser.
+- Live components (`<script lang="go" live>`) run the same API on the server over one WebSocket per page, with real per-request server rendering and shared `Global` state. They need no download, so they are the more practical of the two modes for most apps.
 - The flag stays until that design is settled. The API may change.

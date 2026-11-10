@@ -92,6 +92,10 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 
 	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux(), ctxMux: http.NewServeMux()}
 	a.shutdownCtx, a.beginShutdown = context.WithCancel(context.Background())
+	if m.Live {
+		a.ctxMux.HandleFunc("GET "+LivePath, a.endpointHandler(a.serveLive))
+		a.hasCtxRoutes = true
+	}
 	if err := a.setupPlugins(); err != nil {
 		return nil, err
 	}
@@ -150,16 +154,18 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			}
 		}
 		if o.ssr && m.ServerBundle != "" {
-			pool, err := ssr.NewPool(m.ServerBundle, ssr.Options{
-				Workers: o.ssrWorkers,
-				Timeout: o.ssrTimeout,
-				Logger:  o.logger,
-			})
+			sopts := ssr.Options{Workers: o.ssrWorkers, Timeout: o.ssrTimeout, Logger: o.logger}
+			if m.Live {
+				sopts.Funcs = map[string]func(context.Context, []any) (any, error){"__tern_live_initial": liveInitial}
+			}
+			pool, err := ssr.NewPool(m.ServerBundle, sopts)
 			if err != nil {
 				return nil, fmt.Errorf("kit: %w", err)
 			}
 			a.ssr = pool
-			if o.ssrCache > 0 {
+			// Live components render per user and per moment, so pages
+			// with them can't be cached.
+			if o.ssrCache > 0 && !m.Live {
 				a.ssr = ssr.NewCache(pool, o.ssrCache)
 			}
 			a.closers = append(a.closers, pool)

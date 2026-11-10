@@ -489,7 +489,11 @@ func (d *devRunner) watch(ctx context.Context) error {
 					_ = addTree(w, ev.Name)
 				}
 			}
-			switch kind := classify(filepath.ToSlash(rel), ev.Op); kind {
+			kind := classify(filepath.ToSlash(rel), ev.Op)
+			if kind == changeNone && strings.HasSuffix(rel, ".svelte") && hasLiveGoScript(ev.Name) {
+				kind = changeBuild // a live component's Go code is part of the server
+			}
+			switch kind {
 			case changeBuild:
 				pendingBuild = true
 			case changeGen:
@@ -561,6 +565,21 @@ func classify(rel string, op fsnotify.Op) change {
 		}
 	}
 	return changeNone
+}
+
+// hasLiveGoScript reports whether a .svelte file has <script lang="go" live>.
+func hasLiveGoScript(file string) bool {
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return false
+	}
+	s := string(raw)
+	i := strings.Index(s, `lang="go"`)
+	if i < 0 {
+		return false
+	}
+	end := strings.Index(s[i:], ">")
+	return end > 0 && strings.Contains(s[i:i+end], "live")
 }
 
 func ignored(rel string) bool {

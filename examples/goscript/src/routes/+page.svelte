@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Counter from '$lib/Counter.svelte';
+	import LiveRoom from '$lib/LiveRoom.svelte';
 	import Primes from '$lib/Primes.svelte';
 	import PrimesJS from '$lib/PrimesJS.svelte';
 </script>
@@ -10,6 +11,11 @@
 <p>These components' logic is Go, compiled to WebAssembly, with runes: <code>State</code>, <code>Derived</code> and <code>Effect</code>. The markup is ordinary Svelte.</p>
 
 <Counter start={10} />
+
+<h2>Live components</h2>
+<p>With <code>&lt;script lang="go" live&gt;</code>, the same Go runs on the server instead, connected over a WebSocket. Nothing is downloaded, and state can be shared: open this page in two windows.</p>
+
+<LiveRoom name="visitor" />
 
 <h2>Go and TypeScript, side by side</h2>
 <p>The same prime sieve, in a Go component and in a TypeScript component.</p>

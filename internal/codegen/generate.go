@@ -127,6 +127,7 @@ type generator struct {
 
 	layoutIndex map[string]int // by dir
 	layouts     []routes.Layout
+	live        []liveComponent
 }
 
 // collectLayouts assigns each layout directory a stable index.
@@ -179,13 +180,30 @@ func (g *generator) goFile() error {
 	for _, rp := range g.pkgs {
 		aliases[rp.alias] = rp
 	}
-	if len(aliases) > 0 {
+	live, err := g.liveComponents()
+	if err != nil {
+		return err
+	}
+	var liveImports map[string]string
+	if len(live) > 0 {
+		mod, err := modulePath(g.root)
+		if err != nil {
+			return err
+		}
+		liveImports = g.livePackages(live, mod)
+		b.WriteString("\t\"github.com/Unfield/Tern/goscript\"\n")
+	}
+	if len(aliases) > 0 || len(live) > 0 {
 		b.WriteString("\n")
 	}
 	for _, alias := range sortedKeys(aliases) {
 		fmt.Fprintf(&b, "\t%s %s\n", alias, strconv.Quote(aliases[alias].pkgPath))
 	}
+	for _, id := range sortedKeys(liveImports) {
+		fmt.Fprintf(&b, "\tlive_%s %s\n", id, strconv.Quote(liveImports[id]))
+	}
 	b.WriteString(")\n\n")
+	g.live = live
 
 	fmt.Fprintf(&b, "//go:embed %s\nvar ternAppHTML string\n\n", AppHTML)
 	fmt.Fprintf(&b, "//go:embed all:%s\nvar ternClientFS embed.FS\n\n", ClientOut)
@@ -200,6 +218,9 @@ func (g *generator) goFile() error {
 
 	b.WriteString("var ternManifest = &kit.Manifest{\n")
 	fmt.Fprintf(&b, "\tAppHTML: ternAppHTML,\n\tClientEntry: %q,\n\tOpenAPI: ternOpenAPI,\n", ClientEntry)
+	if len(g.live) > 0 {
+		b.WriteString("\tLive: true,\n")
+	}
 	if g.cfg.BasePath != "" {
 		fmt.Fprintf(&b, "\tBasePath: %q,\n", g.cfg.BasePath)
 	}
@@ -317,6 +338,9 @@ func FindServiceWorker(root string) string {
 
 func (g *generator) localesInit() string {
 	var b strings.Builder
+	for _, c := range g.live {
+		fmt.Fprintf(&b, "\tgoscript.Register(%q, live_%s.Setup)\n", c.id, c.id)
+	}
 	if g.locales != nil {
 		fmt.Fprintf(&b, "\tlocales, err := fs.Sub(ternLocalesFS, %q)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tternManifest.Locales = locales\n", LocalesDir)
 	}

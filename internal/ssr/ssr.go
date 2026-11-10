@@ -42,6 +42,9 @@ type Options struct {
 	MemoryLimit uintptr
 	// Logger receives console output from server-side code.
 	Logger *slog.Logger
+	// Funcs are Go functions the bundle can call while rendering, by name;
+	// ctx is the render's context.
+	Funcs map[string]func(ctx context.Context, args []any) (any, error)
 	// MaxRenders retires a VM after this many renders and replaces it with
 	// a fresh one, built in the background. It bounds memory that libraries
 	// keep across renders. The default is 10,000; a negative value never
@@ -69,6 +72,7 @@ type Pool struct {
 type vm struct {
 	js      *quickjs.VM
 	renders int
+	ctx     context.Context // the running call's, for Funcs
 }
 
 // ErrTimeout is returned when a render exceeds the pool's timeout.
@@ -146,6 +150,19 @@ func (p *Pool) newVM() (*vm, error) {
 		_ = js.Close()
 		return nil, fmt.Errorf("ssr: %w", err)
 	}
+	v := &vm{js: js}
+	for name, fn := range p.opts.Funcs {
+		if err := js.RegisterHostFunc(name, func(args []any) (any, error) {
+			ctx := v.ctx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			return fn(ctx, args)
+		}); err != nil {
+			_ = js.Close()
+			return nil, fmt.Errorf("ssr: %w", err)
+		}
+	}
 	// crypto.getRandomValues in the server polyfills.
 	err = js.RegisterHostFunc("__tern_random", func(args []any) (any, error) {
 		n := 0
@@ -178,7 +195,7 @@ func (p *Pool) newVM() (*vm, error) {
 		_ = js.Close()
 		return nil, errors.New("ssr: the server bundle does not define __tern_render")
 	}
-	return &vm{js: js}, nil
+	return v, nil
 }
 
 // loadStack re-runs the bundle in a scratch VM to capture the JavaScript
@@ -299,6 +316,8 @@ func (p *Pool) call(ctx context.Context, fn string, args ...any) (string, error)
 func (p *Pool) callWith(ctx context.Context, v *vm, fn string, args ...any) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
+	v.ctx = ctx
+	defer func() { v.ctx = nil }()
 	stop := context.AfterFunc(ctx, v.js.Interrupt)
 	out, err := v.js.Call(fn, args...)
 	interrupted := !stop()

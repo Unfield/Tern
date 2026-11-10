@@ -29,12 +29,25 @@ import (
 
 // Component is one mounted instance of a component.
 type Component struct {
-	props  json.RawMessage
-	emit   func(name string, value []byte)
-	funcs  map[string]reflect.Value
-	comps  []*computation
-	closed bool
+	props     json.RawMessage
+	locals    map[string]any
+	emit      func(name string, value []byte)
+	funcs     map[string]reflect.Value
+	comps     []*computation
+	globals   []releaser
+	cleanups  []func()
+	rendering bool
+	closed    bool
 }
+
+// OnDestroy runs fn when the component goes away: when its page closes or
+// navigates, or its live connection ends.
+func (c *Component) OnDestroy(fn func()) { c.cleanups = append(c.cleanups, fn) }
+
+// Rendering reports whether Setup runs only to compute the initial state,
+// for server rendering or the build. Skip side effects then, such as
+// counting a visitor.
+func (c *Component) Rendering() bool { return c.rendering }
 
 // Props decodes the component's props into dst. Props are read when the
 // component mounts.
@@ -104,9 +117,17 @@ func (c *Component) call(name string, argsJSON []byte) ([]byte, error) {
 
 // destroy stops the component's derived values and effects.
 func (c *Component) destroy() {
+	if c.closed {
+		return
+	}
 	c.closed = true
 	for _, comp := range c.comps {
 		comp.dispose()
+	}
+	if !c.rendering {
+		for i := len(c.cleanups) - 1; i >= 0; i-- {
+			batch(c.cleanups[i])
+		}
 	}
 }
 
@@ -285,11 +306,19 @@ func Register(id string, setup func(*Component)) { registry[id] = setup }
 
 // mount creates a component instance.
 func mount(id string, props []byte, emit func(string, []byte)) (*Component, error) {
+	return mountWith(id, props, nil, emit)
+}
+
+func mountWith(id string, props []byte, locals map[string]any, emit func(string, []byte)) (*Component, error) {
+	return mountComponent(id, props, locals, emit, false)
+}
+
+func mountComponent(id string, props []byte, locals map[string]any, emit func(string, []byte), rendering bool) (*Component, error) {
 	setup, ok := registry[id]
 	if !ok {
 		return nil, fmt.Errorf("goscript: no component %q", id)
 	}
-	c := &Component{props: props, emit: emit, funcs: map[string]reflect.Value{}}
+	c := &Component{props: props, locals: locals, emit: emit, funcs: map[string]reflect.Value{}, rendering: rendering}
 	batch(func() { setup(c) })
 	return c, nil
 }

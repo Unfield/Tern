@@ -70,6 +70,9 @@ type Manifest struct {
 	Locales fs.FS
 	// Content holds src/content, or nil if the app has none. See Ctx.Content.
 	Content fs.FS
+	// Live is set when the app has live Go components; tern gen registers
+	// them with the goscript package.
+	Live bool
 	// OpenAPI is the OpenAPI description of the typed endpoints, served
 	// with WithOpenAPI.
 	OpenAPI []byte

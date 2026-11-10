@@ -49,6 +49,15 @@ func newReplicaID() string {
 func SetBroker(b Broker) {
 	brokerMu.Lock()
 	defer brokerMu.Unlock()
+	if broker != nil {
+		// This process is leaving: tell the others its visitors are gone,
+		// rather than leave them counted until the heartbeat expires.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		for _, p := range presences {
+			_ = publishEnvelope(ctx, broker, p.topic(), envelope{Count: 0})
+		}
+		cancel()
+	}
 	if stopAll != nil {
 		stopAll()
 		stopAll = nil

@@ -154,6 +154,5 @@ func clusterNode(dsn string) {
 		}
 	}
 	inst.Destroy()
-	time.Sleep(300 * time.Millisecond) // let the leave reach the others
-	goscript.SetBroker(nil)
+	goscript.SetBroker(nil) // says goodbye to the other processes
 }

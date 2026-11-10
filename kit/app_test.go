@@ -560,7 +560,7 @@ func TestPrerenderList(t *testing.T) {
 	m := testManifest()
 	m.Routes[0].Prerender = true // "/"
 	m.Routes[1].Prerender = true // "/blog/slug.param"
-	m.Routes[1].Entries = func() ([]map[string]string, error) {
+	m.Routes[1].Entries = func(*Ctx) ([]map[string]string, error) {
 		return []map[string]string{{"slug": "first"}, {"slug": "second post"}}, nil
 	}
 	a, _ := newTestApp(t, m)

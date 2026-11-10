@@ -210,7 +210,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if a.prerendering && r.URL.Path == "/__tern/prerender" {
-		a.prerenderList(w)
+		a.prerenderList(w, r)
 		return
 	}
 	if a.hasPluginRoutes {
@@ -299,7 +299,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 // prerenderList responds with the paths `tern build` should prerender.
-func (a *App) prerenderList(w http.ResponseWriter) {
+func (a *App) prerenderList(w http.ResponseWriter, req *http.Request) {
 	var paths, endpoints, errs []string
 	for r, def := range a.defs {
 		if !def.Prerender || (def.Page == nil && def.Endpoint[http.MethodGet] == nil) {
@@ -312,7 +312,7 @@ func (a *App) prerenderList(w http.ResponseWriter) {
 				continue
 			}
 			var err error
-			if entries, err = def.Entries(); err != nil {
+			if entries, err = def.Entries(newCtx(a, w, req)); err != nil {
 				errs = append(errs, fmt.Sprintf("route %s: Entries: %v", def.ID, err))
 				continue
 			}

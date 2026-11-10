@@ -227,3 +227,30 @@ test.describe('without JavaScript', () => {
 		await expect(page.getByTestId('detail-title')).toHaveText('No JS needed');
 	});
 });
+
+test('the blog is a prerendered content collection', async ({ page, request }) => {
+	await page.goto('/blog');
+	const posts = page.getByTestId('posts').locator('li');
+	await expect(posts).toHaveCount(2); // the draft is left out
+	await expect(posts.first()).toContainText('Working offline'); // newest first
+	await expect(posts.first()).toContainText('The todos app caches its assets');
+
+	await posts.filter({ hasText: 'Hello, Tern' }).getByRole('link').click();
+	await expect(page).toHaveURL(/\/blog\/hello-tern$/);
+	await expect(page.getByRole('heading', { name: 'Hello, Tern', level: 1 })).toBeVisible();
+	await expect(page.locator('article strong')).toHaveText('content collection');
+	await expect(page.locator('article pre .kd').first()).toHaveText('var');
+	await expect(page.getByRole('navigation', { name: 'On this page' }).getByRole('link')).toHaveText('Why Markdown in Go?');
+
+	expect((await request.get('/blog/upcoming')).status()).toBe(404);
+	const html = await (await request.get('/blog/offline')).text();
+	expect(html).toContain('<h2 id="how-it-works">How it works</h2>');
+});
+
+test('a +page.md file is a page', async ({ page }) => {
+	await page.goto('/privacy');
+	await expect(page).toHaveTitle('Privacy · Todos');
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'What the todos example stores about you.');
+	await expect(page.getByRole('heading', { name: 'Privacy' })).toBeVisible();
+	await expect(page.locator('.markdown li')).toHaveCount(3);
+});

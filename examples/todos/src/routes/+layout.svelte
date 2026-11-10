@@ -38,6 +38,26 @@
 	:global(a) {
 		color: #0f766e;
 	}
+	:global(.markdown pre) {
+		background: #1c1917;
+		color: #f5f5f4;
+		padding: 0.8rem 1rem;
+		border-radius: 6px;
+		overflow-x: auto;
+	}
+	:global(.posts) {
+		list-style: none;
+		padding: 0;
+	}
+	:global(.posts small) {
+		color: #78716c;
+		margin-left: 0.5rem;
+	}
+	:global(.toc) {
+		display: flex;
+		gap: 1rem;
+		font-size: 0.9rem;
+	}
 	:global(.error) {
 		color: #b91c1c;
 	}

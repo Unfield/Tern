@@ -248,7 +248,7 @@ func TestGenerateSignatureErrors(t *testing.T) {
 		{"handler without error", "func GET(ctx *kit.Ctx) {}", "GET must have the signature func(ctx *kit.Ctx) error"},
 		{"actions of the wrong type", "var Actions = map[string]int{}", "Actions must be a kit.Actions"},
 		{"prerender of the wrong type", "const Prerender = 1", "Prerender must be a boolean constant"},
-		{"entries with a bad signature", "func Entries() []string { return nil }", "Entries must have the signature func() ([]map[string]string, error)"},
+		{"entries with a bad signature", "func Entries() []string { return nil }", "Entries must have the signature func(ctx *kit.Ctx) ([]map[string]string, error)"},
 		{"compile error", "func Load(ctx *kit.Ctx) (map[string]int, error) { return nope, nil }", "undefined: nope"},
 	}
 	for _, tt := range tests {
@@ -285,5 +285,56 @@ func TestGenerateRequiresAppHTML(t *testing.T) {
 	dir := writeFixture(t, map[string]string{"src/routes/+page.svelte": ""})
 	if _, err := Generate(dir); err == nil || !strings.Contains(err.Error(), "src/app.html is missing") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGenerateMarkdown(t *testing.T) {
+	dir := writeFixture(t, map[string]string{
+		"src/app.html":                    "<html><head>%tern.head%</head><body>%tern.body%</body></html>",
+		"main.go":                         "package main\n\nfunc main() {}\n",
+		"src/routes/about/page.server.go": "package about\n\nimport \"github.com/Unfield/Tern/kit\"\n\nfunc Load(ctx *kit.Ctx) (struct{}, error) { return struct{}{}, nil }\n",
+		"src/routes/about/+page.md":       "---\ntitle: About us\ndescription: Who we are\n---\n# About\n\nWe use `{braces}` and <b>html</b>.\n",
+		"src/content/blog/post.md":        "---\ntitle: Post\n---\nHi\n",
+		"src/routes/both/+page.md":        "x",
+		"src/routes/both/+page.svelte":    "<p>x</p>",
+	})
+	if _, err := Generate(dir); err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Fatalf("a directory with +page.md and +page.svelte: %v", err)
+	}
+	if err := os.Remove(filepath.Join(dir, "src/routes/both/+page.svelte")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Generate(dir); err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile(filepath.Join(dir, ".tern/generated/pages/about/page.svelte"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`export const metadata = {"description":"Who we are","title":"About us"};`,
+		"<title>{metadata.title}</title>",
+		`<meta name="description" content={metadata.description} />`,
+		`\u003ccode\u003e{braces}\u003c/code\u003e`,
+		"{@html html}",
+	} {
+		if !strings.Contains(string(page), want) {
+			t.Errorf("missing %q in\n%s", want, page)
+		}
+	}
+	manifest, _ := os.ReadFile(filepath.Join(dir, ".tern/generated/manifest.js"))
+	if !strings.Contains(string(manifest), `import("../../.tern/generated/pages/about/page.svelte")`) {
+		t.Errorf("the client manifest imports the generated page:\n%s", manifest)
+	}
+	goFile, _ := os.ReadFile(filepath.Join(dir, GoFile))
+	for _, want := range []string{"//go:embed src/content", "ternManifest.Content = content"} {
+		if !strings.Contains(string(goFile), want) {
+			t.Errorf("missing %q in %s", want, GoFile)
+		}
+	}
+	build := exec.Command("go", "build", "-o", os.DevNull, ".")
+	build.Dir = dir
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("the generated code builds: %v\n%s", err, out)
 	}
 }

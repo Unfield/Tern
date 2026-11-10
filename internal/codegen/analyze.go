@@ -33,7 +33,8 @@ type routePackage struct {
 	methods    []string
 	noSSR      bool // const SSR = false
 	prerender  bool // const Prerender = true
-	entries    bool // func Entries() ([]map[string]string, error)
+	entries    bool // func Entries([ctx *kit.Ctx]) ([]map[string]string, error)
+	entriesCtx bool // Entries takes a *kit.Ctx
 }
 
 // analyze type-checks the route packages and validates their exports.
@@ -155,9 +156,10 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 	if obj := scope.Lookup("Entries"); obj != nil {
 		fn, ok := obj.(*types.Func)
 		if !ok || !entriesSignature(fn.Type().(*types.Signature)) {
-			errs = append(errs, fmt.Sprintf("%s: Entries must have the signature func() ([]map[string]string, error)", pos(obj)))
+			errs = append(errs, fmt.Sprintf("%s: Entries must have the signature func(ctx *kit.Ctx) ([]map[string]string, error); the ctx parameter is optional", pos(obj)))
 		} else {
 			rp.entries = true
+			rp.entriesCtx = fn.Type().(*types.Signature).Params().Len() == 1
 		}
 	}
 	if scanned.LayoutLoad {
@@ -208,7 +210,10 @@ func loadSignature(sig *types.Signature) (types.Type, bool) {
 }
 
 func entriesSignature(sig *types.Signature) bool {
-	if sig.TypeParams().Len() > 0 || sig.Params().Len() != 0 || sig.Results().Len() != 2 || !isError(sig.Results().At(1).Type()) {
+	if sig.TypeParams().Len() > 0 || sig.Results().Len() != 2 || !isError(sig.Results().At(1).Type()) {
+		return false
+	}
+	if n := sig.Params().Len(); n > 1 || (n == 1 && !isCtxPtr(sig.Params().At(0).Type())) {
 		return false
 	}
 	sl, ok := types.Unalias(sig.Results().At(0).Type()).Underlying().(*types.Slice)
@@ -426,4 +431,9 @@ func dedupe(s []string) []string {
 }
 
 // routeFile turns a route-relative path into a project-relative one.
-func routeFile(rel string) string { return path.Join(RoutesDir, rel) }
+func routeFile(rel string) string {
+	if path.Base(rel) == routes.FilePageMarkdown {
+		return path.Join(MarkdownPagesDir, path.Dir(rel), "page.svelte")
+	}
+	return path.Join(RoutesDir, rel)
+}

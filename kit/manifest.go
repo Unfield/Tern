@@ -68,6 +68,8 @@ type Manifest struct {
 	BasePath string
 	// Locales holds src/locales/<locale>.json, or nil without i18n.
 	Locales fs.FS
+	// Content holds src/content, or nil if the app has none. See Ctx.Content.
+	Content fs.FS
 	// DefaultLocale is the fallback locale; "" picks "en" or the first.
 	DefaultLocale string
 }
@@ -96,7 +98,7 @@ type RouteDef struct {
 	Prerender bool
 	// Entries lists the parameters to prerender a dynamic route with; set
 	// by an exported Entries function in the route's package.
-	Entries func() ([]map[string]string, error)
+	Entries func(*Ctx) ([]map[string]string, error)
 }
 
 // PageDef is a route's page.

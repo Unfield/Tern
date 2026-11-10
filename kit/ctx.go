@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -312,4 +315,27 @@ func isLocalHTTP(r *http.Request) bool {
 	}
 	host = strings.Trim(host, "[]")
 	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".localhost")
+}
+
+// Content returns the app's src/content directory: embedded in the binary in
+// production, and read from disk in development so edits show on reload.
+// The content package builds typed collections on top of it.
+func (c *Ctx) Content() fs.FS {
+	a := c.app
+	if a.dev != nil {
+		return os.DirFS(filepath.Join(a.dev.root, "src", "content"))
+	}
+	if a.m.Content == nil {
+		return emptyFS{}
+	}
+	return a.m.Content
+}
+
+// Dev reports whether the app runs under tern dev.
+func (c *Ctx) Dev() bool { return c.app.dev != nil }
+
+type emptyFS struct{}
+
+func (emptyFS) Open(name string) (fs.File, error) {
+	return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 }

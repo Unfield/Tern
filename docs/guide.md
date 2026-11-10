@@ -90,7 +90,7 @@ Colocated components, styles and Go helpers are fine. The route's Go package doe
 | `func GET(ctx *kit.Ctx) error` (and `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`) | endpoint handlers |
 | `const SSR = false` | render this page on the client only |
 | `const Prerender = true` | render this page to static HTML at build time |
-| `func Entries() ([]map[string]string, error)` | parameters to prerender a dynamic route with |
+| `func Entries(ctx *kit.Ctx) ([]map[string]string, error)` | parameters to prerender a dynamic route with; `ctx` is optional |
 
 By convention the code lives in `page.server.go`, `layout.server.go` and `server.go`, but file names do not matter. Because route directories are normal Go packages, `go test ./...`, `go vet`, gopls and linters work on them as usual.
 
@@ -593,6 +593,71 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Files in `static/` are served at the root: `static/robots.txt` is `/robots.txt`.
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
+
+## Markdown and content
+
+### Markdown pages
+
+A `+page.md` file is a page written in Markdown. `tern gen` renders it to HTML, and it is wrapped in the directory's layouts like any page. Front matter `title` and `description` become the page's `<title>` and meta description:
+
+```markdown
+---
+title: Privacy
+description: What we store about you.
+---
+# Privacy
+
+We store **nothing** you didn't type.
+```
+
+A directory has either a `+page.md` or a `+page.svelte`. The component's module exports `metadata` (the front matter) and `headings`.
+
+### Content collections
+
+For blogs, docs and changelogs, put Markdown files in `src/content/<collection>/` and read them in Go with the `content` package. Front matter is YAML, decoded into your struct:
+
+```go
+package blog
+
+type Post struct {
+	Title string    `yaml:"title" json:"title"`
+	Date  time.Time `yaml:"date" json:"date"`
+}
+
+var Posts = &content.Collection[Post]{
+	Dir:  "blog",
+	Sort: content.Newest(func(p Post) time.Time { return p.Date }),
+}
+
+func Load(ctx *kit.Ctx) (List, error) {
+	posts, err := Posts.Summaries(ctx) // without bodies, for list pages
+	return List{Posts: posts}, err
+}
+```
+
+```go
+package post
+
+const Prerender = true
+
+func Entries(ctx *kit.Ctx) ([]map[string]string, error) { /* Posts.Slugs(ctx) */ }
+
+func Load(ctx *kit.Ctx) (content.Entry[blog.Post], error) {
+	return blog.Posts.Get(ctx, ctx.Param("slug")) // 404 if there is no such post
+}
+```
+
+```svelte
+<h1>{data.data.title}</h1>
+<article>{@html data.html}</article>
+```
+
+An `Entry` has the `Slug` (the file path without `.md`, with `guides/index.md` as `guides`), the decoded `Data`, the rendered `HTML`, the `Headings` for a table of contents, an `Excerpt` and `ReadingMinutes`.
+
+- `src/content` is embedded in the binary and read once. Under `tern dev` it is read from disk on every request, so edits show on reload.
+- Files with `draft: true` in their front matter are left out in production but shown under `tern dev`. Files starting with `_` are skipped.
+
+Markdown is rendered with [goldmark](https://github.com/yuin/goldmark): GitHub-flavored Markdown (tables, task lists, autolinks, strikethrough), footnotes, smart quotes, heading IDs and highlighted code blocks. Highlighting uses CSS classes; `content.CodeCSS("github")` returns a stylesheet for them in any [chroma style](https://xyproto.github.io/splash/docs/). Raw HTML in your Markdown is kept, as in a `.svelte` file. For Markdown that users write, use `content.Render`, which escapes HTML.
 
 ## Images
 

@@ -33,6 +33,9 @@ const (
 	FilePage   = "+page.svelte"
 	FileLayout = "+layout.svelte"
 	FileError  = "+error.svelte"
+	// FilePageMarkdown is a page written in Markdown; tern gen renders it
+	// into a Svelte component.
+	FilePageMarkdown = "+page.md"
 )
 
 var svelteFiles = []string{FilePage, FileLayout, FileError}
@@ -213,10 +216,16 @@ func (s *scanner) walk(dir string, parent *node) {
 			continue // colocated components, styles, assets
 		case slices.Contains(svelteFiles, name):
 			files[name] = rel
+		case name == FilePageMarkdown:
+			if files[FilePage] != "" || slices.ContainsFunc(entries, func(e fs.DirEntry) bool { return e.Name() == FilePage }) {
+				s.errorf(rel, "a directory has either %s or %s, not both", FilePage, FilePageMarkdown)
+				continue
+			}
+			files[FilePage] = rel
 		case strings.HasSuffix(name, ".ts") || strings.HasSuffix(name, ".js"):
 			s.errorf(rel, "load functions run in Go in Tern; export Load from a .go file in this directory instead")
 		default:
-			s.errorf(rel, "unknown route file %q (expected one of %s)", name, strings.Join(svelteFiles, ", "))
+			s.errorf(rel, "unknown route file %q (expected one of %s)", name, strings.Join(append(svelteFiles, FilePageMarkdown), ", "))
 		}
 	}
 

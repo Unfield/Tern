@@ -26,6 +26,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/Unfield/Tern/internal/codegen"
+	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ui"
 	"github.com/Unfield/Tern/internal/version"
 )
@@ -551,6 +552,8 @@ func classify(rel string, op fsnotify.Op) change {
 		return changeBuild
 	case rel == codegen.AppHTML:
 		return changeNone // re-read on every request
+	case strings.HasPrefix(rel, codegen.RoutesDir+"/") && base == routes.FilePageMarkdown:
+		return changeGen // regenerates the page's component, which Vite reloads
 	case strings.HasPrefix(rel, codegen.RoutesDir+"/"):
 		structural := op&(fsnotify.Create|fsnotify.Remove|fsnotify.Rename) != 0
 		if structural && (strings.HasPrefix(base, "+") || filepath.Ext(base) == "") {

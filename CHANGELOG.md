@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Markdown pages: a `+page.md` route is rendered to HTML by `tern gen`, with its front matter's `title` and `description` in the page head.
+- Content collections: the `content` package reads Markdown from `src/content` with typed YAML front matter, rendered with GitHub-flavored Markdown, heading IDs, footnotes and highlighted code. `src/content` is embedded in the binary; drafts show only under `tern dev`. `ctx.Content()` returns the directory.
+- `Entries` may take a `ctx *kit.Ctx`, for example to list a collection's slugs.
 - A render cache: server-rendered HTML is cached by the page's data and URL (32 MiB by default, `kit.WithSSRCache`), and concurrent renders of the same page are coalesced.
 - Rendering VMs are replaced after 10,000 renders, which bounds memory held by libraries across renders.
 - More web APIs while server rendering: `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `crypto.getRandomValues`, `crypto.randomUUID`, `structuredClone`, `Event`, `CustomEvent`, `EventTarget`, `AbortController`, `AbortSignal`, `performance.now()`, and timers that never fire. `fetch` rejects with an explanation.

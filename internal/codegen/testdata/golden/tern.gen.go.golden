@@ -49,7 +49,7 @@ var ternManifest = &kit.Manifest{
 			Layouts:   []int{0},
 			Page:      &kit.PageDef{Component: "src/routes/docs/path.rest/+page.svelte"},
 			Prerender: true,
-			Entries:   route3.Entries,
+			Entries:   func(*kit.Ctx) ([]map[string]string, error) { return route3.Entries() },
 		},
 		{
 			ID:      "/",

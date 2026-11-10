@@ -76,6 +76,9 @@ func Generate(root string) (*Result, error) {
 	if err := g.loadLocales(); err != nil {
 		return nil, err
 	}
+	if err := g.markdownPages(); err != nil {
+		return nil, err
+	}
 	if err := g.goFile(); err != nil {
 		return nil, err
 	}
@@ -188,6 +191,9 @@ func (g *generator) goFile() error {
 	if g.locales != nil {
 		fmt.Fprintf(&b, "//go:embed %s\nvar ternLocalesFS embed.FS\n\n", LocalesDir)
 	}
+	if g.hasContent() {
+		fmt.Fprintf(&b, "//go:embed %s\nvar ternContentFS embed.FS\n\n", ContentDir)
+	}
 
 	b.WriteString("var ternManifest = &kit.Manifest{\n")
 	fmt.Fprintf(&b, "\tAppHTML: ternAppHTML,\n\tClientEntry: %q,\n", ClientEntry)
@@ -235,7 +241,11 @@ func (g *generator) goFile() error {
 			b.WriteString("\t\t\tPrerender: true,\n")
 		}
 		if rp != nil && rp.entries {
-			fmt.Fprintf(&b, "\t\t\tEntries: %s.Entries,\n", rp.alias)
+			if rp.entriesCtx {
+				fmt.Fprintf(&b, "\t\t\tEntries: %s.Entries,\n", rp.alias)
+			} else {
+				fmt.Fprintf(&b, "\t\t\tEntries: func(*kit.Ctx) ([]map[string]string, error) { return %s.Entries() },\n", rp.alias)
+			}
 		}
 		if rp != nil && len(rp.methods) > 0 {
 			b.WriteString("\t\t\tEndpoint: map[string]kit.HandlerFunc{\n")
@@ -295,10 +305,14 @@ func FindServiceWorker(root string) string {
 }
 
 func (g *generator) localesInit() string {
-	if g.locales == nil {
-		return ""
+	var b strings.Builder
+	if g.locales != nil {
+		fmt.Fprintf(&b, "\tlocales, err := fs.Sub(ternLocalesFS, %q)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tternManifest.Locales = locales\n", LocalesDir)
 	}
-	return fmt.Sprintf("\tlocales, err := fs.Sub(ternLocalesFS, %q)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tternManifest.Locales = locales\n", LocalesDir)
+	if g.hasContent() {
+		fmt.Fprintf(&b, "\tcontent, err := fs.Sub(ternContentFS, %q)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tternManifest.Content = content\n", ContentDir)
+	}
+	return b.String()
 }
 
 // rootPackageName returns the package name used by the project root's Go

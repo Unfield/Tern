@@ -49,7 +49,7 @@ func TestItemsInsideTheEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vm.Close()
+	defer func() { _ = vm.Close() }()
 	if _, err := vm.Eval(bundle, quickjs.EvalGlobal); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestItemsDumpBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer p.Close()
+	defer func() { _ = p.Close() }()
 	res, err := p.Render(context.Background(), payload, "http://localhost/items")
 	if err != nil {
 		t.Fatal(err)

@@ -42,7 +42,7 @@ jobs:
         run: go test -race -count=1 ./...
 
   postgres:
-    name: PostgreSQL
+    name: PostgreSQL and S3 (MinIO)
     # Service containers need a GitHub-hosted runner.
     runs-on: ubuntu-latest
     services:
@@ -63,10 +63,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: stable
-      - name: Test the database packages against PostgreSQL
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=tern -e MINIO_ROOT_PASSWORD=tern-secret-key minio/minio server /data
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
+          curl -sf --aws-sigv4 "aws:amz:us-east-1:s3" --user tern:tern-secret-key -X PUT http://localhost:9000/tern
+      - name: Test the database and storage packages against PostgreSQL and MinIO
         env:
           TERN_TEST_POSTGRES: postgres://tern:tern@localhost:5432/tern?sslmode=disable
-        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/
+          TERN_TEST_S3: http://localhost:9000|us-east-1|tern|tern|tern-secret-key
+        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/ ./storage/
 
   lint:
     name: Lint

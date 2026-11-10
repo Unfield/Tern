@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -339,3 +340,52 @@ type emptyFS struct{}
 func (emptyFS) Open(name string) (fs.File, error) {
 	return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 }
+
+// SetBodyLimit raises (or lowers) the request body limit for this request,
+// such as for an action that accepts file uploads. Call it before reading
+// the body, with ctx.Form or otherwise. The default is set with
+// WithBodyLimit.
+func (c *Ctx) SetBodyLimit(n int64) {
+	if l, ok := c.Request.Body.(*bodyLimiter); ok {
+		l.mu.Lock()
+		l.limit = n
+		l.mu.Unlock()
+	}
+}
+
+// bodyLimiter is http.MaxBytesReader with a limit that can change before
+// the body is read.
+type bodyLimiter struct {
+	r     io.ReadCloser
+	mu    sync.Mutex
+	limit int64
+	n     int64
+	err   error
+}
+
+func (l *bodyLimiter) Read(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.err != nil {
+		return 0, l.err
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if left := l.limit - l.n + 1; int64(len(p)) > left {
+		p = p[:max(left, 0)]
+	}
+	n, err := l.r.Read(p)
+	l.n += int64(n)
+	if l.n > l.limit {
+		n -= int(l.n - l.limit)
+		l.err = &http.MaxBytesError{Limit: l.limit}
+		return n, l.err
+	}
+	if err != nil {
+		l.err = err
+	}
+	return n, err
+}
+
+func (l *bodyLimiter) Close() error { return l.r.Close() }

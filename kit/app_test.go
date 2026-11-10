@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -688,5 +689,34 @@ func TestSetCookieReplaces(t *testing.T) {
 	got := do(t, a, "GET", "/c", nil).Header().Values("Set-Cookie")
 	if len(got) != 2 || !strings.HasPrefix(got[0], "s=two") {
 		t.Errorf("Set-Cookie = %v", got)
+	}
+}
+
+func TestSetBodyLimit(t *testing.T) {
+	m := testManifest()
+	m.Routes = append(m.Routes, RouteDef{ID: "/upload", Endpoint: map[string]HandlerFunc{"POST": func(c *Ctx) error {
+		if c.Request.URL.Query().Has("big") {
+			c.SetBodyLimit(1 << 20)
+		}
+		b, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) {
+				return Error(http.StatusRequestEntityTooLarge, "too large")
+			}
+			return err
+		}
+		return c.Text(200, strconv.Itoa(len(b)))
+	}}})
+	a, _ := newTestApp(t, m, WithBodyLimit(10))
+	body := strings.Repeat("x", 100)
+	if w := do(t, a, "POST", "/upload", strings.NewReader(body)); w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("over the default limit: %d %s", w.Code, w.Body)
+	}
+	if w := do(t, a, "POST", "/upload?big", strings.NewReader(body)); w.Code != 200 || w.Body.String() != "100" {
+		t.Errorf("with a raised limit: %d %s", w.Code, w.Body)
+	}
+	if w := do(t, a, "POST", "/upload", strings.NewReader("0123456789")); w.Code != 200 {
+		t.Errorf("exactly at the limit: %d %s", w.Code, w.Body)
 	}
 }

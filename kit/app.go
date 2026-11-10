@@ -268,7 +268,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !safe {
-		r.Body = http.MaxBytesReader(w, r.Body, a.opts.bodyLimit)
+		r.Body = &bodyLimiter{r: r.Body, limit: a.opts.bodyLimit}
 	}
 
 	var reuse string

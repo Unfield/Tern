@@ -834,6 +834,58 @@ sendMail := mail.Job(q, mailer) // a jobs kind, retried up to five times
 _, err := sendMail.Enqueue(ctx, *msg)
 ```
 
+## File uploads and storage
+
+The `storage` package keeps files in a `Bucket`: a directory on disk (`storage.Disk("data/files")`) or an S3-compatible bucket, such as AWS S3, Cloudflare R2, MinIO or Backblaze B2:
+
+```go
+files, err := storage.NewS3(storage.S3Options{
+	Endpoint: "https://s3.eu-central-1.amazonaws.com", Region: "eu-central-1", Bucket: "acme",
+	AccessKey: os.Getenv("S3_ACCESS_KEY"), SecretKey: os.Getenv("S3_SECRET_KEY"),
+})
+```
+
+Receive files in a form action with `storage.Receive`. It raises the request's body limit to fit, checks sizes, and detects each file's type from its contents rather than trusting the browser:
+
+```go
+"default": kit.Action(func(ctx *kit.Ctx) (struct{}, error) {
+	uploads, err := storage.Receive(ctx, "avatar", storage.ReceiveOptions{MaxSize: 5 << 20, Types: []string{"image/png", "image/jpeg", "image/webp"}})
+	var invalid *storage.InvalidUpload
+	if errors.As(err, &invalid) {
+		return struct{}{}, kit.Fail(400, Invalid{Error: invalid.Message})
+	}
+	if err != nil {
+		return struct{}{}, err
+	}
+	key := storage.NewKey("avatars", uploads[0].Filename) // avatars/2026/11/3f9a…-portrait.png
+	return struct{}{}, uploads[0].Save(ctx, files, key)
+}),
+```
+
+```svelte
+<form method="POST" enctype="multipart/form-data" use:enhance>
+	<input type="file" name="avatar" accept="image/*" />
+	<button>Upload</button>
+</form>
+```
+
+Serve the files with the `storage.Serve` plugin:
+
+```go
+signer := storage.NewSigner(secret)
+kit.WithPlugins(storage.Serve("/files/", files, storage.ServeOptions{Signer: signer}))
+
+url := signer.URL("/files/", key, time.Hour) // a link that expires
+```
+
+- **Signed links:** with a `Signer`, every file is private. Only signed, unexpired links work.
+- **Unsafe file types:** files are sent with `nosniff` and a sandboxing Content Security Policy. Only images, media, PDF and plain text display inline; HTML, SVG and everything else download. An uploaded file can't run scripts on your site.
+- **Range requests:** disk files support them, for video.
+- **S3:** files are redirected to short-lived presigned URLs, so downloads don't pass through your app.
+- **Direct uploads:** `bucket.PresignPut(key, ttl)` lets browsers upload large files straight to S3.
+
+S3 requests are signed with AWS Signature Version 4. The signing is tested against AWS's published examples, and in CI against MinIO.
+
 ## Realtime
 
 ### Server-sent events

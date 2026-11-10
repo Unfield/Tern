@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Experimental `<script lang="go">` (`"experimental": {"goScript": true}` in `tern.json`): component logic in Go with runes (`goscript.State`, `Derived`, `Effect`, `Func`), compiled to one WebAssembly module per app, with build-time initial state for server rendering. See [docs/experimental-go-script.md](docs/experimental-go-script.md) for measurements and limits.
+- Server rendering formats `Number.prototype.toLocaleString` and the `Date` locale methods like browsers (en-US), so their output hydrates.
 - Typed endpoints: `func GET(ctx *kit.Ctx, in Query) (Out, error)` decodes the query, path parameters (`path:"id"`) or JSON body, runs an optional `Validate()`, and writes the output as JSON. `tern gen` writes an OpenAPI 3.1 document of them (served with `kit.WithOpenAPI`) and a typed client, `api('POST /api/projects', { body })` from `$api`, which throws `ApiError` on failure.
 - File storage: the `storage` package stores files on disk or in S3-compatible buckets (SigV4, presigned URLs), receives uploads with size limits and content sniffing (`storage.Receive`), makes unguessable keys, and serves files with expiring signed links, range requests and safe headers (`storage.Serve`).
 - `ctx.SetBodyLimit` raises the body limit for one request, such as an upload.

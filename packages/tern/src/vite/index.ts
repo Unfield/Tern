@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
+import { goScriptPlugin, goScriptPreprocessor } from './goscript.js';
 import { imagePlugin } from './image.js';
 
 export interface TernOptions {
@@ -220,8 +221,11 @@ export function tern(options: TernOptions = {}): Plugin[] {
 	// Email templates carry their styles in the HTML, since mail clients
 	// can't load the app's stylesheets.
 	const userDynamic = options.svelte?.dynamicCompileOptions;
+	const userPreprocess = options.svelte?.preprocess;
 	const svelteOptions: Partial<SvelteOptions> = {
 		...options.svelte,
+		// <script lang="go"> runs before the user's preprocessors.
+		preprocess: [goScriptPreprocessor(() => root), ...(Array.isArray(userPreprocess) ? userPreprocess : userPreprocess ? [userPreprocess] : [])],
 		dynamicCompileOptions: async (args) => {
 			const user = (await userDynamic?.(args)) ?? undefined;
 			if (args.filename.includes(`${path.sep}src${path.sep}emails${path.sep}`) || args.filename.includes('/src/emails/')) {
@@ -231,7 +235,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		}
 	};
 
-	return [browserBuildsPlugin, imagePlugin(), ...svelte(svelteOptions), plugin];
+	return [browserBuildsPlugin, imagePlugin(), goScriptPlugin(() => root), ...svelte(svelteOptions), plugin];
 }
 
 /** The $service-worker module: what this build produced, for caching. */

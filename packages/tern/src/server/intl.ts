@@ -37,7 +37,7 @@ class NumberFormat {
 			}
 		}
 		const isCurrency = o.style === 'currency';
-		const max = (o.maximumFractionDigits as number | undefined) ?? (isCurrency ? 2 : o.notation === 'compact' ? 1 : 3);
+		const max = (o.maximumFractionDigits as number | undefined) ?? (isCurrency ? 2 : o.style === 'percent' ? 0 : o.notation === 'compact' ? 1 : 3);
 		const min = (o.minimumFractionDigits as number | undefined) ?? (isCurrency ? 2 : 0);
 		let s = Math.abs(n).toFixed(Math.max(min, Math.min(max, 20)));
 		if (s.includes('.')) {

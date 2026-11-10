@@ -7,6 +7,7 @@ import Dates from './cases/Dates.svelte';
 import I18n from './cases/I18n.svelte';
 import Ids from './cases/Ids.svelte';
 import LayerChart from './cases/LayerChart.svelte';
+import Locale from './cases/Locale.svelte';
 import Lucide from './cases/Lucide.svelte';
 import Markdown from './cases/Markdown.svelte';
 import ModeWatcher from './cases/ModeWatcher.svelte';
@@ -32,7 +33,8 @@ const cases = {
 	'zod, valibot': [Validation, ['zod issues: 2 valibot ok: true']],
 	'd3, floating-ui, clsx, tailwind-merge, lodash': [Utilities, ['<path d="M0,0L50,10L100,0"', 'class="p-4 text-red-500"', 'odd 2']],
 	'svelte-i18n': [I18n, ['Hello Tern / 3 items']],
-	layerchart: [LayerChart, ['height: 200px']]
+	layerchart: [LayerChart, ['height: 200px']],
+	'toLocaleString': [Locale, ['5,000,000 5,000,000 $1,234.50 26%']]
 };
 
 globalThis.__tern_render = (payload) => {

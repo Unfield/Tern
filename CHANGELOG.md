@@ -10,12 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`. The flags `-ui`, `-git` and `-install` do the same without questions, and flags may now follow the directory.
 - `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
+- Tern UI overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.
 
 - `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
 - The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.
 - The guide has a recipe for signing in with a password: sessions, a sign-in action, a hook, guarded pages and signing out.
 
 ### Changed
+
+- Tern UI's menus and tooltips open in the top layer and stay on screen, so containers with `overflow` no longer clip them. `Tooltip` takes `left` and `right` too.
 
 - Once `kit.WithTrustedProxies` is set, `X-Forwarded-Proto` is only believed from those proxies.
 - Compact numbers during server rendering round like browsers do (`12K`, not `12.3K`; `999,999` is `1M`).

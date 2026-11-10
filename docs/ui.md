@@ -38,8 +38,14 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Switch` | `role="switch"` with `aria-checked`. It posts `on`/`off` with `name` |
 | `Dialog` | a native modal `<dialog>`: the page behind is inert, Escape closes it, focus returns to the opener, and Tab cycles inside. It is labelled by its title and described by its description |
 | `Tabs` | the ARIA tabs pattern: arrow keys, Home and End, roving tabindex, and disabled tabs skipped |
-| `Menu` | the ARIA menu button pattern: Enter, Space and the arrow keys open it, type-ahead jumps, Escape returns focus, and Tab and clicks outside close it |
-| `Tooltip` | `role="tooltip"`, linked to its trigger with `aria-describedby`. It shows on hover and focus, and Escape hides it |
+| `Menu` | the ARIA menu button pattern: Enter, Space and the arrow keys open it, type-ahead jumps, Escape returns focus, and Tab and clicks outside close it. Items can have submenus, checkboxes, radio items, shortcuts and labelled groups |
+| `Menubar` | the ARIA menubar pattern: arrow keys move along the bar and between open menus, with a roving tabindex |
+| `ContextMenu` | opens on right-click, a long press, Shift+F10 or the menu key, at the pointer or the focused element, and returns focus |
+| `Popover` | a non-modal `role="dialog"` labelled by its title, opened by a trigger with `aria-expanded`. Focus moves in; Escape, clicks outside and tabbing away close it |
+| `HoverCard` | a preview on hover or focus, linked as the trigger's description; Escape hides it |
+| `AlertDialog` | `role="alertdialog"` for confirmations. Focus starts on Cancel, so Enter doesn't confirm by accident. The confirm button waits for an async `onconfirm` |
+| `Sheet`, `Drawer` | modal dialogs against an edge. A `Drawer` is a bottom sheet that closes when dragged down |
+| `Tooltip` | `role="tooltip"`, linked to its trigger with `aria-describedby`. It shows on hover and focus, Escape hides it, and it can sit on any `side` |
 | `Accordion` | buttons with `aria-expanded` inside headings of the level you choose, and labelled regions |
 | `Toaster` and `toast()` | a labelled notifications region. Errors are announced at once, the rest politely. Timers pause on hover and focus |
 | `Alert` | with `live`, `role="alert"` (danger, warning) or `role="status"` |
@@ -48,6 +54,32 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Card`, `Badge`, `Avatar`, `Skeleton`, `Separator`, `Kbd` | semantic elements. `Card` takes a heading `level` and `as` (section, article). `Avatar` falls back to initials labelled with the name |
 
 Tables use `<table class="tern-table">`, and `.tern-sr-only` hides text visually while keeping it for screen readers.
+
+### Overlays
+
+Popovers, menus, tooltips and hover cards open in the browser's top layer, through the Popover API. A scrolling container or a `z-index` never clips them, and they flip and shift to stay on screen. Choose where they go with `side` (`top`, `bottom`, `left`, `right`) and `align` (`start`, `center`, `end`).
+
+Triggers are your own elements. The component passes the attributes they need through a snippet, so spread them on:
+
+```svelte
+<Popover title="Dimensions">
+	{#snippet trigger(props)}<Button variant="secondary" {...props}>Set width</Button>{/snippet}
+	<Field label="Width"><Input bind:value={width} /></Field>
+</Popover>
+```
+
+Menus take items:
+
+```ts
+const items: MenuItem[] = [
+	{ label: 'New file', shortcut: '⌘N', onselect: create },
+	{ label: 'Open recent', items: recent.map((f) => ({ label: f.name, onselect: () => open(f) })) },
+	{ separator: true },
+	{ heading: 'View' },
+	{ label: 'Word wrap', type: 'checkbox', checked: wrap, onselect: () => (wrap = !wrap) },
+	{ label: 'Delete', danger: true, onselect: remove }
+];
+```
 
 ## Forms
 

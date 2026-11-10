@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { trapTab } from './floating.js';
 
 	type Props = {
 		/** Whether the dialog is open; bind it. */
@@ -11,47 +12,77 @@
 		/** Close when the backdrop is clicked. Escape always closes. */
 		dismissable?: boolean;
 		size?: 'sm' | 'md' | 'lg';
+		/** center for a dialog; an edge slides it in from there, as Sheet and Drawer do. */
+		side?: 'center' | 'left' | 'right' | 'top' | 'bottom';
+		/** alertdialog for confirmations that interrupt, as AlertDialog uses. */
+		role?: 'dialog' | 'alertdialog';
+		/** Show the close button in the corner. */
+		closeButton?: boolean;
+		/** Drag the panel down to close it, with a handle at the top. For bottom sheets on touch screens. */
+		draggable?: boolean;
+		/** The element to focus when it opens, instead of the first focusable one. */
+		initialFocus?: () => HTMLElement | null | undefined;
 		class?: string;
 		children?: Snippet;
 		/** Buttons at the bottom, such as Cancel and Save. */
 		footer?: Snippet;
 		onclose?: () => void;
 	};
-	let { open = $bindable(false), title, description, dismissable = true, size = 'md', class: klass = '', children, footer, onclose }: Props = $props();
+	let {
+		open = $bindable(false),
+		title,
+		description,
+		dismissable = true,
+		size = 'md',
+		side = 'center',
+		role = 'dialog',
+		closeButton = true,
+		draggable = false,
+		initialFocus,
+		class: klass = '',
+		children,
+		footer,
+		onclose
+	}: Props = $props();
 
 	const uid = $props.id();
 	let dialog = $state<HTMLDialogElement>();
 
-	// The native dialog traps focus, makes the page inert, closes on Escape
-	// and returns focus to what opened it.
+	// The native dialog makes the page inert, closes on Escape and returns
+	// focus to what opened it.
 	$effect(() => {
 		if (!dialog) return;
-		if (open && !dialog.open) dialog.showModal();
-		else if (!open && dialog.open) dialog.close();
+		if (open && !dialog.open) {
+			dialog.showModal();
+			const el = initialFocus?.();
+			if (el) el.focus();
+		} else if (!open && dialog.open) dialog.close();
 	});
 
-	// Tab cycles inside the dialog instead of leaving for the browser's UI.
-	function onkeydown(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialog) return;
-		const focusable = Array.from(
-			dialog.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
-		).filter((el) => el.offsetParent !== null || el === document.activeElement);
-		if (focusable.length === 0) return;
-		const first = focusable[0]!;
-		const last = focusable[focusable.length - 1]!;
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
+	// Dragging a bottom sheet down closes it once it passes a quarter of its height.
+	let drag = $state(0);
+	let dragStart: number | null = null;
+	function dragDown(e: PointerEvent) {
+		if (!draggable) return;
+		dragStart = e.clientY;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+	function dragMove(e: PointerEvent) {
+		if (dragStart !== null) drag = Math.max(0, e.clientY - dragStart);
+	}
+	function dragEnd(e: PointerEvent) {
+		if (dragStart === null) return;
+		const panel = (e.currentTarget as HTMLElement).closest('.panel') as HTMLElement | null;
+		if (panel && drag > panel.offsetHeight / 4) open = false;
+		dragStart = null;
+		drag = 0;
 	}
 </script>
 
 <dialog
 	bind:this={dialog}
-	class="tern-dialog {size} {klass}"
+	class="tern-dialog {size} {side} {klass}"
+	{role}
 	aria-labelledby="tern-dialog-{uid}-title"
 	aria-describedby={description ? `tern-dialog-${uid}-description` : undefined}
 	onclose={() => {
@@ -61,14 +92,19 @@
 	onclick={(e) => {
 		if (dismissable && e.target === dialog) open = false;
 	}}
-	{onkeydown}
+	onkeydown={(e) => dialog && trapTab(dialog, e)}
 >
-	<div class="panel">
+	<div class="panel" style:translate={drag ? `0 ${drag}px` : undefined}>
+		{#if draggable}
+			<div class="handle" aria-hidden="true" onpointerdown={dragDown} onpointermove={dragMove} onpointerup={dragEnd} onpointercancel={dragEnd}><span></span></div>
+		{/if}
 		<header>
 			<h2 id="tern-dialog-{uid}-title">{title}</h2>
-			<button type="button" class="close" aria-label="Close" onclick={() => (open = false)}>
-				<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
-			</button>
+			{#if closeButton}
+				<button type="button" class="close" aria-label="Close" onclick={() => (open = false)}>
+					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+				</button>
+			{/if}
 		</header>
 		{#if description}<p class="description" id="tern-dialog-{uid}-description">{description}</p>{/if}
 		{#if children}<div class="body">{@render children()}</div>{/if}
@@ -150,6 +186,111 @@
 		justify-content: flex-end;
 		gap: 0.5rem;
 		margin-top: 0.25rem;
+	}
+	/* Sheets: full height or width, against an edge. */
+	.tern-dialog:not(.center) {
+		margin: 0;
+		max-width: 100vw;
+		max-height: 100vh;
+	}
+	.tern-dialog.left,
+	.tern-dialog.right {
+		height: 100vh;
+		width: min(24rem, 100vw - 3rem);
+	}
+	.tern-dialog.left {
+		margin-right: auto;
+	}
+	.tern-dialog.right {
+		margin-left: auto;
+	}
+	.tern-dialog.top,
+	.tern-dialog.bottom {
+		width: 100vw;
+	}
+	.tern-dialog.top {
+		margin-bottom: auto;
+	}
+	.tern-dialog.bottom {
+		margin-top: auto;
+	}
+	.tern-dialog:not(.center) .panel {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		box-sizing: border-box;
+		overflow: auto;
+		border-radius: 0;
+	}
+	.tern-dialog.left footer,
+	.tern-dialog.right footer {
+		margin-top: auto;
+	}
+	.left .panel {
+		border-width: 0 1px 0 0;
+	}
+	.right .panel {
+		border-width: 0 0 0 1px;
+	}
+	.top .panel {
+		border-width: 0 0 1px;
+		border-radius: 0 0 calc(var(--tern-radius) + 4px) calc(var(--tern-radius) + 4px);
+	}
+	.bottom .panel {
+		max-height: 85vh;
+		border-width: 1px 0 0;
+		border-radius: calc(var(--tern-radius) + 4px) calc(var(--tern-radius) + 4px) 0 0;
+	}
+	.tern-dialog.left[open] .panel {
+		animation-name: from-left;
+	}
+	.tern-dialog.right[open] .panel {
+		animation-name: from-right;
+	}
+	.tern-dialog.top[open] .panel {
+		animation-name: from-top;
+	}
+	.tern-dialog.bottom[open] .panel {
+		animation-name: from-bottom;
+	}
+	.handle {
+		display: grid;
+		place-items: center;
+		margin: -0.75rem 0 -0.25rem;
+		padding: 0.5rem;
+		cursor: grab;
+		touch-action: none;
+	}
+	.handle span {
+		width: 2.5rem;
+		height: 0.3rem;
+		border-radius: 1rem;
+		background: var(--tern-border-strong);
+	}
+	@keyframes from-left {
+		from {
+			transform: translateX(-100%);
+		}
+	}
+	@keyframes from-right {
+		from {
+			transform: translateX(100%);
+		}
+	}
+	@keyframes from-top {
+		from {
+			transform: translateY(-100%);
+		}
+	}
+	@keyframes from-bottom {
+		from {
+			transform: translateY(100%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tern-dialog[open] .panel {
+			animation: none !important;
+		}
 	}
 	@keyframes rise {
 		from {

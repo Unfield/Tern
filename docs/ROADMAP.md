@@ -80,13 +80,16 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] `ctx.ClientIP()` with trusted proxies, the Intl shim's `signDisplay`, a password sign-in recipe
 
 **Tern UI: the complete set**
-- [ ] Overlays: Popover, Hover Card, Alert Dialog, Sheet, Drawer, Context Menu, Menubar
+- [x] Overlays: Popover, Hover Card, Alert Dialog, Sheet, Drawer, Context Menu, Menubar
 - [ ] Inputs: Combobox, Command palette, custom Select, Slider, Toggle, Toggle Group, Input OTP, Input Group, Date Picker, Calendar, Label, Button Group
 - [ ] Layout and navigation: Sidebar, Navigation Menu, Breadcrumb, Pagination, Collapsible, Resizable, Scroll Area, Aspect Ratio, Carousel, Empty, Item, Table
 - [ ] Data: a Data Table with sorting, filtering, selection and pagination
 - [ ] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers
 - [ ] Blocks wired to Tern's plugins: sign-in and sign-up (passwords, `plugins/oauth`), the consent screen for `plugins/oidc`, account and sessions pages, a dashboard shell
 - [ ] `tern ui add <component>`: copy a component into the project, to own and change it
+
+**Validation**
+- [ ] Schemas in Go that validate actions and endpoints, generate matching TypeScript validators so the page checks as you type, and show each error on its `Field`
 
 **The analytics app**
 - [ ] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary

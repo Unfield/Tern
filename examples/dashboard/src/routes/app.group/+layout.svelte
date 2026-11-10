@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { navigating, page } from '@ternkit/tern';
+	import { i18n, navigating, page, setLocale, t } from '@ternkit/tern';
 	import { toggleMode } from 'mode-watcher';
 	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 	import FolderKanban from '@lucide/svelte/icons/folder-kanban';
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import LogOut from '@lucide/svelte/icons/log-out';
+	import Languages from '@lucide/svelte/icons/languages';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Settings from '@lucide/svelte/icons/settings';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
@@ -16,11 +17,12 @@
 
 	let { data, children }: LayoutProps = $props();
 
-	const nav = [
-		{ href: '/', label: 'Overview', icon: LayoutDashboard },
-		{ href: '/projects', label: 'Projects', icon: FolderKanban },
-		{ href: '/settings', label: 'Settings', icon: Settings }
-	];
+	const nav = $derived([
+		{ href: '/', label: t('nav.overview'), icon: LayoutDashboard },
+		{ href: '/projects', label: t('nav.projects'), icon: FolderKanban },
+		{ href: '/settings', label: t('nav.settings'), icon: Settings }
+	]);
+	const languages: Record<string, string> = { en: 'English', de: 'Deutsch' };
 
 	const initials = $derived(
 		data.displayName
@@ -60,7 +62,7 @@
 
 		<Sidebar.Content>
 			<Sidebar.Group>
-				<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
+				<Sidebar.GroupLabel>{t('nav.navigation')}</Sidebar.GroupLabel>
 				<Sidebar.GroupContent>
 					<Sidebar.Menu>
 						{#each nav as item (item.href)}
@@ -77,7 +79,7 @@
 			</Sidebar.Group>
 
 			<Sidebar.Group>
-				<Sidebar.GroupLabel>Active projects</Sidebar.GroupLabel>
+				<Sidebar.GroupLabel>{t('nav.activeProjects')}</Sidebar.GroupLabel>
 				<Sidebar.GroupContent>
 					<Sidebar.Menu data-testid="sidebar-projects">
 						{#each data.projects ?? [] as p (p.id)}
@@ -106,17 +108,27 @@
 									</Avatar.Root>
 									<div class="grid flex-1 text-left text-sm leading-tight">
 										<span class="truncate font-medium" data-testid="user">{data.displayName}</span>
-										<span class="text-muted-foreground truncate text-xs">{data.email || 'No email set'}</span>
+										<span class="text-muted-foreground truncate text-xs">{data.email || t('menu.noEmail')}</span>
 									</div>
 									<ChevronsUpDown class="ml-auto" />
 								</Sidebar.MenuButton>
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content side="top" align="start" class="w-56">
-							<DropdownMenu.Label>Signed in as {data.user}</DropdownMenu.Label>
+							<DropdownMenu.Label>{t('menu.signedInAs', { user: data.user })}</DropdownMenu.Label>
 							<DropdownMenu.Separator />
-							<DropdownMenu.Item onSelect={toggleMode}><Moon /> Toggle theme</DropdownMenu.Item>
-							<DropdownMenu.Item onSelect={() => logoutForm?.requestSubmit()}><LogOut /> Sign out</DropdownMenu.Item>
+							<DropdownMenu.Item onSelect={toggleMode}><Moon /> {t('menu.theme')}</DropdownMenu.Item>
+							<DropdownMenu.Sub>
+								<DropdownMenu.SubTrigger data-testid="language"><Languages /> {t('menu.language')}</DropdownMenu.SubTrigger>
+								<DropdownMenu.SubContent>
+									<DropdownMenu.RadioGroup value={i18n.locale} onValueChange={(l) => setLocale(l)}>
+										{#each i18n.locales as l (l)}
+											<DropdownMenu.RadioItem value={l}>{languages[l] ?? l}</DropdownMenu.RadioItem>
+										{/each}
+									</DropdownMenu.RadioGroup>
+								</DropdownMenu.SubContent>
+							</DropdownMenu.Sub>
+							<DropdownMenu.Item onSelect={() => logoutForm?.requestSubmit()}><LogOut /> {t('menu.signOut')}</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 				</Sidebar.MenuItem>

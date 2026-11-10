@@ -28,6 +28,7 @@ type payload struct {
 	Data     any               `json:"data,omitempty"`
 	Form     any               `json:"form,omitempty"`
 	Env      map[string]string `json:"env,omitempty"`
+	Locale   string            `json:"locale,omitempty"`
 	HasForm  bool              `json:"hasForm,omitempty"`
 }
 
@@ -36,6 +37,7 @@ type errorBody struct {
 }
 
 func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
+	p.Locale = c.rootCtx().locale
 	b, err := json.Marshal(p)
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding response: %w", err))
@@ -64,7 +66,7 @@ type shell struct {
 	slots []string // placeholder names, len(parts)-1
 }
 
-var placeholders = []string{"%tern.head%", "%tern.body%", "%tern.assets%", "%tern.nonce%"}
+var placeholders = []string{"%tern.head%", "%tern.body%", "%tern.assets%", "%tern.nonce%", "%tern.lang%"}
 
 func parseShell(src string) (*shell, error) {
 	if src == "" {
@@ -94,7 +96,7 @@ func parseShell(src string) (*shell, error) {
 	}
 }
 
-func (s *shell) render(head, body, nonce, base string) string {
+func (s *shell) render(head, body, nonce, base, lang string) string {
 	var b strings.Builder
 	for i, part := range s.parts {
 		b.WriteString(part)
@@ -108,6 +110,8 @@ func (s *shell) render(head, body, nonce, base string) string {
 				b.WriteString(nonce)
 			case "%tern.assets%":
 				b.WriteString(base)
+			case "%tern.lang%":
+				b.WriteString(lang)
 			}
 		}
 	}
@@ -119,6 +123,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	if len(a.publicEnv) > 0 {
 		p.Env = a.publicEnv // full page loads only; the client keeps it
 	}
+	p.Locale = c.rootCtx().locale
 	data, err := json.Marshal(p) // escapes <, > and & for safe inlining
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))
@@ -140,7 +145,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(src), nonce)
 		}
 	} else if a.assets != nil {
-		scripts, styles := a.assets.forPage(a.components(def))
+		components := a.components(def)
+		if l := c.rootCtx().locale; l != "" {
+			// Preload the locale's messages with the page's code.
+			components = append(components, "src/locales/"+l+".json")
+			if d := a.i18n.Default; d != l {
+				components = append(components, "src/locales/"+d+".json")
+			}
+		}
+		scripts, styles := a.assets.forPage(components)
 		base := a.m.BasePath
 		for _, href := range styles {
 			fmt.Fprintf(&head, "\n\t\t<link rel=\"stylesheet\" href=\"%s\">", html.EscapeString(base+href))
@@ -178,7 +191,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			body = `<div id="tern-root" data-tern-ssr style="display: contents">` + res.Body + `</div>`
 		}
 	}
-	doc := shell.render(headHTML, body, nonce, a.m.BasePath)
+	doc := shell.render(headHTML, body, nonce, a.m.BasePath, a.htmlLang(c))
 
 	c.applyHeaders()
 	h := c.writer.Header()

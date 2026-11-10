@@ -4,6 +4,7 @@ import DefaultError from '../runtime/DefaultError.svelte';
 import Passthrough from '../runtime/Passthrough.svelte';
 import Root from '../runtime/Root.svelte';
 import { revive } from '../runtime/deferred.js';
+import { configureI18n, useLocaleSync, type I18nConfig } from '../runtime/i18n.svelte.js';
 import { plan } from '../runtime/select.js';
 import { applyPayloadToPage } from '../runtime/state.svelte.js';
 import type { Payload } from '../runtime/types.js';
@@ -13,6 +14,7 @@ export interface ServerManifest {
 	layouts: { component: Component<any> | null }[];
 	routes: Record<string, { layouts: number[]; page: Component<any>; errors: { layouts: number; component: Component<any> }[] }>;
 	fallback: { layouts: number[]; errors: { layouts: number; component: Component<any> }[] };
+	i18n?: I18nConfig | null;
 }
 
 /** The result of a server render, as JSON for the Go side. */
@@ -30,6 +32,7 @@ export interface RenderResult {
  */
 export function createRenderer(manifest: ServerManifest): (payload: string, href: string) => string {
 	const layout = (i: number) => manifest.layouts[i]?.component ?? Passthrough;
+	configureI18n(manifest.i18n ?? null);
 
 	return (payloadJSON, href) => {
 		const p = JSON.parse(payloadJSON) as Payload;
@@ -53,6 +56,7 @@ export function createRenderer(manifest: ServerManifest): (payload: string, href
 				components = [DefaultError];
 		}
 
+		useLocaleSync(p.locale);
 		applyPayloadToPage(p, new URL(href), {}, what.data);
 		const form = p.hasForm ? (p.form ?? null) : null;
 		const out = render(Root, { props: { components, data: what.data, form } });

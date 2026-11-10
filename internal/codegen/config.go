@@ -18,6 +18,12 @@ type Config struct {
 	// BasePath serves the app under a URL prefix such as "/app". It must
 	// start with a slash and must not end with one. The default is "".
 	BasePath string `json:"basePath"`
+	// I18n configures translations in src/locales, if the app has them.
+	I18n struct {
+		// DefaultLocale is used when no other locale fits, and for messages
+		// missing from a locale. It defaults to "en", or the first locale.
+		DefaultLocale string `json:"defaultLocale"`
+	} `json:"i18n"`
 	// ServiceWorker configures src/service-worker.ts, if the app has one.
 	ServiceWorker struct {
 		// Register is whether the client registers the service worker. It

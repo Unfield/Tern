@@ -66,6 +66,10 @@ type Manifest struct {
 	// BasePath is the URL prefix the app is served under, from tern.json,
 	// such as "/app"; "" serves it at the root.
 	BasePath string
+	// Locales holds src/locales/<locale>.json, or nil without i18n.
+	Locales fs.FS
+	// DefaultLocale is the fallback locale; "" picks "en" or the first.
+	DefaultLocale string
 }
 
 // LayoutDef is a layout directory.

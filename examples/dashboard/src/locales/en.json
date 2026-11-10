@@ -1,0 +1,27 @@
+{
+	"nav": {
+		"overview": "Overview",
+		"projects": "Projects",
+		"settings": "Settings",
+		"activeProjects": "Active projects",
+		"navigation": "Navigation"
+	},
+	"menu": {
+		"signedInAs": "Signed in as {user}",
+		"noEmail": "No email set",
+		"theme": "Toggle theme",
+		"language": "Language",
+		"signOut": "Sign out"
+	},
+	"login": {
+		"title": "Sign in",
+		"description": "Enter your name to open your dashboard. New names get sample projects.",
+		"name": "Name",
+		"submit": "Continue",
+		"submitting": "Signing in…",
+		"invalid": "Enter a name of up to {max} characters."
+	},
+	"projects": {
+		"count": "{count, plural, =0 {No projects} one {# project} other {# projects}}"
+	}
+}

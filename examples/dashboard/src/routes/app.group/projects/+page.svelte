@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance, goto } from '@ternkit/tern';
+	import { enhance, goto, t } from '@ternkit/tern';
 	import { toast } from 'svelte-sonner';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -42,7 +42,7 @@
 <div class="flex flex-wrap items-center justify-between gap-4">
 	<div>
 		<h1 class="text-2xl font-semibold tracking-tight">Projects</h1>
-		<p class="text-muted-foreground">{data.projects?.length ?? 0} {data.projects?.length === 1 ? 'project' : 'projects'}</p>
+		<p class="text-muted-foreground">{t('projects.count', { count: data.projects?.length ?? 0 })}</p>
 	</div>
 
 	<Dialog.Root bind:open>

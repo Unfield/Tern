@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Unfield/Tern/internal/i18n"
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
 )
@@ -41,6 +42,8 @@ type App struct {
 
 	// publicEnv holds PUBLIC_ environment variables, sent to the client.
 	publicEnv map[string]string
+	// i18n is the message catalog from src/locales, or nil.
+	i18n *i18n.Catalog
 
 	// Set up by plugins.
 	pluginMux       *http.ServeMux
@@ -76,6 +79,13 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		return nil, err
 	}
 	a.publicEnv = publicEnv(os.Environ())
+	if m.Locales != nil {
+		cat, err := i18n.Load(m.Locales, m.DefaultLocale)
+		if err != nil {
+			return nil, fmt.Errorf("kit: %w", err)
+		}
+		a.i18n = cat
+	}
 	o = a.opts // plugins may have added hooks, middleware and matchers
 
 	list := make([]*routes.Route, 0, len(m.Routes))
@@ -255,6 +265,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 		c.routeID = def.ID
 		c.params = params
 	}
+	a.resolveLocale(c)
 
 	for _, hook := range a.opts.hooks {
 		if err := a.safely(func() error { return hook(c) }); err != nil {

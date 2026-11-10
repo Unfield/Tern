@@ -575,6 +575,50 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
 
+## Translations
+
+Put one JSON file per locale in `src/locales`, such as `en.json` and `de.json`. Nest keys as you like; `t()` uses dotted paths:
+
+```json
+{
+	"login": { "title": "Sign in", "invalid": "Enter a name of up to {max} characters." },
+	"projects": { "count": "{count, plural, =0 {No projects} one {# project} other {# projects}}" }
+}
+```
+
+Translate in components with `t` from `@ternkit/tern`. `tern gen` types its keys from the default locale, so a typo is a type error:
+
+```svelte
+<script lang="ts">
+	import { t } from '@ternkit/tern';
+	let { data } = $props();
+</script>
+
+<h1>{t('login.title')}</h1>
+<p>{t('projects.count', { count: data.projects.length })}</p>
+```
+
+Messages use a subset of ICU MessageFormat: `{name}` placeholders, `plural` (with `=N` cases, CLDR categories such as `one`, `few` and `many`, and `#` for the number) and `select`. Quote literal braces with apostrophes: `'{'`. Go and the browser share one implementation, tested against the same cases, so server-rendered text always hydrates.
+
+**Choosing the locale.** For each request Tern uses the first of:
+
+1. a `lang` route parameter, as in `src/routes/lang.optional/…`
+2. the `locale` cookie
+3. the best match for the `Accept-Language` header
+4. the default locale: `"en"` if there is an `en.json`, else the first file, or `"i18n": { "defaultLocale": "de" }` in `tern.json`
+
+The locale fills `%tern.lang%` in `app.html` (`<html lang="%tern.lang%">`). Only the current locale's messages, and the default locale's for fallbacks, are sent to the browser. A message missing from a locale falls back to the default locale; `tern gen` warns about missing keys.
+
+**In Go**, `ctx.Locale()` returns the locale and `ctx.T` translates, for example for validation errors returned with `kit.Fail`:
+
+```go
+return nil, kit.Fail(400, Invalid{Error: ctx.T("login.invalid", map[string]any{"max": 40})})
+```
+
+`ctx.SetLocale` overrides the locale for the rest of the request.
+
+**Switching languages.** `setLocale('de')` stores the choice in the `locale` cookie and reloads the page's data without a full page load. `i18n.locale` and `i18n.locales` list the current and available locales for a switcher. If the locale is in the URL instead, link to the other URL.
+
 ## Service workers
 
 Add `src/service-worker.ts` and Tern builds it to `/service-worker.js` and registers it in production. The `$service-worker` module tells it what this build contains:
@@ -612,6 +656,7 @@ Tern works without configuration. An optional `tern.json` at the project root ho
 ```json
 {
 	"basePath": "/app",
+	"i18n": { "defaultLocale": "en" },
 	"serviceWorker": { "register": true }
 }
 ```

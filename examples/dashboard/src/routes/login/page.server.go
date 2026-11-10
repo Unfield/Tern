@@ -31,7 +31,7 @@ var Actions = kit.Actions{
 		}
 		name := strings.TrimSpace(form.Get("name"))
 		if name == "" || utf8.RuneCountInString(name) > 40 {
-			return struct{}{}, kit.Fail(http.StatusBadRequest, Invalid{Name: name, Error: "Enter a name of up to 40 characters."})
+			return struct{}{}, kit.Fail(http.StatusBadRequest, Invalid{Name: name, Error: ctx.T("login.invalid", map[string]any{"max": 40})})
 		}
 		store, err := db.Default()
 		if err != nil {

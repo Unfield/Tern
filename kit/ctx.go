@@ -44,6 +44,9 @@ type Ctx struct {
 	uses *nodeUses
 	// reuse is the client's list of layout data it already has.
 	reuse string
+
+	locale          string
+	localeFromParam bool
 }
 
 var _ context.Context = (*Ctx)(nil)

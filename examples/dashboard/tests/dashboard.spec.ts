@@ -254,3 +254,44 @@ test('plugins add health checks, compression and security headers', async ({ req
 	expect(login.headers()['x-frame-options']).toBe('DENY');
 	expect(login.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin');
 });
+
+test.describe('i18n', () => {
+	test.use({ locale: 'de-DE' });
+
+	test('Accept-Language picks German on the server, and validation messages follow', async ({ page }) => {
+		const problems = watchConsole(page);
+		const res = await page.request.get('/login', { headers: { 'accept-language': 'de-DE,de;q=0.9' } });
+		const html = await res.text();
+		expect(html).toContain('<html lang="de">');
+		expect(html).toContain('Anmelden');
+
+		await page.goto('/login');
+		await expect(page.getByRole('button', { name: 'Weiter' })).toBeVisible();
+		await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+		await page.getByRole('button', { name: 'Weiter' }).click();
+		await expect(page.getByRole('alert')).toHaveText('Gib einen Namen mit bis zu 40 Zeichen ein.');
+		expect(problems).toEqual([]);
+	});
+
+	test('the language switcher sets a cookie that survives reloads', async ({ page }) => {
+		const problems = watchConsole(page);
+		await page.goto('/login');
+		await page.getByLabel('Name').fill(uniqueName());
+		await page.getByRole('button', { name: 'Weiter' }).click();
+		await expect(page.getByTestId('section')).toHaveText('Übersicht');
+		await mark(page);
+
+		await page.getByTestId('user-menu').click();
+		await page.getByTestId('language').click();
+		await page.getByRole('menuitemradio', { name: 'English' }).click();
+		await expect(page.getByTestId('section')).toHaveText('Overview');
+		await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+		await expectSameWindow(page);
+
+		await page.reload();
+		await expect(page.getByTestId('section')).toHaveText('Overview');
+		await page.goto('/projects');
+		await expect(page.getByText('3 projects')).toBeVisible();
+		expect(problems).toEqual([]);
+	});
+});

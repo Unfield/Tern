@@ -27,5 +27,8 @@ func cmdGen(args []string, stdout, stderr io.Writer) int {
 		note = plural(n, "file") + " updated"
 	}
 	p.Success("Generated %s %s", plural(len(res.Manifest.Routes), "route"), p.Dim(note+" · "+ui.Duration(time.Since(start))))
+	for _, w := range res.Warnings {
+		p.Warn("%s", w)
+	}
 	return 0
 }

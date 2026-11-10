@@ -540,7 +540,7 @@ func TestShell(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := s.render("<HEAD>", "<BODY>", "N", "")
+	got := s.render("<HEAD>", "<BODY>", "N", "", "en")
 	want := `<html lang="en"><head><HEAD><meta nonce="N"></head><body><BODY></body></html>`
 	if got != want {
 		t.Errorf("render = %q, want %q", got, want)

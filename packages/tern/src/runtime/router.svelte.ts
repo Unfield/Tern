@@ -3,6 +3,7 @@ import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
 import { DeferredScope, readStreamed, revive, type Chunk } from './deferred.js';
+import { configureI18n, useLocale } from './i18n.svelte.js';
 import { runAfter, runBefore, runOn } from './navigation.js';
 import { plan } from './select.js';
 import { applyPayloadToPage, page, setNavigating } from './state.svelte.js';
@@ -56,6 +57,7 @@ type NavigateOptions = GotoOptions & { [RELOAD]?: boolean };
 /** Starts the client. Called by the generated entry module. */
 export async function start(m: ClientManifest): Promise<void> {
 	manifest = m;
+	configureI18n(m.i18n ?? null);
 	const el = document.getElementById('__tern_data');
 	const target = document.getElementById('tern-root');
 	if (!el || !target) {
@@ -383,6 +385,7 @@ async function render(p: Payload, url: URL, state: Record<string, unknown>, id: 
 		}
 	}
 	const what = plan(manifest, p);
+	const ready = useLocale(p.locale); // messages load alongside the components
 	let components: Component<any>[];
 	switch (what.kind) {
 		case 'not-a-page':
@@ -405,6 +408,7 @@ async function render(p: Payload, url: URL, state: Record<string, unknown>, id: 
 			layoutCount = 0;
 	}
 	nodes = p.nodes ?? [];
+	await ready;
 
 	if (id !== token) return true; // superseded; the newer navigation renders
 

@@ -47,10 +47,10 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 
 - [x] More plugins: sessions, metrics, rate limiting, CORS
 - [x] Service workers
+- [x] Translations (`src/locales`, `t()`, `ctx.T`)
 
 ## Next
 
-- Internationalization helpers
 - Image optimization
 
 

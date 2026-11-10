@@ -1,0 +1,27 @@
+{
+	"nav": {
+		"overview": "Übersicht",
+		"projects": "Projekte",
+		"settings": "Einstellungen",
+		"activeProjects": "Aktive Projekte",
+		"navigation": "Navigation"
+	},
+	"menu": {
+		"signedInAs": "Angemeldet als {user}",
+		"noEmail": "Keine E-Mail hinterlegt",
+		"theme": "Design wechseln",
+		"language": "Sprache",
+		"signOut": "Abmelden"
+	},
+	"login": {
+		"title": "Anmelden",
+		"description": "Gib deinen Namen ein, um dein Dashboard zu öffnen. Neue Namen bekommen Beispielprojekte.",
+		"name": "Name",
+		"submit": "Weiter",
+		"submitting": "Anmelden…",
+		"invalid": "Gib einen Namen mit bis zu {max} Zeichen ein."
+	},
+	"projects": {
+		"count": "{count, plural, =0 {Keine Projekte} one {# Projekt} other {# Projekte}}"
+	}
+}

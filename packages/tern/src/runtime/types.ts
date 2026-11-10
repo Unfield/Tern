@@ -28,6 +28,8 @@ export interface ClientManifest {
 	base?: string;
 	/** Whether to register /service-worker.js. */
 	serviceWorker?: boolean;
+	/** Translations from src/locales, or null. */
+	i18n?: import('./i18n.svelte.js').I18nConfig | null;
 	layouts: LayoutEntry[];
 	routes: Record<string, RouteEntry>;
 	fallback: { layouts: number[]; errors: ErrorEntry[] };
@@ -52,6 +54,8 @@ export interface Payload {
 	reused?: number[];
 	/** PUBLIC_ environment variables, on full page loads. */
 	env?: Record<string, string>;
+	/** The request's locale, when the app has src/locales. */
+	locale?: string;
 }
 
 export interface NodeUses {

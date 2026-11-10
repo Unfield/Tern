@@ -15,5 +15,15 @@ export { enhance } from './runtime/forms.js';
 export type { SubmitFunction, SubmitInput, SubmitResult } from './runtime/forms.js';
 export type { ActionResult, GotoOptions, Navigation, NavigationTarget, NavigationType } from './runtime/types.js';
 
+export { t, i18n, setLocale } from './runtime/i18n.svelte.js';
+export type { MessageKey } from './runtime/i18n.svelte.js';
+
+/**
+ * The app's message keys. `tern gen` fills this in from src/locales, so
+ * t() only accepts keys that exist.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface Messages {}
+
 /** The version of the Tern client runtime. */
 export const VERSION = '0.0.0';

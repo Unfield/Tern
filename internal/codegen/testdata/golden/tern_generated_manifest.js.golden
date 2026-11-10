@@ -36,3 +36,5 @@ export const routes = {
 };
 
 export const fallback = { layouts: [0], errors: [{ layouts: 1, component: () => import("../../src/routes/+error.svelte") }] };
+
+export const i18n = null;

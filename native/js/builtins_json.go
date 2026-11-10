@@ -56,7 +56,7 @@ func internalize(reviver *Object, holder *Object, key string) Value {
 			}
 		}
 	}
-	return reviver.call(holder, []Value{key, val})
+	return reviver.invoke(holder, key, val)
 }
 
 // Stringify is JSON.stringify; ok is false when the result is undefined.
@@ -126,11 +126,11 @@ type stringifier struct {
 func (st *stringifier) property(b *strings.Builder, holder *Object, key string, v Value) bool {
 	if o, ok := v.(*Object); ok {
 		if f, ok := o.Get("toJSON").(*Object); ok && f.call != nil {
-			v = f.call(o, []Value{key})
+			v = f.invoke(o, key)
 		}
 	}
 	if st.replacer != nil {
-		v = st.replacer.call(holder, []Value{key, v})
+		v = st.replacer.invoke(holder, key, v)
 	}
 	if o, ok := v.(*Object); ok {
 		switch o.Class {
@@ -238,8 +238,21 @@ func (st *stringifier) property(b *strings.Builder, holder *Object, key string, 
 // QuoteJSON writes s as a JSON string, as JSON.stringify quotes it: lone
 // surrogates become \u escapes.
 func QuoteJSON(b *strings.Builder, s string) {
+	b.Grow(len(s) + 2)
 	b.WriteByte('"')
 	for i := 0; i < len(s); {
+		// Copy the run of bytes that need no escape at once.
+		j := i
+		for j < len(s) && s[j] >= 0x20 && s[j] != '"' && s[j] != '\\' && s[j] != 0xED {
+			j++
+		}
+		if j > i {
+			b.WriteString(s[i:j])
+			i = j
+			if i == len(s) {
+				break
+			}
+		}
 		c := s[i]
 		switch {
 		case c == '"':

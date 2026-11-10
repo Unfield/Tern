@@ -57,6 +57,36 @@ func TestAgainstNode(t *testing.T) {
 		"json1": jsonStr(obj("b", n(1), "a", arr(n(1), "x", Null, Undefined, fn), "c", Undefined, "d", nan, "2", n(0), "1", n(1)), Undefined), "json2": jsonStr(obj("a", obj("b", n(1))), n(2)),
 		"json3": jsonStr(FromUnits([]uint16{0x2028, 0xd800}), Undefined), "json4": jsonStr(must(ParseJSON(`{"x":[1,2,{"y":"z"}]}`)), Undefined),
 		"obj1": m(g("Object"), "keys", obj("b", n(1), "2", n(1), "a", n(1), "1", n(1))), "sort1": m(arr(n(10), n(9), n(1), Undefined, n(2)), "sort"), "sort2": m(arr("b", "a", "C"), "sort"),
+		"ta1": Construct(g("Int8Array"), arr(n(127), n(128), n(-129), n(1.9))), "ta2": Construct(g("Uint8ClampedArray"), arr(n(1.5), n(2.5), n(300), n(-3), nan)),
+		"ta3": GetV(Construct(g("Float32Array"), arr(n(0.1))), n(0)), "ta4": m(Get(g("Object"), "prototype").(*Object).Get("toString"), "call", Construct(g("Uint16Array"), n(2))),
+		"ta5": m(m(Construct(g("Uint8Array"), arr(n(3), n(1), n(2))), "sort"), "join", "-"), "ta6": m(Construct(g("Uint8Array"), Get(Construct(g("Uint16Array"), arr(n(258), n(3))), "buffer")), "join"),
+		"ta7": m(m(Construct(g("Uint8Array"), arr(n(1), n(2), n(3), n(4))), "subarray", n(1), n(3)), "map", NewFunction("", 1, func(_ Value, a []Value) Value { return Mul(a[0], n(100)) })),
+		"ta8": m(NewArray(Spread(m(Construct(g("Float64Array"), arr(math.Copysign(0, -1), nan, n(1))), "sort"))), "map", g("String")),
+		"ta9": func() Value {
+			a := Construct(g("Uint8Array"), n(2))
+			Set(a, "5", n(1))
+			Set(a, "-0", n(1))
+			Set(a, "x", n(1))
+			return m(g("Object"), "keys", a)
+		}(),
+		"ta10": m(Construct(g("DataView"), Get(Construct(g("Uint8Array"), arr(n(1), n(2))), "buffer")), "getUint16", n(0)),
+		"re8":  m("a<b&\"😀c<", "replace", re(`[&"<]`, "g"), "#"),
+		"re9": func() Value {
+			r := re("[<]", "y")
+			Set(r, "lastIndex", n(1))
+			a := m(r, "test", "a<")
+			b := Get(r, "lastIndex")
+			c := m(r, "test", "a<")
+			return arr(a, b, c, Get(r, "lastIndex"))
+		}(),
+		"re10": m("x😀<y", "search", re("[<]", "")),
+		"fix6": func() Value {
+			var out []Value
+			for _, c := range [][2]float64{{0.125, 2}, {2.5, 0}, {1.45, 1}, {0.5, 0}, {9.995, 2}, {99.5, 0}, {4.69, 2}, {-0.125, 2}, {1e-10, 3}, {123.456, 10}, {0.000001, 20}} {
+				out = append(out, m(n(c[0]), "toFixed", n(c[1])))
+			}
+			return NewArray(out)
+		}(),
 		"uri1": Call(g("encodeURIComponent"), Undefined, "a b&ü/😀"), "uri2": Call(g("decodeURIComponent"), Undefined, "%E2%82%AC%20x"),
 	}
 	for name, w := range want {

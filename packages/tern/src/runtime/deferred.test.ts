@@ -10,6 +10,16 @@ describe('revive', () => {
 		});
 		expect(seen).toEqual([1, 2]);
 		expect(out.c).toEqual({ __tern_deferred: 3, other: true });
+		expect(out.a).toBeInstanceOf(Promise);
+		expect(out.b[0]).toBeInstanceOf(Promise);
+	});
+
+	it('keeps a __proto__ key a plain property', () => {
+		const data = JSON.parse('{"__proto__": {"__tern_deferred": 1}, "x": [1, {"y": null}]}');
+		const out = revive(data, () => Promise.resolve(1));
+		expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+		expect(Object.getOwnPropertyDescriptor(out, '__proto__')?.value).toBeInstanceOf(Promise);
+		expect(out.x).toEqual([1, { y: null }]);
 	});
 });
 

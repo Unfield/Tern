@@ -142,7 +142,7 @@ func setupCollections() {
 					return Undefined
 				}
 				kv := *e.(*Object).array
-				f.call(Arg(args, 1), []Value{kv[1], kv[0], t})
+				f.invoke(Arg(args, 1), kv[1], kv[0], t)
 			}
 		})
 		method(proto, "keys", 0, func(t Value, _ []Value) Value { return NewIterator(this(t).iterate("keys")) })

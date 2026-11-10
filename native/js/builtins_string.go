@@ -29,7 +29,7 @@ func setupString() {
 		if s, ok := args[0].(*Symbol); ok {
 			return "Symbol(" + s.Description + ")"
 		}
-		return ToString(args[0])
+		return ToStringValue(args[0])
 	}, func(args []Value, nt *Object) Value {
 		o := OrdinaryCreateFromConstructor(nt, StringPrototype)
 		s := ""

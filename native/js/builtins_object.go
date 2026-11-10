@@ -25,7 +25,7 @@ func setupObject() {
 	c := ObjectCtor
 	method(c, "keys", 1, func(_ Value, args []Value) Value {
 		o := toObjectArg(args, "Object.keys")
-		return NewArray(keysToValues(o.OwnKeys(true, false)))
+		return NewArray(o.OwnKeys(true, false))
 	})
 	method(c, "values", 1, func(_ Value, args []Value) Value {
 		o := toObjectArg(args, "Object.values")

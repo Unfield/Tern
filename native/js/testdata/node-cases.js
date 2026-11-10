@@ -16,6 +16,11 @@ const cases = {
  re1: () => "a1b22c333".replace(/\d+/g, "#"), re2: () => "John Smith".replace(/(\w+)\s(\w+)/, "$2, $1"), re3: () => "aaa".replace(/a/g, (m, i) => i), re4: () => "2026-11-10".match(/(?<y>\d+)-(?<m>\d+)/).groups.m, re5: () => "a1b2".split(/\d/), re6: () => "abc".search(/c/), re7: () => /^[a-z]+$/i.test("AbC"),
  json1: () => JSON.stringify({b: 1, a: [1, "x", null, undefined, () => 1], c: undefined, d: NaN, "2": 0, "1": 1}), json2: () => JSON.stringify({a: {b: 1}}, null, 2), json3: () => JSON.stringify(" \ud800"), json4: () => JSON.stringify(JSON.parse("{\"x\":[1,2,{\"y\":\"z\"}]}")),
  obj1: () => Object.keys({b: 1, 2: 1, a: 1, 1: 1}), sort1: () => [10, 9, 1, undefined, 2].sort(), sort2: () => ["b", "a", "C"].sort(), uri1: () => encodeURIComponent("a b&ü/😀"), uri2: () => decodeURIComponent("%E2%82%AC%20x"),
+ ta1: () => new Int8Array([127, 128, -129, 1.9]), ta2: () => new Uint8ClampedArray([1.5, 2.5, 300, -3, NaN]), ta3: () => new Float32Array([0.1])[0], ta4: () => Object.prototype.toString.call(new Uint16Array(2)),
+ ta5: () => new Uint8Array([3, 1, 2]).sort().join("-"), ta6: () => new Uint8Array(new Uint16Array([258, 3]).buffer).join(), ta7: () => new Uint8Array([1, 2, 3, 4]).subarray(1, 3).map((x) => x * 100), ta8: () => [...new Float64Array([-0, NaN, 1]).sort()].map(String),
+ ta9: () => { const a = new Uint8Array(2); a[5] = 1; a["-0"] = 1; a.x = 1; return Object.keys(a); }, ta10: () => new DataView(new Uint8Array([1, 2]).buffer).getUint16(0),
+ re8: () => "a<b&\"😀c<".replace(/[&"<]/g, "#"), re9: () => { const r = /[<]/y; r.lastIndex = 1; return [r.test("a<"), r.lastIndex, r.test("a<"), r.lastIndex]; }, re10: () => "x😀<y".search(/[<]/),
+ fix6: () => [0.125.toFixed(2), 2.5.toFixed(0), 1.45.toFixed(1), 0.5.toFixed(0), 9.995.toFixed(2), 99.5.toFixed(0), 4.69.toFixed(2), (-0.125).toFixed(2), 1e-10.toFixed(3), 123.456.toFixed(10), 0.000001.toFixed(20)],
 };
 const out = {};
 for (const [k, f] of Object.entries(cases)) { const v = f(); out[k] = v === undefined ? "undefined" : JSON.stringify(v); }

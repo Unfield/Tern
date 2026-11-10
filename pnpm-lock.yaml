@@ -225,6 +225,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.1
         version: 7.3.1(svelte@5.57.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0))
+      acorn:
+        specifier: ^8.19.0
+        version: 8.19.0
     devDependencies:
       '@sveltejs/package':
         specifier: ^3.0.2

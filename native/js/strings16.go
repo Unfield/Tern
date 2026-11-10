@@ -3,11 +3,43 @@ package js
 import (
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 )
 
 // JavaScript strings are sequences of UTF-16 code units. Values keep them
 // as UTF-8 Go strings; a lone surrogate, which UTF-8 can't hold, is kept as
 // its 3-byte WTF-8 encoding. ASCII strings, the common case, take fast paths.
+
+// infoCache remembers facts about the last long string looked at: code
+// that walks a string by index asks for them on every step.
+var infoCache stringInfo
+
+type stringInfo struct {
+	p     *byte
+	n     int
+	ascii bool
+	units []uint16 // read only; nil until asked for
+}
+
+func strInfo(s string) *stringInfo {
+	c := &infoCache
+	if p := unsafe.StringData(s); p != c.p || len(s) != c.n {
+		c.p, c.n, c.ascii, c.units = p, len(s), scanASCII(s), nil
+	}
+	return c
+}
+
+// units16 is Units(s), not to be changed: cached for long strings.
+func units16(s string) []uint16 {
+	if len(s) < 32 {
+		return Units(s)
+	}
+	c := strInfo(s)
+	if c.units == nil {
+		c.units = Units(s)
+	}
+	return c.units
+}
 
 // Units decodes s into UTF-16 code units.
 func Units(s string) []uint16 {
@@ -62,7 +94,7 @@ func Len16(s string) int {
 	if isASCII(s) {
 		return len(s)
 	}
-	return len(Units(s))
+	return len(units16(s))
 }
 
 // Slice16 is s.slice(start, end) after both are clamped to [0, len].
@@ -73,7 +105,7 @@ func Slice16(s string, start, end int) string {
 	if isASCII(s) {
 		return s[start:end]
 	}
-	return FromUnits(Units(s)[start:end])
+	return FromUnits(units16(s)[start:end])
 }
 
 // UnitAt is s.charCodeAt(i), or -1 out of range.
@@ -87,7 +119,7 @@ func UnitAt(s string, i int) int {
 		}
 		return int(s[i])
 	}
-	u := Units(s)
+	u := units16(s)
 	if i >= len(u) {
 		return -1
 	}

@@ -15,7 +15,7 @@ func ToPrimitive(v Value, hint string) Value {
 		return v
 	}
 	if ex, ok := o.Get(SymbolToPrimitive).(*Object); ok && ex.call != nil {
-		r := ex.call(o, []Value{hint})
+		r := ex.invoke(o, hint)
 		if _, isObj := r.(*Object); isObj {
 			panic(TypeErrorf("Cannot convert object to primitive value"))
 		}
@@ -27,7 +27,7 @@ func ToPrimitive(v Value, hint string) Value {
 	}
 	for _, name := range order {
 		if f, ok := o.Get(name).(*Object); ok && f.call != nil {
-			r := f.call(o, nil)
+			r := f.invoke(o)
 			if _, isObj := r.(*Object); !isObj {
 				return r
 			}
@@ -60,6 +60,23 @@ func ToString(v Value) string {
 	panic(TypeErrorf("unknown value of Go type %T", v))
 }
 
+// intKeys holds the small integers' strings as Values, for indexing.
+var intKeys = func() []Value {
+	out := make([]Value, 1024)
+	for i := range out {
+		out[i] = strconv.Itoa(i)
+	}
+	return out
+}()
+
+var smallInts = func() []string {
+	out := make([]string, 1024)
+	for i := range out {
+		out[i] = strconv.Itoa(i)
+	}
+	return out
+}()
+
 // NumberToString is Number::toString(x) with radix 10.
 func NumberToString(x float64) string {
 	switch {
@@ -73,6 +90,12 @@ func NumberToString(x float64) string {
 		return "0"
 	}
 	if x == math.Trunc(x) && math.Abs(x) < 1e21 {
+		if math.Abs(x) < 1<<53 {
+			if x >= 0 && x < float64(len(smallInts)) {
+				return smallInts[int(x)]
+			}
+			return strconv.FormatInt(int64(x), 10)
+		}
 		return strconv.FormatFloat(x, 'f', -1, 64)
 	}
 	digits := strconv.FormatFloat(math.Abs(x), 'e', -1, 64)
@@ -265,11 +288,12 @@ func ToUint32(v Value) uint32 { return uint32(ToInt32(v)) }
 // ToPropertyKey is ToPropertyKey.
 func ToPropertyKey(v Value) PropKey {
 	switch x := v.(type) {
-	case string:
-		return x
-	case *Symbol:
-		return x
+	case string, *Symbol:
+		return v // as it is: boxing it again would allocate
 	case float64:
+		if i := int(x); float64(i) == x && i >= 0 && i < len(intKeys) {
+			return intKeys[i]
+		}
 		return NumberToString(x)
 	}
 	p := ToPrimitive(v, "string")
@@ -277,6 +301,15 @@ func ToPropertyKey(v Value) PropKey {
 		return s
 	}
 	return ToString(p)
+}
+
+// ToStringValue is ToString as a Value: a string comes back as it is,
+// without the allocation of boxing it again.
+func ToStringValue(v Value) Value {
+	if _, ok := v.(string); ok {
+		return v
+	}
+	return ToString(v)
 }
 
 // ToObject boxes primitives, for property access and Object(...).
@@ -308,6 +341,13 @@ func ToObject(v Value) *Object {
 
 // isASCII reports whether s has only ASCII, where UTF-16 and UTF-8 indexes agree.
 func isASCII(s string) bool {
+	if len(s) >= 32 {
+		return strInfo(s).ascii
+	}
+	return scanASCII(s)
+}
+
+func scanASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] >= utf8.RuneSelf {
 			return false

@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { nativePlugin } from './native.js';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
 import { goScriptPlugin, goScriptPreprocessor } from './goscript.js';
 import { imagePlugin } from './image.js';
@@ -244,7 +245,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		}
 	};
 
-	return [browserBuildsPlugin, imagePlugin(), goScriptPlugin(() => root), ...svelte(svelteOptions), plugin];
+	return [browserBuildsPlugin, imagePlugin(), goScriptPlugin(() => root), ...svelte(svelteOptions), plugin, nativePlugin(() => root, SERVER_ENTRY)];
 }
 
 /** The $service-worker module: what this build produced, for caching. */

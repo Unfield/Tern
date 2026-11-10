@@ -56,6 +56,10 @@ func init() {
 	setupJSON()
 	setupCollections()
 	setupRegExp()
+	setupDate()
+	setupTypedArrays()
+	setupGenerators()
+	setupPromise()
 	setupGlobals()
 	defaultHasInstance = method(FunctionPrototype, "[Symbol.hasInstance]", 1, func(this Value, args []Value) Value {
 		return InstanceOf(Arg(args, 0), this)
@@ -172,6 +176,17 @@ func setupErrors() {
 	RangeError = mk("RangeError", Error, &Object{proto: ErrorPrototype})
 	SyntaxError = mk("SyntaxError", Error, &Object{proto: ErrorPrototype})
 	ReferenceError = mk("ReferenceError", Error, &Object{proto: ErrorPrototype})
+	Global.DefineHidden("EvalError", mk("EvalError", Error, &Object{proto: ErrorPrototype}))
+	Global.DefineHidden("URIError", mk("URIError", Error, &Object{proto: ErrorPrototype}))
+	agg := mk("AggregateError", Error, &Object{proto: ErrorPrototype})
+	base := agg.construct
+	agg.construct = func(args []Value, nt *Object) Value {
+		o := base(args[min(1, len(args)):], nt).(*Object)
+		o.DefineHidden("errors", NewArray(Spread(Arg(args, 0))))
+		return o
+	}
+	agg.call = func(_ Value, args []Value) Value { return agg.construct(args, agg) }
+	Global.DefineHidden("AggregateError", agg)
 }
 
 func setupGlobals() {

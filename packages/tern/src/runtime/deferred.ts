@@ -40,20 +40,34 @@ export class DeferredScope {
 	}
 }
 
-/** Replaces deferred placeholders in data with promises from scope. */
+/**
+ * Replaces deferred placeholders in data with promises from scope. The data
+ * must be fresh from JSON.parse: it is changed in place, which saves
+ * copying every page's data on every render.
+ */
 export function revive<T>(value: T, promise: (id: number) => Promise<unknown>): T {
+	if (value === null || typeof value !== 'object') return value;
 	if (Array.isArray(value)) {
-		return value.map((v) => revive(v, promise)) as T;
-	}
-	if (value && typeof value === 'object') {
-		const obj = value as Record<string, unknown>;
-		const keys = Object.keys(obj);
-		if (keys.length === 1 && keys[0] === '__tern_deferred' && typeof obj.__tern_deferred === 'number') {
-			return promise(obj.__tern_deferred) as T;
+		for (let i = 0; i < value.length; i++) {
+			const v = value[i];
+			if (v !== null && typeof v === 'object') {
+				const r = revive(v, promise);
+				if (r !== v) value[i] = r;
+			}
 		}
-		const out: Record<string, unknown> = {};
-		for (const k of keys) out[k] = revive(obj[k], promise);
-		return out as T;
+		return value;
+	}
+	const obj = value as Record<string, unknown>;
+	if (typeof obj.__tern_deferred === 'number' && Object.keys(obj).length === 1) {
+		return promise(obj.__tern_deferred) as T;
+	}
+	for (const k in obj) {
+		const v = obj[k];
+		if (v !== null && typeof v === 'object') {
+			const r = revive(v, promise);
+			// defineProperty, so a key named __proto__ stays a plain property.
+			if (r !== v) Object.defineProperty(obj, k, { value: r, writable: true, enumerable: true, configurable: true });
+		}
 	}
 	return value;
 }

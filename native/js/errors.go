@@ -62,3 +62,5 @@ func ToDisplay(v Value) string {
 	}
 	return ToString(v)
 }
+
+func sprintf(format string, args ...any) string { return fmt.Sprintf(format, args...) }

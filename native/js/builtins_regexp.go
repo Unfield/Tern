@@ -15,6 +15,25 @@ type regexpData struct {
 	re     *regexp2.Regexp
 	source string
 	flags  string
+	// set is the bytes a regexp that's one class of ASCII characters, such
+	// as /[&"<]/g, matches: those are found by scanning bytes.
+	set *[256]bool
+}
+
+// asciiClass recognizes a regexp that is one class of plain ASCII
+// characters, with no flags that change what it matches.
+func asciiClass(source, flags string) *[256]bool {
+	if strings.Trim(flags, "gyd") != "" || len(source) < 3 || source[0] != '[' || source[len(source)-1] != ']' {
+		return nil
+	}
+	var set [256]bool
+	for _, c := range []byte(source[1 : len(source)-1]) {
+		if c < 0x20 || c >= 0x7f || c == '\\' || c == ']' || c == '[' || c == '^' || c == '-' {
+			return nil
+		}
+		set[c] = true
+	}
+	return &set
 }
 
 // NewRegExp compiles a regular expression literal or new RegExp(source, flags).
@@ -43,7 +62,7 @@ func NewRegExp(source, flags string) *Object {
 		panic(newError(SyntaxError, "Invalid regular expression: /"+source+"/: "+err.Error()))
 	}
 	o := NewObject(RegExpPrototype)
-	o.Class, o.Internal = "RegExp", &regexpData{re: re, source: source, flags: sortFlags(flags)}
+	o.Class, o.Internal = "RegExp", &regexpData{re: re, source: source, flags: sortFlags(flags), set: asciiClass(source, flags)}
 	o.add(prop{key: "lastIndex", value: 0.0, writable: true})
 	return o
 }
@@ -134,6 +153,9 @@ func exec(r *Object, s string) *match {
 			return nil
 		}
 	}
+	if d.set != nil {
+		return execClass(r, d, s, start, global)
+	}
 	m, err := d.re.FindStringMatchStartingAt(s, runeOffset(s, start))
 	if err != nil || m == nil || (strings.ContainsRune(d.flags, 'y') && utf16Offset(s, m.RuneIndex) != start) {
 		if global {
@@ -168,6 +190,53 @@ func exec(r *Object, s string) *match {
 		r.Set("lastIndex", float64(res.end))
 	}
 	return res
+}
+
+// execClass is exec for a regexp that is one class of ASCII characters.
+// ASCII bytes never occur inside UTF-8 sequences, so scanning bytes finds
+// exactly the code units the class matches.
+func execClass(r *Object, d *regexpData, s string, start int, global bool) *match {
+	ascii := isASCII(s)
+	from := start
+	if !ascii {
+		from = byteOffset16(s, start)
+	}
+	sticky := strings.ContainsRune(d.flags, 'y')
+	for i := from; i < len(s); i++ {
+		if d.set[s[i]] {
+			idx := i
+			if !ascii {
+				idx = Len16(s[:i])
+			}
+			if global {
+				r.Set("lastIndex", float64(idx+1))
+			}
+			return &match{index: idx, end: idx + 1, groups: []Value{s[i : i+1]}}
+		}
+		if sticky {
+			break
+		}
+	}
+	if global {
+		r.Set("lastIndex", 0.0)
+	}
+	return nil
+}
+
+// byteOffset16 is the byte offset of a UTF-16 index into s.
+func byteOffset16(s string, unitIndex int) int {
+	n := 0
+	for i, c := range s {
+		if n >= unitIndex {
+			return i
+		}
+		if c >= 0x10000 {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return len(s)
 }
 
 func (m *match) array(s string) *Object {
@@ -448,7 +517,7 @@ func replace(s string, pattern, replacement Value, all bool) Value {
 		b.WriteString(Slice16(s, last, i))
 		m := &match{index: i, end: i + Len16(pat), groups: []Value{pat}}
 		if isFn {
-			b.WriteString(ToString(fn.call(Undefined, []Value{pat, float64(i), s})))
+			b.WriteString(ToString(fn.invoke(Undefined, pat, float64(i), s)))
 		} else {
 			b.WriteString(expandReplacement(repl, s, m))
 		}

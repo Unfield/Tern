@@ -80,5 +80,23 @@ func Truthy(v Value) bool {
 
 // Num makes a number from any Go number, for generated code.
 func Num[T ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64](n T) Value {
-	return float64(n)
+	return Box(float64(n))
+}
+
+// boxedInts holds the small integers as Values. Putting a float64 in an
+// interface allocates; small integers, the most common numbers, needn't.
+var boxedInts = func() []Value {
+	out := make([]Value, 1024)
+	for i := range out {
+		out[i] = float64(i)
+	}
+	return out
+}()
+
+// Box makes a number a Value, without allocating for small integers.
+func Box(f float64) Value {
+	if i := int(f); float64(i) == f && i >= 0 && i < len(boxedInts) && (i != 0 || !math.Signbit(f)) {
+		return boxedInts[i]
+	}
+	return f
 }

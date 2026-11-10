@@ -111,7 +111,7 @@ func setupArray() {
 		}
 		if mapFn != nil {
 			for i, v := range out {
-				out[i] = mapFn.call(Arg(args, 2), []Value{v, float64(i)})
+				out[i] = mapFn.invoke(Arg(args, 2), v, float64(i))
 			}
 		}
 		return NewArray(out)
@@ -147,7 +147,7 @@ func setupArray() {
 	}
 	iterating("every", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			if !Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if !Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return false
 			}
 		}
@@ -155,7 +155,7 @@ func setupArray() {
 	})
 	iterating("some", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			if Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return true
 			}
 		}
@@ -165,7 +165,7 @@ func setupArray() {
 		var out []Value
 		for i := 0; i < len(a); i++ {
 			v := a[i]
-			if Truthy(f.call(t, []Value{v, float64(i), arr})) {
+			if Truthy(f.invoke(t, v, float64(i), arr)) {
 				out = append(out, v)
 			}
 		}
@@ -174,19 +174,19 @@ func setupArray() {
 	iterating("map", func(f *Object, t Value, a []Value, arr Value) Value {
 		out := make([]Value, len(a))
 		for i := 0; i < len(a); i++ {
-			out[i] = f.call(t, []Value{a[i], float64(i), arr})
+			out[i] = f.invoke(t, a[i], float64(i), arr)
 		}
 		return NewArray(out)
 	})
 	iterating("forEach", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			f.call(t, []Value{a[i], float64(i), arr})
+			f.invoke(t, a[i], float64(i), arr)
 		}
 		return Undefined
 	})
 	iterating("find", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			if Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return a[i]
 			}
 		}
@@ -194,7 +194,7 @@ func setupArray() {
 	})
 	iterating("findIndex", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			if Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return float64(i)
 			}
 		}
@@ -202,7 +202,7 @@ func setupArray() {
 	})
 	iterating("findLast", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := len(a) - 1; i >= 0; i-- {
-			if Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return a[i]
 			}
 		}
@@ -210,7 +210,7 @@ func setupArray() {
 	})
 	iterating("findLastIndex", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := len(a) - 1; i >= 0; i-- {
-			if Truthy(f.call(t, []Value{a[i], float64(i), arr})) {
+			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return float64(i)
 			}
 		}
@@ -219,7 +219,7 @@ func setupArray() {
 	iterating("flatMap", func(f *Object, t Value, a []Value, arr Value) Value {
 		var out []Value
 		for i := 0; i < len(a); i++ {
-			r := f.call(t, []Value{a[i], float64(i), arr})
+			r := f.invoke(t, a[i], float64(i), arr)
 			if IsArray(r) {
 				out = append(out, *r.(*Object).array...)
 			} else {
@@ -247,7 +247,7 @@ func setupArray() {
 				i += step
 			}
 			for ; i != end; i += step {
-				acc = f.call(Undefined, []Value{acc, a[i], float64(i), this})
+				acc = f.invoke(Undefined, acc, a[i], float64(i), this)
 			}
 			return acc
 		})
@@ -501,7 +501,7 @@ func sortValues(a []Value, cmp Value) {
 			return -1
 		}
 		if hasCmp {
-			n := ToNumber(f.call(Undefined, []Value{x, y}))
+			n := ToNumber(f.invoke(Undefined, x, y))
 			switch {
 			case n < 0:
 				return -1
@@ -531,6 +531,7 @@ func NewIterator(next func() (Value, bool)) *Object {
 func init() {
 	method(IteratorPrototype, "[Symbol.iterator]", 0, func(this Value, _ []Value) Value { return this })
 	f, _ := IteratorPrototype.GetOwn("[Symbol.iterator]")
+	iteratorSelf = f
 	IteratorPrototype.Delete("[Symbol.iterator]")
 	IteratorPrototype.DefineHidden(SymbolIterator, f)
 }
@@ -563,11 +564,14 @@ func iteratorFor(v Value) (func() (Value, bool), bool) {
 		if next, ok := x.Internal.(func() (Value, bool)); ok && x.proto == IteratorPrototype {
 			return next, true
 		}
+		if g, ok := x.Internal.(*Gen); ok && x.Get("next") == genNext && x.Get(SymbolIterator) == iteratorSelf {
+			return genIterator(x, g), true
+		}
 		m, ok := x.Get(SymbolIterator).(*Object)
 		if !ok || m.call == nil {
 			return nil, false
 		}
-		it := m.call(x, nil)
+		it := m.invoke(x)
 		if io, ok := it.(*Object); ok {
 			if next, ok := io.Internal.(func() (Value, bool)); ok && io.proto == IteratorPrototype {
 				return next, true
@@ -586,6 +590,9 @@ func iteratorFor(v Value) (func() (Value, bool), bool) {
 }
 
 var arrayValues Value
+
+// iteratorSelf is %IteratorPrototype%[Symbol.iterator], which returns this.
+var iteratorSelf Value
 
 // ArrayValues is Array.prototype.values, to tell built-in iteration apart.
 func ArrayValues() Value {

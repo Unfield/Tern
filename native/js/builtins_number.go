@@ -2,6 +2,7 @@ package js
 
 import (
 	"math"
+	"math/bits"
 	"strconv"
 	"strings"
 )
@@ -147,6 +148,54 @@ func exactDigits(x float64, n int) (string, int) {
 	return string(keep), e
 }
 
+// fixed formats x ≥ 0 with d fraction digits, rounding as toFixed does: to
+// the nearest, and up on an exact tie. Go rounds to the nearest too, but
+// to even on a tie. A tie is only possible when x's exact decimal
+// expansion, which has as many fraction digits as x has fraction bits,
+// ends right after the first dropped digit.
+func fixed(x float64, d int) string {
+	if fractionBits(x) != d+1 {
+		return strconv.FormatFloat(x, 'f', d, 64)
+	}
+	exact := []byte(strconv.FormatFloat(x, 'f', d+1, 64)) // exact: it has d+1 digits
+	keep := exact[:len(exact)-1]
+	if d == 0 {
+		keep = keep[:len(keep)-1] // the point
+	}
+	i := len(keep) - 1
+	for ; i >= 0; i-- {
+		if keep[i] == '.' {
+			continue
+		}
+		if keep[i] != '9' {
+			keep[i]++
+			break
+		}
+		keep[i] = '0'
+	}
+	if i < 0 {
+		return "1" + string(keep)
+	}
+	return string(keep)
+}
+
+// fractionBits is the number of binary digits after the point of x.
+func fractionBits(x float64) int {
+	b := math.Float64bits(x)
+	exp := int(b >> 52 & 0x7ff)
+	mant := b & (1<<52 - 1)
+	e := -1074
+	if exp != 0 {
+		mant |= 1 << 52
+		e = exp - 1075
+	}
+	if mant == 0 {
+		return 0
+	}
+	e += bits.TrailingZeros64(mant)
+	return max(0, -e)
+}
+
 // ToFixed is Number.prototype.toFixed.
 func ToFixed(x float64, d int) string {
 	if math.IsNaN(x) {
@@ -163,28 +212,7 @@ func ToFixed(x float64, d int) string {
 			s += "." + strings.Repeat("0", d)
 		}
 	} else {
-		exact := strconv.FormatFloat(math.Abs(x), 'f', 1100, 64)
-		ip, fp, _ := strings.Cut(exact, ".")
-		keep := []byte(ip + fp[:d])
-		if fp[d] >= '5' {
-			i := len(keep) - 1
-			for ; i >= 0 && keep[i] == '9'; i-- {
-				keep[i] = '0'
-			}
-			if i < 0 {
-				keep = append([]byte{'1'}, keep...)
-			} else {
-				keep[i]++
-			}
-		}
-		whole := strings.TrimLeft(string(keep[:len(keep)-d]), "0")
-		if whole == "" {
-			whole = "0"
-		}
-		s = whole
-		if d > 0 {
-			s += "." + string(keep[len(keep)-d:])
-		}
+		s = fixed(math.Abs(x), d)
 	}
 	if neg {
 		return "-" + s

@@ -13,7 +13,7 @@ func Get(v Value, key PropKey) Value {
 		return x.Get(key)
 	case string:
 		if key == "length" {
-			return float64(Len16(x))
+			return Box(float64(Len16(x)))
 		}
 		if i, ok := arrayIndex(key); ok {
 			if u := UnitAt(x, i); u >= 0 {
@@ -37,15 +37,44 @@ func Get(v Value, key PropKey) Value {
 	panic(TypeErrorf("unknown value of Go type %T", v))
 }
 
-func charAt(s string, i int) string {
-	if isASCII(s) {
-		return s[i : i+1]
+// asciiChars holds the one-character ASCII strings as Values.
+var asciiChars = func() (out [128]Value) {
+	for i := range out {
+		out[i] = string(rune(i))
 	}
-	return FromUnits(Units(s)[i : i+1])
+	return
+}()
+
+func charAt(s string, i int) Value {
+	if isASCII(s) {
+		return asciiChars[s[i]]
+	}
+	u := units16(s)[i]
+	if u < 128 {
+		return asciiChars[u]
+	}
+	return FromUnits([]uint16{u})
 }
 
 // GetV is v[k] where k is any value, with a fast path for array indexes.
 func GetV(v Value, k Value) Value {
+	if str, ok := v.(string); ok {
+		if n, ok := k.(float64); ok {
+			if i := int(n); float64(i) == n && i >= 0 {
+				if UnitAt(str, i) >= 0 {
+					return charAt(str, i)
+				}
+				return Undefined
+			}
+		}
+	}
+	if o, ok := v.(*Object); ok && o.typed != nil {
+		if n, ok := k.(float64); ok {
+			if i := int(n); float64(i) == n && i >= 0 && i < o.typed.length {
+				return o.typed.at(i)
+			}
+		}
+	}
 	if o, ok := v.(*Object); ok && o.array != nil {
 		if n, ok := k.(float64); ok {
 			if i := int(n); float64(i) == n && i >= 0 {
@@ -81,6 +110,14 @@ func Set(v Value, key PropKey, val Value) {
 
 // SetV is v[k] = val where k is any value.
 func SetV(v Value, k Value, val Value) {
+	if o, ok := v.(*Object); ok && o.typed != nil {
+		if n, ok := k.(float64); ok {
+			if i := int(n); float64(i) == n && i >= 0 && i < o.typed.length {
+				o.typed.put(i, val)
+				return
+			}
+		}
+	}
 	if o, ok := v.(*Object); ok && o.array != nil && !o.frozen {
 		if n, ok := k.(float64); ok {
 			if i := int(n); float64(i) == n && i >= 0 && i < len(*o.array) {
@@ -96,32 +133,32 @@ func SetV(v Value, k Value, val Value) {
 func Add(a, b Value) Value {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
-			return x + y
+			return Box(x + y)
 		}
 	}
 	if x, ok := a.(string); ok {
 		if y, ok := b.(string); ok {
-			return x + y
+			return Concat(x, y)
 		}
 	}
 	pa, pb := ToPrimitive(a, "default"), ToPrimitive(b, "default")
 	if sa, ok := pa.(string); ok {
-		return sa + ToString(pb)
+		return Concat(sa, ToString(pb))
 	}
 	if sb, ok := pb.(string); ok {
-		return ToString(pa) + sb
+		return Concat(ToString(pa), sb)
 	}
-	return ToNumber(pa) + ToNumber(pb)
+	return Box(ToNumber(pa) + ToNumber(pb))
 }
 
 // Sub is the - operator.
-func Sub(a, b Value) Value { return ToNumber(a) - ToNumber(b) }
+func Sub(a, b Value) Value { return Box(ToNumber(a) - ToNumber(b)) }
 
 // Mul is the * operator.
-func Mul(a, b Value) Value { return ToNumber(a) * ToNumber(b) }
+func Mul(a, b Value) Value { return Box(ToNumber(a) * ToNumber(b)) }
 
 // Div is the / operator.
-func Div(a, b Value) Value { return ToNumber(a) / ToNumber(b) }
+func Div(a, b Value) Value { return Box(ToNumber(a) / ToNumber(b)) }
 
 // Mod is the % operator: the result has the dividend's sign.
 func Mod(a, b Value) Value {
@@ -149,28 +186,28 @@ func Pow(a, b Value) Value {
 func Neg(a Value) Value { return -ToNumber(a) }
 
 // Plus is unary +.
-func Plus(a Value) Value { return ToNumber(a) }
+func Plus(a Value) Value { return Box(ToNumber(a)) }
 
 // BitAnd is &.
-func BitAnd(a, b Value) Value { return float64(ToInt32(a) & ToInt32(b)) }
+func BitAnd(a, b Value) Value { return Box(float64(ToInt32(a) & ToInt32(b))) }
 
 // BitOr is |.
-func BitOr(a, b Value) Value { return float64(ToInt32(a) | ToInt32(b)) }
+func BitOr(a, b Value) Value { return Box(float64(ToInt32(a) | ToInt32(b))) }
 
 // BitXor is ^.
-func BitXor(a, b Value) Value { return float64(ToInt32(a) ^ ToInt32(b)) }
+func BitXor(a, b Value) Value { return Box(float64(ToInt32(a) ^ ToInt32(b))) }
 
 // BitNot is ~.
-func BitNot(a Value) Value { return float64(^ToInt32(a)) }
+func BitNot(a Value) Value { return Box(float64(^ToInt32(a))) }
 
 // Shl is <<.
-func Shl(a, b Value) Value { return float64(ToInt32(a) << (ToUint32(b) & 31)) }
+func Shl(a, b Value) Value { return Box(float64(ToInt32(a) << (ToUint32(b) & 31))) }
 
 // Shr is >>.
-func Shr(a, b Value) Value { return float64(ToInt32(a) >> (ToUint32(b) & 31)) }
+func Shr(a, b Value) Value { return Box(float64(ToInt32(a) >> (ToUint32(b) & 31))) }
 
 // UShr is >>>.
-func UShr(a, b Value) Value { return float64(ToUint32(a) >> (ToUint32(b) & 31)) }
+func UShr(a, b Value) Value { return Box(float64(ToUint32(a) >> (ToUint32(b) & 31))) }
 
 // StrictEquals is ===.
 func StrictEquals(a, b Value) bool {
@@ -352,7 +389,7 @@ func InstanceOf(v Value, ctor Value) bool {
 		panic(TypeErrorf("Right-hand side of 'instanceof' is not callable"))
 	}
 	if h, ok := c.Get(symbolHasInstance).(*Object); ok && h.call != nil && h != defaultHasInstance {
-		return Truthy(h.call(c, []Value{v}))
+		return Truthy(h.invoke(c, v))
 	}
 	o, ok := v.(*Object)
 	if !ok {
@@ -398,4 +435,25 @@ func Delete(v Value, key PropKey) bool {
 func Nullish(v Value) bool { return IsNullish(v) }
 
 // Itoa formats an integer index as a property key.
-func Itoa(i int) string { return strconv.Itoa(i) }
+func Itoa(i int) string {
+	if i >= 0 && i < len(smallInts) {
+		return smallInts[i]
+	}
+	return strconv.Itoa(i)
+}
+
+// Inc is x + 1 for x++ and ++x.
+func Inc(v Value) Value {
+	if x, ok := v.(float64); ok {
+		return Box(x + 1)
+	}
+	return Box(ToNumber(v) + 1)
+}
+
+// Dec is x - 1 for x-- and --x.
+func Dec(v Value) Value {
+	if x, ok := v.(float64); ok {
+		return Box(x - 1)
+	}
+	return Box(ToNumber(v) - 1)
+}

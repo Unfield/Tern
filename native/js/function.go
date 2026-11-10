@@ -3,10 +3,7 @@ package js
 // NewFunction makes a function object. length is the number of declared
 // parameters, as fn.length reports it.
 func NewFunction(name string, length int, fn func(this Value, args []Value) Value) *Object {
-	f := &Object{proto: FunctionPrototype, call: fn, Class: "Function"}
-	f.add(prop{key: "length", value: float64(length), configurable: true})
-	f.add(prop{key: "name", value: name, configurable: true})
-	return f
+	return &Object{proto: FunctionPrototype, call: fn, Class: "Function", fnLazy: lazyNameLength, fnLen: int32(length), fnName: name}
 }
 
 // NewConstructor makes a function that new can call, with a prototype
@@ -45,13 +42,42 @@ func Arg(args []Value, i int) Value {
 	return Undefined
 }
 
+// argStack holds the arguments of the calls in progress. A call copies
+// its arguments here and pops them when it returns, so argument lists
+// don't each need an allocation: callees that keep their arguments past
+// the call (rest parameters, arguments objects, Array.of…) copy them.
+var argStack = make([]Value, 0, 1024)
+
+// invoke calls a function object with arguments from the stack.
+func (o *Object) invoke(this Value, args ...Value) Value {
+	base := len(argStack)
+	argStack = append(argStack, args...)
+	top := len(argStack)
+	defer popArgs(base)
+	return o.call(this, argStack[base:top:top])
+}
+
+// construct calls a constructor with arguments from the stack.
+func (o *Object) constructArgs(args []Value, newTarget *Object) Value {
+	base := len(argStack)
+	argStack = append(argStack, args...)
+	top := len(argStack)
+	defer popArgs(base)
+	return o.construct(argStack[base:top:top], newTarget)
+}
+
+func popArgs(base int) {
+	clear(argStack[base:])
+	argStack = argStack[:base]
+}
+
 // Call calls f with a this value.
 func Call(f Value, this Value, args ...Value) Value {
 	o, ok := f.(*Object)
 	if !ok || o.call == nil {
 		panic(TypeErrorf("%s is not a function", describeForError(f)))
 	}
-	return o.call(this, args)
+	return o.invoke(this, args...)
 }
 
 // CallMethod is obj[key](...args), with obj as this.
@@ -61,7 +87,7 @@ func CallMethod(obj Value, key PropKey, args ...Value) Value {
 	if !ok || o.call == nil {
 		panic(TypeErrorf("%s.%s is not a function", describeForError(obj), keyName(key)))
 	}
-	return o.call(obj, args)
+	return o.invoke(obj, args...)
 }
 
 // Construct is the new operator.
@@ -70,7 +96,7 @@ func Construct(f Value, args ...Value) Value {
 	if !ok || o.construct == nil {
 		panic(TypeErrorf("%s is not a constructor", describeForError(f)))
 	}
-	return o.construct(args, o)
+	return o.constructArgs(args, o)
 }
 
 // ConstructWith is construct with an explicit new target, for super(...).
@@ -79,7 +105,7 @@ func ConstructWith(f Value, newTarget *Object, args ...Value) Value {
 	if !ok || o.construct == nil {
 		panic(TypeErrorf("Super constructor %s is not a constructor", describeForError(f)))
 	}
-	return o.construct(args, newTarget)
+	return o.constructArgs(args, newTarget)
 }
 
 // OrdinaryCreateFromConstructor makes the object a constructor builds: its

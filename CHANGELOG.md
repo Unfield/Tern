@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-10
+
 ### Added
 
 - Responsive images: `import hero from './hero.jpg?image'` encodes AVIF, WebP and fallback versions at several widths with sharp, and `<Image>` from `@ternkit/tern` renders them as a `<picture>` with width, height, `sizes` and lazy loading. `?w=400,800&image` picks the widths.
@@ -88,7 +90,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Unfield/Tern/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Unfield/Tern/releases/tag/v1.0.0
 [0.4.0]: https://github.com/Unfield/Tern/releases/tag/v0.4.0
 [0.3.1]: https://github.com/Unfield/Tern/releases/tag/v0.3.1

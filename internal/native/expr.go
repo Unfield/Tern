@@ -261,8 +261,11 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		}
 		return fmt.Sprintf("%s.Yield(%s)", g, v)
 	case "AwaitExpression":
-		c.problem(n, "%s", strings.TrimSuffix(n.Type, "Expression"))
-		return "js.Fail(" + quote(n.Type) + ")"
+		if !s.fn.async {
+			c.problem(n, "await outside an async function")
+			return "js.Fail(\"await\")"
+		}
+		return fmt.Sprintf("%s.Await(%s)", s.fn.generator, c.expr(s, n.Child("argument")))
 	case "ImportExpression":
 		c.problem(n, "dynamic import()")
 		return "js.Fail(\"import()\")"

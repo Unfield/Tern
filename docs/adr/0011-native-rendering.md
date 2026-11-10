@@ -61,7 +61,7 @@ Compile the server build's components to Go at build time, render with them, and
 What shipped differs from the plan above in a few ways, all toward compiling more and writing less by hand:
 
 - **Svelte's server runtime is compiled from its source,** like every other module, instead of written in Go per version. Only its hottest helpers have Go versions (intrinsics, `native/svelte`), and each is used only while the function's syntax tree has the fingerprint it was written against; a Svelte release that changes one gets it compiled instead.
-- **Generators are compiled** (they run on coroutines), since Svelte's renderer walks its tree with them on every render. Async functions, `for await`, dynamic `import()` and `import.meta` are what remain unsupported; `tern build` lists them in `.tern/native/report.txt`.
+- **Generators are compiled** (they run on coroutines), since Svelte's renderer walks its tree with them on every render. Async functions are compiled too, on the same coroutines; async generators, `for await`, dynamic `import()` and BigInt are what remain unsupported; `tern build` lists them in `.tern/native/report.txt`.
 - **The object model has shapes and inline caches:** objects built the same way share their layout, and each property access in compiled code remembers where it found the property.
 - **Realms:** each SSR worker has its own realm, with its own built-ins, globals and module state, so native renders run in parallel on every core.
 - **Failures fall back at run time,** whatever the cause: an unsupported construct, an exception, or a bug in the compiled code. The path then renders with QuickJS from the start.

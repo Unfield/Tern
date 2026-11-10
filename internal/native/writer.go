@@ -66,7 +66,8 @@ type fnCtx struct {
 	superCtor  string // the parent constructor, for super(...)
 	thisVar    string // in a derived constructor, this is set by super()
 	afterSuper string // field initializers to run after super()
-	generator  string // the Go name of the generator's *js.Gen, in a generator
+	generator  string // the Go name of the generator's *js.Gen, in a generator or async function
+	async      bool
 }
 
 func (f *fnCtx) push(t *target) {

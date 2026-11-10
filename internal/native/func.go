@@ -61,13 +61,10 @@ func (c *Compiler) methodFunction(s *scope, n *Node, name, home, superProto stri
 
 func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCtx)) string {
 	arrow := n.Type == "ArrowFunctionExpression"
-	if n.Bool("async") {
-		kind := "an async function"
-		if n.Bool("generator") {
-			kind = "an async generator"
-		}
-		c.problem(n, "%s", kind)
-		return fmt.Sprintf("js.Value(js.NewFunction(%s, 0, func(js.Value, []js.Value) js.Value { panic(js.NotSupported(%s)) }))", quote(name), quote(kind))
+	async := n.Bool("async")
+	if async && n.Bool("generator") {
+		c.problem(n, "an async generator")
+		return fmt.Sprintf("js.Value(js.NewFunction(%s, 0, func(js.Value, []js.Value) js.Value { panic(js.NotSupported(%s)) }))", quote(name), quote("an async generator"))
 	}
 	id := strconv.Itoa(c.site())
 	f := &fnCtx{parent: s.fn, arrow: arrow, args: "args" + id}
@@ -75,8 +72,11 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 		f.this = "this" + id
 		f.argumentsVar = "arguments" + id
 	}
-	if n.Bool("generator") {
+	// An async function runs on a coroutine as a generator does: await
+	// suspends it until the awaited value settles.
+	if n.Bool("generator") || async {
 		f.generator = "gen" + id
+		f.async = async
 	}
 	setup(f)
 	outer := s
@@ -158,7 +158,11 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 	if f.generator != "" {
 		// The parameters are bound when the generator function is called,
 		// the body runs on the first next().
-		fn := fmt.Sprintf("js.WithInfo(js.NewGeneratorFunction(%s, %d, func(%s js.Value, %s []js.Value) func(*js.Gen) js.Value {\n%s%s\treturn func(%s *js.Gen) js.Value {\n%s\t}\n}), &%s)",
+		ctor := "js.NewGeneratorFunction"
+		if f.async {
+			ctor = "js.NewAsyncFunction"
+		}
+		fn := fmt.Sprintf("js.WithInfo("+ctor+"(%s, %d, func(%s js.Value, %s []js.Value) func(*js.Gen) js.Value {\n%s%s\treturn func(%s *js.Gen) js.Value {\n%s\t}\n}), &%s)",
 			quote(name), length, thisParam, f.args, prelude, body.String(), f.generator, main.String(), c.fnInfo(name, length, n))
 		if selfName != "" {
 			return iife(fmt.Sprintf("var %s js.Value\n%s = %s\nreturn %s\n", selfName, selfName, fn, selfName))

@@ -50,7 +50,7 @@ func TestConformance(t *testing.T) {
 	var main strings.Builder
 	main.WriteString("package main\n\nimport (\n\t\"fmt\"\n\n\t\"github.com/Unfield/Tern/native/js\"\n)\n\nfunc run(name string, newRealm func(func(*js.Realm)) *js.Realm) {\n")
 	main.WriteString("\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\tfmt.Printf(\"%s\\tpanic: %v\\n\", name, r)\n\t\t}\n\t}()\n")
-	main.WriteString("\trt := newRealm(nil)\n\ts, _ := rt.Stringify(rt.Global.Get(\"out\"), js.Undefined, js.Undefined)\n\tfmt.Printf(\"%s\\t%s\\n\", name, s)\n}\n\nfunc main() {\n")
+	main.WriteString("\trt := newRealm(nil)\n\trt.RunJobs()\n\ts, _ := rt.Stringify(rt.Global.Get(\"out\"), js.Undefined, js.Undefined)\n\tfmt.Printf(\"%s\\t%s\\n\", name, s)\n}\n\nfunc main() {\n")
 	for i, c := range data.Cases {
 		prefix := fmt.Sprintf("c%d", i)
 		res, err := Compile(c.IR, Options{Package: "main", Prefix: prefix})

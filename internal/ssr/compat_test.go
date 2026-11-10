@@ -27,6 +27,12 @@ func TestCompat(t *testing.T) {
 		t.Skip("build tests/ssr-compat first (pnpm --filter ssr-compat build)")
 	}
 	var logs bytes.Buffer
+	// The bundle is strict, as the minifier assumes: in sloppy mode a
+	// renamed block-level function can shadow a variable and make SSR
+	// bindings loop forever.
+	if !strings.HasPrefix(string(bundle), `"use strict";`) {
+		t.Error(`the server bundle must start with "use strict"`)
+	}
 	p, err := NewPool(string(bundle), Options{Workers: 1, Logger: slog.New(slog.NewTextHandler(&logs, nil))})
 	if err != nil {
 		t.Fatal(err)

@@ -84,7 +84,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 						target: 'es2022',
 						rolldownOptions: {
 							input: source,
-							output: { format: 'iife', entryFileNames: 'service-worker.js' }
+							output: { format: 'iife', entryFileNames: 'service-worker.js', banner: '"use strict";' }
 						}
 					}
 				};
@@ -103,7 +103,10 @@ export function tern(options: TernOptions = {}): Plugin[] {
 						target: 'es2023',
 						rolldownOptions: {
 							input: path.join(root, SERVER_ENTRY),
-							output: { format: 'iife', name: '__tern_server', entryFileNames: 'server.js' }
+							// Strict, like the modules it is built from: the minifier's output
+							// assumes it, and in sloppy mode a renamed block-level function can
+							// shadow a variable (Annex B), which made bindings loop forever.
+							output: { format: 'iife', name: '__tern_server', entryFileNames: 'server.js', banner: '"use strict";' }
 						}
 					},
 					// One self-contained file: the renderer runs in an embedded engine

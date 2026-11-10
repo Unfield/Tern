@@ -1,0 +1,151 @@
+/*
+ * Tern UI theme. Import once, in your root layout:
+ *
+ *   import '@ternkit/tern/ui/theme.css';
+ *
+ * Every component reads these custom properties, so a theme is a set of
+ * overrides on :root (or any element, for a part of the page). Dark mode
+ * follows the system, or set data-theme="dark" / "light" on <html>.
+ */
+:root {
+	color-scheme: light;
+	--tern-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+	--tern-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	/* Surfaces and ink */
+	--tern-bg: oklch(0.99 0.004 220);
+	--tern-surface: oklch(1 0 0);
+	--tern-surface-2: oklch(0.97 0.006 220);
+	--tern-fg: oklch(0.24 0.02 240);
+	--tern-muted: oklch(0.5 0.02 240);
+	--tern-border: oklch(0.9 0.01 230);
+	--tern-border-strong: oklch(0.8 0.015 230);
+
+	/* The accent: a deep sea teal */
+	--tern-accent: oklch(0.52 0.1 205);
+	--tern-accent-hover: oklch(0.46 0.1 205);
+	--tern-accent-fg: oklch(0.99 0.01 205);
+	--tern-accent-soft: oklch(0.95 0.03 205);
+
+	--tern-danger: oklch(0.55 0.19 25);
+	--tern-danger-hover: oklch(0.49 0.19 25);
+	--tern-danger-fg: oklch(0.99 0 0);
+	--tern-danger-soft: oklch(0.96 0.03 25);
+	--tern-success: oklch(0.55 0.13 155);
+	--tern-success-soft: oklch(0.96 0.04 155);
+	--tern-warning: oklch(0.6 0.13 75);
+	--tern-warning-soft: oklch(0.97 0.05 85);
+
+	--tern-ring: oklch(0.6 0.12 205);
+	--tern-radius: 10px;
+	--tern-radius-sm: 7px;
+	--tern-shadow: 0 1px 2px oklch(0.24 0.02 240 / 0.06), 0 1px 1px oklch(0.24 0.02 240 / 0.04);
+	--tern-shadow-lg: 0 12px 32px -8px oklch(0.24 0.02 240 / 0.18), 0 2px 6px oklch(0.24 0.02 240 / 0.08);
+	--tern-control-height: 2.25rem;
+	--tern-duration: 140ms;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		color-scheme: dark;
+		--tern-bg: oklch(0.17 0.015 240);
+		--tern-surface: oklch(0.21 0.017 240);
+		--tern-surface-2: oklch(0.25 0.018 240);
+		--tern-fg: oklch(0.94 0.01 230);
+		--tern-muted: oklch(0.7 0.02 230);
+		--tern-border: oklch(0.32 0.02 240);
+		--tern-border-strong: oklch(0.42 0.02 240);
+		--tern-accent: oklch(0.72 0.11 200);
+		--tern-accent-hover: oklch(0.78 0.1 200);
+		--tern-accent-fg: oklch(0.18 0.03 220);
+		--tern-accent-soft: oklch(0.3 0.05 205);
+		--tern-danger: oklch(0.7 0.17 25);
+		--tern-danger-hover: oklch(0.76 0.15 25);
+		--tern-danger-fg: oklch(0.18 0.04 25);
+		--tern-danger-soft: oklch(0.3 0.07 25);
+		--tern-success: oklch(0.72 0.14 155);
+		--tern-success-soft: oklch(0.29 0.05 155);
+		--tern-warning: oklch(0.78 0.13 80);
+		--tern-warning-soft: oklch(0.31 0.05 80);
+		--tern-ring: oklch(0.75 0.11 200);
+		--tern-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+		--tern-shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+	}
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--tern-bg: oklch(0.17 0.015 240);
+	--tern-surface: oklch(0.21 0.017 240);
+	--tern-surface-2: oklch(0.25 0.018 240);
+	--tern-fg: oklch(0.94 0.01 230);
+	--tern-muted: oklch(0.7 0.02 230);
+	--tern-border: oklch(0.32 0.02 240);
+	--tern-border-strong: oklch(0.42 0.02 240);
+	--tern-accent: oklch(0.72 0.11 200);
+	--tern-accent-hover: oklch(0.78 0.1 200);
+	--tern-accent-fg: oklch(0.18 0.03 220);
+	--tern-accent-soft: oklch(0.3 0.05 205);
+	--tern-danger: oklch(0.7 0.17 25);
+	--tern-danger-hover: oklch(0.76 0.15 25);
+	--tern-danger-fg: oklch(0.18 0.04 25);
+	--tern-danger-soft: oklch(0.3 0.07 25);
+	--tern-success: oklch(0.72 0.14 155);
+	--tern-success-soft: oklch(0.29 0.05 155);
+	--tern-warning: oklch(0.78 0.13 80);
+	--tern-warning-soft: oklch(0.31 0.05 80);
+	--tern-ring: oklch(0.75 0.11 200);
+	--tern-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+	--tern-shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--tern-duration: 0ms;
+	}
+}
+
+/* Base styles, opt-in with class="tern" on <body> or any container. */
+.tern {
+	font-family: var(--tern-font);
+	color: var(--tern-fg);
+	background: var(--tern-bg);
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Semantic tables: <table class="tern-table">. */
+.tern-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.875rem;
+}
+.tern-table th {
+	text-align: start;
+	font-weight: 600;
+	color: var(--tern-muted);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.tern-table th,
+.tern-table td {
+	padding: 0.625rem 0.75rem;
+	border-bottom: 1px solid var(--tern-border);
+}
+.tern-table tbody tr:hover {
+	background: var(--tern-surface-2);
+}
+
+/* Hidden visually, still read by screen readers. */
+.tern-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

@@ -24,7 +24,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Testing:** `goscript/livetest` tests components in Go without a browser.
 - `tern check` generates code and runs `svelte-check`, with the markup of Go components checked against types generated from their Go code. Starter templates' `npm run check` uses it.
 - The status example's admin dashboard is a live component.
+- `@ternkit/tern/ui`, a component library with Tern's own design, themeable with CSS custom properties, in light and dark mode. See [docs/ui.md](docs/ui.md).
+  - **Components:** Button, Field with Input, Textarea and Select, Checkbox, RadioGroup, Switch, Dialog, Tabs, Menu, Tooltip, Accordion, toasts, Alert, Progress, Spinner, Card, Badge, Avatar, Skeleton, Separator and Kbd.
+  - **Accessibility:** they follow the WAI-ARIA patterns and work with the keyboard, and `examples/ui` audits them with axe in CI.
 - `tern mcp` serves the Model Context Protocol for AI coding tools. Its tools cover project information, routes and their types, live components, code generation, checks, tests, builds, scaffolding routes, live components and migrations, and Tern's docs for the version in use. New projects include a `.mcp.json`. See [docs/mcp.md](docs/mcp.md).
+
+### Fixed
+
+- Server rendering looped forever on some pages with two-way bindings: the minified server bundle was not strict mode, so a renamed block-level function could shadow a variable. The server and service worker bundles are now strict.
 
 ### Changed
 

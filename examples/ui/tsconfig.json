@@ -1,0 +1,7 @@
+{
+	"extends": "./.tern/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true
+	}
+}

@@ -10,7 +10,7 @@ Tern follows [semantic versioning](https://semver.org). From v1.0.0, minor and p
 | **`kit` for application code** | `Ctx` and its methods, `LoadOf`, `Action`, `Actions`, `Parent`, `Defer` and `Deferred`, `Error`, `NotFound`, `Redirect`, `Fail` and their error types, `App`, `New`'s options (`With…`), `Plugin` and `Setup` |
 | **Built-in plugins** | Everything under `plugins/` |
 | **Live components** | `<script lang="go" live>`, the `goscript` API they use (except `MountLive`, `StartLive`, `Instance` and `LiveOptions`, which the generated code and `kit` use), `goscript/livetest`, `realtime/pgbroker`, and what the markup sees (values, Funcs and `live`) |
-| **`@ternkit/tern`** | Everything exported from `@ternkit/tern` and `@ternkit/tern/vite` |
+| **`@ternkit/tern`** | Everything exported from `@ternkit/tern`, `@ternkit/tern/vite` and `@ternkit/tern/ui` (components, their props, and the `--tern-*` custom properties; their exact look may be refined in minor releases) |
 | **Generated modules** | The names exported from `./$types` (`PageProps`, `PageData`, `LayoutProps`, `LayoutData`, `ActionData`, `RouteParams`, …) and from `$routes` (`route`, `base`, `Routes`, `RoutePattern`) |
 | **Wire format** | How Go types map to TypeScript, the placeholders in `src/app.html`, and `tern.json` |
 | **CLI** | The `tern` commands and their flags |

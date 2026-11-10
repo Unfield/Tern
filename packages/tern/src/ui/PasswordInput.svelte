@@ -30,6 +30,7 @@
 		aria-invalid={field?.invalid || undefined}
 		required={field?.required}
 		disabled={field?.disabled}
+		name={field?.name}
 		{...rest}
 		bind:value
 	/>

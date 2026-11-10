@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Form validation from Go struct tags. `kit.FormAction` decodes a post into a struct and checks `validate:"required,min=3,email,…"` before the action runs, failing with a `kit.Invalid` of errors by field. `tern gen` writes the same rules to `./$forms`, `validate()` from `@ternkit/tern` checks them in the browser with the same messages, and Tern UI's new `Form` checks them as the user types and shows each error on its `Field` by `name`. Typed endpoints check the same tags.
+- `kit.FieldError` and `kit.FormError` fail an action with a message on a field or on the whole form.
+
 - `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`. The flags `-ui`, `-git` and `-install` do the same without questions, and flags may now follow the directory.
 - `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
 - Tern UI overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.

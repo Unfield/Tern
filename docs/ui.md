@@ -116,16 +116,24 @@ const items: MenuItem[] = [
 
 ## Forms
 
-The controls are ordinary form elements with `name`s, so they post with forms and work without JavaScript. This form shows errors from a [form action](guide.md#form-actions):
+`Form` checks the rules of a [`kit.FormAction`](guide.md#validating-forms) as the user types, and shows the server's errors after a post:
 
 ```svelte
-<form method="POST" use:enhance>
-	<Field label="Email" error={form?.errors?.email} required>
-		<Input name="email" type="email" value={form?.values?.email ?? ''} />
+<Form rules={forms.default} {form} bind:submitting>
+	<Field label="Email" name="email" description="We'll only email you about your account.">
+		<Input type="email" autocomplete="email" />
 	</Field>
-	<Button type="submit">Sign up</Button>
-</form>
+	<Checkbox name="terms">I accept the terms</Checkbox>
+	<Button type="submit" loading={submitting}>Create account</Button>
+</Form>
 ```
+
+- **`name` on `Field`:** the control inside posts under it, the Field shows its error and knows whether it's required, and the control refills with what was posted after a failure without JavaScript.
+- **When it checks:** a field once the user has changed and left it, then as they type; everything on submit, without posting while anything is wrong. The first problem gets focus and a status line says how many there are.
+- **Server errors:** `kit.FieldError` and the rules' own messages land on their fields; `kit.FormError` shows above the form.
+- **Without JavaScript:** the controls are ordinary form elements, so the browser posts and Go answers with the same errors.
+
+Outside a `Form`, pass `error` to a `Field` yourself.
 
 ## Theming
 

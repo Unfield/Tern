@@ -11,6 +11,10 @@ export interface FieldContext {
 	readonly disabled: boolean;
 	/** Custom controls call this: the label then focuses the element with the field's id instead of using for. */
 	custom(): void;
+	/** The name the control posts under, from the Field. */
+	readonly name: string | undefined;
+	/** What was posted before, to refill the control after a failed post. */
+	readonly value: string | undefined;
 }
 
 const key = Symbol('tern-field');

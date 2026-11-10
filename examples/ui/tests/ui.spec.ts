@@ -161,27 +161,66 @@ test('form controls, tooltip, accordion and toasts', async ({ page }) => {
 	expect(problems.filter((p) => !p.includes('missing.png') && !p.includes('404'))).toEqual([]);
 });
 
-test('the form shows Go validation errors, with and without JavaScript', async ({ browser }) => {
-	for (const javaScriptEnabled of [true, false]) {
-		const page = await (await browser.newContext({ javaScriptEnabled })).newPage();
-		await page.goto('/form');
-		if (javaScriptEnabled) await audit(page);
-		await page.getByRole('textbox', { name: 'Email' }).fill('nope');
-		await page.getByRole('button', { name: 'Create account' }).click();
-		await expect(page.getByText('4 fields need your attention.')).toBeVisible();
-		const email = page.getByRole('textbox', { name: 'Email' });
-		await expect(email).toHaveAttribute('aria-invalid', 'true');
-		await expect(email).toHaveValue('nope');
-		await expect(email).toHaveAccessibleDescription(/only email you about your account.*like ada@example.com/);
-		if (javaScriptEnabled) await audit(page);
+test('the form checks Go rules as you type, and again on the server', async ({ page }) => {
+	await page.goto('/form');
+	await audit(page);
+	const email = page.getByRole('textbox', { name: 'Email' });
+	// Required fields are marked from the Go rules.
+	await expect(email).toHaveAttribute('required', '');
+	// Leaving a field you changed checks it.
+	await email.fill('nope');
+	await email.blur();
+	await expect(email).toHaveAttribute('aria-invalid', 'true');
+	await expect(email).toHaveAccessibleDescription(/only email you about your account.*Email must be an email address\./);
+	// Fixing it clears the error as you type.
+	await email.fill('ada@example.com');
+	await expect(email).not.toHaveAttribute('aria-invalid');
+	// Submitting checks everything without a request and focuses the first problem.
+	let posts = 0;
+	page.on('request', (r) => r.method() === 'POST' && posts++);
+	await page.getByRole('button', { name: 'Create account' }).click();
+	await expect(page.getByRole('textbox', { name: 'Name' })).toBeFocused();
+	await expect(page.getByText('Name is required.')).toBeVisible();
+	await expect(page.getByText('Accept the terms to continue.')).toBeVisible();
+	expect(posts).toBe(0);
+	await audit(page);
+	// Rules that compare fields run live too.
+	await page.locator('input[name=password]').fill('correct horse battery');
+	const confirm = page.locator('input[name=confirm]');
+	await confirm.fill('correct horse');
+	await expect(page.getByText('Confirm password must match password.')).toBeVisible();
+	await confirm.fill('correct horse battery');
+	await expect(page.getByText('Confirm password must match password.')).toHaveCount(0);
+	// The server's own rule, from the action, lands on its field.
+	await page.getByRole('textbox', { name: 'Name' }).fill('Ada');
+	await email.fill('taken@example.com');
+	await page.getByRole('combobox', { name: 'Role' }).selectOption('dev');
+	await page.getByRole('checkbox', { name: 'I accept the terms' }).check();
+	await page.getByRole('button', { name: 'Create account' }).click();
+	await expect(page.getByText('That email already has an account.')).toBeVisible();
+	await expect(email).toBeFocused();
+	expect(posts).toBe(1);
+	await email.fill('ada@example.com');
+	await page.getByRole('button', { name: 'Create account' }).click();
+	await expect(page.getByText('Welcome, Ada.')).toBeVisible();
+});
 
-		await page.getByRole('textbox', { name: 'Name' }).fill('Ada');
-		await email.fill('ada@example.com');
-		await page.getByRole('combobox', { name: 'Role' }).selectOption('dev');
-		await page.getByRole('checkbox', { name: 'I accept the terms' }).check();
-		await page.getByRole('button', { name: 'Create account' }).click();
-		await expect(page.getByText("You're in")).toBeVisible();
-		await expect(page.getByText('Welcome, Ada.')).toBeVisible();
-		await page.close();
-	}
+test('without JavaScript, Go checks the form and refills it, except passwords', async ({ browser }) => {
+	const page = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
+	await page.goto('/form');
+	await page.getByRole('textbox', { name: 'Name' }).fill('Ada');
+	await page.getByRole('textbox', { name: 'Email' }).fill('nope');
+	await page.locator('input[name=password]').fill('short');
+	await page.getByRole('textbox', { name: 'Website' }).fill('example.com');
+	// The browser's own checks would stop this post; turn them off to reach Go.
+	await page.locator('form').evaluate((f: HTMLFormElement) => (f.noValidate = true));
+	await page.getByRole('button', { name: 'Create account' }).click();
+	await expect(page.getByText('Email must be an email address.')).toBeVisible();
+	await expect(page.getByText('Password must be at least 10 characters.')).toBeVisible();
+	await expect(page.getByText('Website must be a web address starting with http:// or https://.')).toBeVisible();
+	await expect(page.getByText('Choose a role.')).toBeVisible();
+	await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Ada');
+	await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('nope');
+	await expect(page.locator('input[name=password]')).toHaveValue('');
+	await page.close();
 });

@@ -89,7 +89,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [ ] `tern ui add <component>`: copy a component into the project, to own and change it
 
 **Validation**
-- [ ] Schemas in Go that validate actions and endpoints, generate matching TypeScript validators so the page checks as you type, and show each error on its `Field`
+- [x] Schemas in Go that validate actions and endpoints, generate matching TypeScript validators so the page checks as you type, and show each error on its `Field`
 
 **The analytics app**
 - [ ] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary

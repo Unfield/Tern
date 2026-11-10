@@ -148,8 +148,14 @@ export function tern(options: TernOptions = {}): Plugin[] {
 				}
 			};
 		},
-		resolveId(id) {
-			return id === SW_MODULE ? '\0' + SW_MODULE : undefined;
+		resolveId(id, importer) {
+			if (id === SW_MODULE) return '\0' + SW_MODULE;
+			// ./$forms sits next to ./$types, in .tern/types, written by tern gen.
+			if (id === './$forms' && importer) {
+				const dir = path.relative(root, path.dirname(importer.split('?')[0]!));
+				if (!dir.startsWith('..')) return path.join(root, '.tern/types', dir, '$forms.js');
+			}
+			return undefined;
 		},
 		load(id) {
 			if (id !== '\0' + SW_MODULE) return undefined;

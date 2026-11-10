@@ -12,6 +12,7 @@ export { goto, invalidate, invalidateAll, preloadData, applyAction } from './run
 export { beforeNavigate, onNavigate, afterNavigate } from './runtime/navigation.js';
 export type { BeforeNavigateEvent, OnNavigateEvent } from './runtime/navigation.js';
 export { enhance } from './runtime/forms.js';
+export { validate, checkField, type FormField, type FormErrors } from './runtime/validate.js';
 export type { SubmitFunction, SubmitInput, SubmitResult } from './runtime/forms.js';
 export type { ActionResult, GotoOptions, Navigation, NavigationTarget, NavigationType } from './runtime/types.js';
 

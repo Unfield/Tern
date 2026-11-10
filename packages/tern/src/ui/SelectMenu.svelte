@@ -17,11 +17,12 @@
 		class?: string;
 		onchange?: (value: string, option: Option) => void;
 	};
-	let { options, value = $bindable(null), placeholder = 'Choose…', label, name, disabled = false, class: klass = '', onchange }: Props = $props();
+	const field = getField();
+	let { options, value = $bindable(field?.value ?? null), placeholder = 'Choose…', label, name: nameProp, disabled = false, class: klass = '', onchange }: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
 	const id = `tern-selectmenu-${uid}`;
-	const field = getField();
 	field?.custom();
 	let button = $state<HTMLButtonElement>();
 	let list = $state<HTMLDivElement>();

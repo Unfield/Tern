@@ -17,10 +17,11 @@
 		class?: string;
 		onchange?: (value: number | [number, number]) => void;
 	};
-	let { value = $bindable(0), min = 0, max = 100, step = 1, label, format = String, name, disabled = false, class: klass = '', onchange }: Props = $props();
+	const field = getField();
+	let { value = $bindable(0), min = 0, max = 100, step = 1, label, format = String, name: nameProp, disabled = false, class: klass = '', onchange }: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
-	const field = getField();
 	field?.custom();
 	let track = $state<HTMLDivElement>();
 	const thumbs: HTMLElement[] = [];

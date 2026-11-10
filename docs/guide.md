@@ -264,6 +264,63 @@ To customize `use:enhance`, pass a function:
 }}>
 ```
 
+### Validating forms
+
+Put a form's rules on a Go struct, and `kit.FormAction` decodes and checks the post before your code runs:
+
+```go
+type SignUp struct {
+	Name     string `form:"name" validate:"required,max=80"`
+	Email    string `form:"email" validate:"required,email"`
+	Password string `form:"password" validate:"required,min=10"`
+	Confirm  string `form:"confirm" validate:"same=password" label:"Confirm password"`
+	Seats    int    `form:"seats" validate:"min=1,max=500"`
+	Plan     string `form:"plan" validate:"oneof=free|team|enterprise"`
+	Terms    bool   `form:"terms" validate:"required" message:"Accept the terms to continue."`
+}
+
+var Actions = kit.Actions{
+	"default": kit.FormAction(func(ctx *kit.Ctx, in SignUp) (Welcome, error) {
+		if users.Exists(ctx, in.Email) {
+			return Welcome{}, kit.FieldError("email", "That email already has an account.")
+		}
+		return Welcome{Name: in.Name}, nil
+	}),
+}
+```
+
+| Rule | Means |
+|---|---|
+| `required` | has a value; a checkbox is checked |
+| `min=N`, `max=N` | characters for text, the value for numbers, the day for dates (`min=2026-01-01`), choices for `[]string` |
+| `len=N` | exactly N characters |
+| `email`, `url` | an email address; an `http` or `https` address |
+| `pattern=RE` | the whole value matches the regular expression; it must be the last rule |
+| `oneof=a\|b\|c` | one of these values |
+| `same=field` | the same as another field, such as a password confirmation |
+
+- **Names and messages:** fields post under their `form` tag, else their `json` name. `label` names them in messages ("Seats must be at least 1."), and `message` replaces all of a field's messages.
+- **Types:** strings, numbers, `bool` (checkboxes), `time.Time` (a date, or with `form:"when,datetime"` a `datetime-local` value), `[]string` (several values with one name), and pointers for optional fields.
+- **Failing:** if a rule fails, the action fails with 400 and a `kit.Invalid`: `errors` by field, the posted `values` to refill the form, and a `message`. Password fields, and fields that must match them, are never sent back.
+- **Errors from your code:** return `kit.FieldError(field, message)` or `kit.FormError(message)` from the action, or from a `Validate() error` method on the struct, to fail the same way.
+- **In the browser:** `tern gen` writes the same rules to `./$forms`. Tern UI's `Form` checks them as the user types and before posting, with the same messages, and puts each error on its `Field`:
+
+```svelte
+<script lang="ts">
+	import { Button, Field, Form, Input, PasswordInput } from '@ternkit/tern/ui';
+	import { forms } from './$forms';
+	let { form } = $props();
+</script>
+
+<Form rules={forms.default} {form}>
+	<Field label="Email" name="email"><Input type="email" /></Field>
+	<Field label="Password" name="password"><PasswordInput autocomplete="new-password" /></Field>
+	<Button type="submit">Sign up</Button>
+</Form>
+```
+
+Without Tern UI, `validate(forms.default, new FormData(form))` from `@ternkit/tern` returns the errors. The server always checks again, so the rules hold without JavaScript too. Typed endpoints check the same tags on their input and answer 400.
+
 ## Endpoints
 
 Export HTTP method handlers to serve JSON, files, feeds or webhooks:

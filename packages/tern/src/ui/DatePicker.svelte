@@ -24,12 +24,13 @@
 		class?: string;
 		onchange?: (value: ISODate | DateRange) => void;
 	};
+	const field = getField();
 	let {
 		mode = 'single',
 		value = $bindable(mode === 'range' ? { start: null, end: null } : null),
 		placeholder = mode === 'range' ? 'Pick dates' : 'Pick a date',
 		label,
-		name,
+		name: nameProp,
 		min,
 		max,
 		isDisabled,
@@ -40,9 +41,9 @@
 		class: klass = '',
 		onchange
 	}: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
-	const field = getField();
 	field?.custom();
 	let open = $state(false);
 	const triggerId = field?.id ?? `tern-datepicker-${uid}-trigger`;

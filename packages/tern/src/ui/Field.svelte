@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { setField } from './field.js';
+	import { getForm } from './form.js';
 
 	type Props = {
 		/** The visible label. */
@@ -11,11 +12,17 @@
 		error?: string | null;
 		required?: boolean;
 		disabled?: boolean;
+		/** The control's name. Inside a Form, the Field shows that field's error and knows if it's required, and the control posts under it. */
+		name?: string;
 		class?: string;
 		/** The control, such as an Input, Textarea or Select. */
 		children: Snippet;
 	};
-	let { label, description, error = null, required = false, disabled = false, class: klass = '', children }: Props = $props();
+	let { label, description, error: errorProp = null, required: requiredProp = false, disabled = false, name, class: klass = '', children }: Props = $props();
+
+	const form = getForm();
+	const error = $derived(errorProp ?? (name ? form?.error(name) : undefined) ?? null);
+	const required = $derived(requiredProp || (name ? !!form?.field(name)?.required : false));
 
 	const uid = $props.id();
 	let custom = $state(false);
@@ -37,6 +44,12 @@
 		},
 		custom() {
 			custom = true;
+		},
+		get name() {
+			return name;
+		},
+		get value() {
+			return name && !form?.field(name)?.secret ? form?.value(name) : undefined;
 		}
 	});
 </script>

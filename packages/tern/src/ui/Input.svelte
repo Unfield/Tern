@@ -3,8 +3,8 @@
 	import { getField } from './field.js';
 
 	type Props = HTMLInputAttributes & { value?: unknown };
-	let { value = $bindable(), class: klass = '', ...rest }: Props = $props();
 	const field = getField();
+	let { value = $bindable(field?.value), class: klass = '', ...rest }: Props = $props();
 </script>
 
 <input
@@ -14,6 +14,7 @@
 	aria-invalid={field?.invalid || undefined}
 	required={field?.required}
 	disabled={field?.disabled}
+	name={field?.name}
 	{...rest}
 	bind:value
 />

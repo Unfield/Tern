@@ -10,10 +10,12 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
 
+	"github.com/Unfield/Tern/internal/formrules"
 	"github.com/Unfield/Tern/internal/routes"
 )
 
@@ -29,7 +31,8 @@ type routePackage struct {
 	layoutLoad types.Type // LayoutLoad's data type, or nil
 	actions    []types.Type
 	failures   []types.Type
-	actionsAny bool // Actions is not a literal we can inspect
+	forms      map[string][]formrules.Field // the rules of each kit.FormAction, by action name
+	actionsAny bool                         // Actions is not a literal we can inspect
 	methods    []string
 	endpoints  map[string]endpointSig // typed endpoints by method
 	noSSR      bool                   // const SSR = false
@@ -202,8 +205,23 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 			}
 			errs = append(errs, at+"Actions must be a kit.Actions")
 		} else {
-			rp.actions, rp.actionsAny = actionResults(p, obj)
+			var formIns map[string]formInput
+			rp.actions, formIns, rp.actionsAny = actionResults(p, obj)
 			rp.failures = failTypes(p)
+			if len(formIns) > 0 {
+				rp.forms = map[string][]formrules.Field{}
+				for name, in := range formIns {
+					fields, err := formrules.FromTypes(in.t)
+					if err != nil {
+						errs = append(errs, fmt.Sprintf("%s: kit.FormAction %q: %v", in.pos, name, err))
+						continue
+					}
+					rp.forms[name] = fields
+				}
+				if invalid := kitInvalid(p); invalid != nil {
+					rp.failures = append(rp.failures, invalid)
+				}
+			}
 		}
 	}
 	return errs
@@ -302,15 +320,37 @@ func isObjectType(t types.Type) bool {
 
 // actionResults returns the result type of each action in an Actions
 // composite literal. It reports anyAction if an action's type is unknown.
-func actionResults(p *packages.Package, obj *types.Var) (results []types.Type, anyAction bool) {
+// formInput is the input type of a kit.FormAction, with where it is.
+type formInput struct {
+	t   types.Type
+	pos string
+}
+
+func actionResults(p *packages.Package, obj *types.Var) (results []types.Type, forms map[string]formInput, anyAction bool) {
 	lit := findVarValue(p, obj)
 	cl, ok := lit.(*ast.CompositeLit)
 	if !ok {
-		return nil, true
+		return nil, nil, true
 	}
 	for _, elt := range cl.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
+			continue
+		}
+		if in, out, ok := formActionTypes(p, kv.Value); ok {
+			if out != nil {
+				results = append(results, out)
+			} else {
+				anyAction = true
+			}
+			if lit, ok := kv.Key.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				if name, err := strconv.Unquote(lit.Value); err == nil {
+					if forms == nil {
+						forms = map[string]formInput{}
+					}
+					forms[name] = formInput{t: in, pos: p.Fset.Position(kv.Pos()).String()}
+				}
+			}
 			continue
 		}
 		t := actionValueResult(p, kv.Value)
@@ -320,7 +360,38 @@ func actionResults(p *packages.Package, obj *types.Var) (results []types.Type, a
 		}
 		results = append(results, t)
 	}
-	return results, anyAction
+	return results, forms, anyAction
+}
+
+// kitInvalid returns the kit.Invalid type, which a FormAction fails with,
+// from the kit package p uses.
+func kitInvalid(p *packages.Package) types.Type {
+	for _, obj := range p.TypesInfo.Uses {
+		if obj.Pkg() != nil && obj.Pkg().Path() == kitPath {
+			if inv := obj.Pkg().Scope().Lookup("Invalid"); inv != nil {
+				return inv.Type()
+			}
+		}
+	}
+	return nil
+}
+
+// formActionTypes returns In and Out for kit.FormAction(f) where f is
+// func(*kit.Ctx, In) (Out, error); out is nil if it is unknown.
+func formActionTypes(p *packages.Package, e ast.Expr) (in, out types.Type, ok bool) {
+	call, isCall := e.(*ast.CallExpr)
+	if !isCall || len(call.Args) != 1 || !isKitFunc(p, call.Fun, "FormAction") {
+		return nil, nil, false
+	}
+	sig, isSig := types.Unalias(p.TypesInfo.TypeOf(call.Args[0])).(*types.Signature)
+	if !isSig || sig.Params().Len() != 2 || sig.Results().Len() != 2 {
+		return nil, nil, false
+	}
+	out = sig.Results().At(0).Type()
+	if isEmptyInterface(out) {
+		out = nil
+	}
+	return sig.Params().At(1).Type(), out, true
 }
 
 // actionValueResult returns T for kit.Action(f) where f returns (T, error),

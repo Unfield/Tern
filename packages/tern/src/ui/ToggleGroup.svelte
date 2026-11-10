@@ -20,9 +20,10 @@
 		class?: string;
 		onchange?: (value: string | string[] | null) => void;
 	};
-	let { options, type = 'single', value = $bindable(type === 'multiple' ? [] : null), label, iconsOnly = false, name, size = 'md', disabled = false, class: klass = '', onchange }: Props = $props();
-
 	const field = getField();
+	let { options, type = 'single', value = $bindable(type === 'multiple' ? [] : null), label, iconsOnly = false, name: nameProp, size = 'md', disabled = false, class: klass = '', onchange }: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
+
 	field?.custom();
 	const buttons: HTMLButtonElement[] = [];
 	const chosen = (v: string) => (Array.isArray(value) ? value.includes(v) : value === v);

@@ -3,8 +3,8 @@
 	import { getField } from './field.js';
 
 	type Props = HTMLTextareaAttributes & { value?: unknown };
-	let { value = $bindable(), class: klass = '', rows = 4, ...rest }: Props = $props();
 	const field = getField();
+	let { value = $bindable(field?.value), class: klass = '', rows = 4, ...rest }: Props = $props();
 </script>
 
 <textarea
@@ -15,6 +15,7 @@
 	required={field?.required}
 	disabled={field?.disabled}
 	{rows}
+	name={field?.name}
 	{...rest}
 	bind:value
 ></textarea>

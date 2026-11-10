@@ -16,9 +16,10 @@
 		/** Runs once every character is entered, such as to submit. */
 		oncomplete?: (code: string) => void;
 	};
-	let { value = $bindable(''), length = 6, mode = 'numeric', label, name, disabled = false, class: klass = '', oncomplete }: Props = $props();
-
 	const field = getField();
+	let { value = $bindable(field?.value ?? ''), length = 6, mode = 'numeric', label, name: nameProp, disabled = false, class: klass = '', oncomplete }: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
+
 	let input = $state<HTMLInputElement>();
 	let focused = $state(false);
 	let caret = $state(0);

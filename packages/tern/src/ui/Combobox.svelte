@@ -24,12 +24,13 @@
 		class?: string;
 		onchange?: (value: string | null, option: Option | null) => void;
 	};
+	const field = getField();
 	let {
 		options,
-		value = $bindable(null),
+		value = $bindable(field?.value ?? null),
 		placeholder,
 		label,
-		name,
+		name: nameProp,
 		empty = 'No results',
 		onsearch,
 		debounce = 200,
@@ -37,10 +38,10 @@
 		class: klass = '',
 		onchange
 	}: Props = $props();
+	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
 	const id = `tern-combobox-${uid}`;
-	const field = getField();
 	let input = $state<HTMLInputElement>();
 	let list = $state<HTMLDivElement>();
 	let open = $state(false);

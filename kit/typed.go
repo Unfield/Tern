@@ -33,9 +33,10 @@ import (
 //
 // For GET, HEAD and DELETE the input comes from the query string; for
 // other methods it is the JSON body. Fields tagged path:"name" are filled
-// from the route's parameters. If the input has a Validate() error method,
-// it runs before the handler; a non-HTTP error from it is answered with
-// 400. The output is written as JSON with status 200.
+// from the route's parameters. The input's validate tags are checked, as
+// FormAction checks them, and then its Validate() error method if it has
+// one; a failure is answered with 400. The output is written as JSON with
+// status 200.
 
 // Validator is implemented by inputs that check themselves.
 type Validator interface{ Validate() error }
@@ -45,6 +46,9 @@ func TypedEndpoint[In, Out any](method string, fn func(*Ctx, In) (Out, error)) H
 	return func(c *Ctx) error {
 		var in In
 		if err := decodeInput(c, method, &in); err != nil {
+			return err
+		}
+		if err := checkTyped(in); err != nil {
 			return err
 		}
 		if v, ok := any(&in).(Validator); ok {

@@ -12,8 +12,8 @@
 		placeholder?: string;
 		children?: Snippet;
 	};
-	let { value = $bindable(), options, placeholder, class: klass = '', children, ...rest }: Props = $props();
 	const field = getField();
+	let { value = $bindable(field?.value), options, placeholder, class: klass = '', children, ...rest }: Props = $props();
 </script>
 
 <span class="tern-select {klass}">
@@ -23,7 +23,8 @@
 		aria-invalid={field?.invalid || undefined}
 		required={field?.required}
 		disabled={field?.disabled}
-		{...rest}
+		name={field?.name}
+	{...rest}
 		bind:value
 	>
 		{#if placeholder}<option value="" disabled selected={value === undefined || value === ''}>{placeholder}</option>{/if}

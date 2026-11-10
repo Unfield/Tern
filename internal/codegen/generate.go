@@ -563,6 +563,7 @@ func (g *generator) tsconfig() {
 		"../src/**/*.ts",
 		"../src/**/*.svelte",
 		"./types/**/$types.d.ts",
+		"./types/**/$forms.d.ts",
 		"./ambient.d.ts",
 		"./generated/i18n.d.ts"
 	],

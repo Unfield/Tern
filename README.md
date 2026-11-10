@@ -98,10 +98,12 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.0** | Plugins, base paths, public environment variables, the stability promise | Done |
 | **v1.1** | Translations, responsive images, service workers, sessions, metrics, rate limiting and CORS plugins | Done |
 | **v1.2** | Markdown and content, realtime, jobs and migrations, OAuth/OIDC, email, storage, typed endpoints with OpenAPI, starter templates, experimental Go components | Done |
+| **v1.3** | Live components: Go component logic on the server, typed markup with `tern check`, several processes through a broker | In progress |
 
 ## Documentation
 
 - [Guide](docs/guide.md): everything you need to build an app
+- [Live components](docs/live-components.md): component logic in Go, on the server
 - [Coming from SvelteKit](docs/migrating-from-sveltekit.md): what maps to what
 - [Architecture](docs/ARCHITECTURE.md): how Tern works internally
 - [Deployment](docs/deployment.md): running Tern in production

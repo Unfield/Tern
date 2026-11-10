@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/Unfield/Tern/goscript"
 )
 
 // LoadFunc is a Load or LayoutLoad function with its result type erased.
@@ -146,6 +148,8 @@ type options struct {
 	ssrWorkers      int
 	ssrCache        int
 	ssrTimeout      time.Duration
+	live            LiveOptions
+	liveBroker      goscript.Broker
 }
 
 // HookFunc runs before every page, data, action and endpoint request. It
@@ -153,7 +157,8 @@ type options struct {
 // kit.Redirect to stop the request.
 type HookFunc func(*Ctx) error
 
-// WithHook adds a hook. Hooks run in the order they are added.
+// WithHook adds a hook. Hooks run in the order they are added, after the
+// hooks of plugins, so they can use sessions and other plugin state.
 func WithHook(h HookFunc) Option {
 	return func(o *options) { o.hooks = append(o.hooks, h) }
 }

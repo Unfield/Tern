@@ -121,3 +121,17 @@ func TestOnStart(t *testing.T) {
 		t.Errorf("start functions ran while prerendering: %v", none)
 	}
 }
+
+func TestPluginHooksRunFirst(t *testing.T) {
+	var stopped []string
+	a, _ := newTestApp(t, testManifest(),
+		WithHook(func(c *Ctx) error {
+			// The plugin's hook has already run.
+			c.SetHeader("X-Seen", c.Writer().Header().Get("X-Plugin-p"))
+			return nil
+		}),
+		WithPlugins(testPlugin{name: "p", stopped: &stopped}))
+	if got := do(t, a, "GET", "/", nil).Header().Get("X-Seen"); got != "hooked" {
+		t.Errorf("app hook ran before the plugin's: %q", got)
+	}
+}

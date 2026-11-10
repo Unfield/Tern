@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/internal/i18n"
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
@@ -98,6 +99,13 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	}
 	if err := a.setupPlugins(); err != nil {
 		return nil, err
+	}
+	if b := o.liveBroker; b != nil {
+		a.start = append(a.start, func(ctx context.Context) error {
+			goscript.SetBroker(b)
+			context.AfterFunc(ctx, func() { goscript.SetBroker(nil) })
+			return nil
+		})
 	}
 	a.publicEnv = publicEnv(os.Environ())
 	if m.Locales != nil {

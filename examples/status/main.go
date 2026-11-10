@@ -76,6 +76,13 @@ func main() {
 	}
 	application, err := ternApp(
 		kit.WithLogger(logger),
+		// Live components read the signed-in administrator from Locals.
+		kit.WithHook(func(ctx *kit.Ctx) error {
+			if a, ok := app.CurrentAdmin(ctx); ok {
+				ctx.Locals["admin"] = a
+			}
+			return nil
+		}),
 		kit.WithPlugins(
 			// Start order: migrations, then the job queue, then the checks.
 			migrate.Plugin(st.DB, migrations),

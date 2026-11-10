@@ -79,7 +79,7 @@ jobs:
         env:
           TERN_TEST_POSTGRES: postgres://tern:tern@localhost:5432/tern?sslmode=disable
           TERN_TEST_S3: http://localhost:8333|us-east-1|tern|tern|tern-secret-key
-        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/ ./storage/
+        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/ ./storage/ ./realtime/pgbroker/
 
   lint:
     name: Lint

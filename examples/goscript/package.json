@@ -5,13 +5,16 @@
   "scripts": {
     "dev": "go tool tern dev",
     "build": "go tool tern build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check": "go tool tern check",
+    "typecheck": "go tool tern check --fail-on-warnings"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@ternkit/tern": "workspace:*",
     "svelte": "^5.57.3",
     "typescript": "^6.0.0",
-    "vite": "^8.3.7"
+    "vite": "^8.3.7",
+    "svelte-check": "^4.7.8"
   }
 }

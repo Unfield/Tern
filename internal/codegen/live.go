@@ -1,8 +1,6 @@
 package codegen
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,6 +8,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Unfield/Tern/goscript"
 )
 
 // LiveDir holds the Go packages of live components (<script lang="go"
@@ -27,11 +27,11 @@ type liveComponent struct {
 	line int
 }
 
-// goScriptID matches componentID in packages/tern/src/vite/goscript.ts.
-func goScriptID(rel string) string {
-	sum := sha256.Sum256([]byte(filepath.ToSlash(rel)))
-	return "c" + hex.EncodeToString(sum[:])[:10]
-}
+// GoScriptID is a component's ID for its path relative to the app root;
+// it matches componentID in packages/tern/src/vite/goscript.ts.
+func GoScriptID(rel string) string { return goScriptID(rel) }
+
+func goScriptID(rel string) string { return goscript.ComponentID(rel) }
 
 // liveComponents finds the live Go components in src.
 func (g *generator) liveComponents() ([]liveComponent, error) {

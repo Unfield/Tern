@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Live components are supported, with no flag: `<script lang="go" live>` runs a component's Go on the server. See [docs/live-components.md](docs/live-components.md).
+  - **Concurrency:** each component runs on its own goroutine, so components run in parallel and a slow Func delays only its own. Work from other goroutines goes through `c.Do`, `c.Go` and `c.Every`.
+  - **Funcs:** they may take a `context.Context` and return a value and an error. `goscript.Fail` errors reach the page; other errors and panics are logged and reported generically.
+  - **In the markup:**
+    - each Func has `.pending`, `.error`, `.optimistic(values, …)` and `.debounce(ms)`
+    - `live` gives the connection state, bindings (`bind:value={live.bind.name}` for a State declared with `goscript.Bind`) and props
+  - **Props and events:** `goscript.Props[T]` follows the parent's props without remounting, and `c.Emit` calls the parent's `on…` handlers.
+  - **Access control:** `c.Reject` refuses a mount, such as for visitors who aren't signed in. It works during server rendering too.
+  - **Updates and reconnects:**
+    - changes go in one message per batch, with patches for lists and objects
+    - pages reconnect with backoff, and `Bind` and `Restore` values survive reconnects and deploys
+  - **Sharing across processes:** `goscript.Shared`, `goscript.Presence` and `goscript.Publish`/`Subscribe` reach every process through a broker, set with `kit.WithLiveBroker`. `realtime/pgbroker` is a broker on PostgreSQL LISTEN/NOTIFY.
+  - **Limits:** `kit.WithLive` sets limits: instances per page, call rate, send buffer and ping interval.
+  - **Testing:** `goscript/livetest` tests components in Go without a browser.
+- `tern check` generates code and runs `svelte-check`, with the markup of Go components checked against types generated from their Go code. Starter templates' `npm run check` uses it.
+- The status example's admin dashboard is a live component.
+
+### Changed
+
+- Plugins' hooks run before the app's own hooks, so app hooks can use sessions and other plugin state, as the guide's example does.
+- `tern dev` rebuilds the server only when a live component's Go code changed, not on markup edits.
+- Breaking, for the experimental Go component API:
+  - `GlobalSignal.Get` no longer subscribes; read the signal `Show` or the new `Use` returns.
+  - `goscript.MountLive` takes options.
+  - `Effect` no longer runs during server rendering.
+
 ## [1.2.1] - 2026-11-10
 
 ### Changed

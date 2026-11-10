@@ -151,6 +151,11 @@ func (a *App) Start() error {
 
 // setupPlugins runs each plugin's Setup.
 func (a *App) setupPlugins() error {
+	// Plugins' hooks run before the app's own, so an app's hooks can use
+	// what plugins provide, such as the session.
+	appHooks := a.opts.hooks
+	a.opts.hooks = nil
+	defer func() { a.opts.hooks = append(a.opts.hooks, appHooks...) }()
 	seen := map[string]bool{}
 	for _, p := range a.opts.plugins {
 		name := p.Name()

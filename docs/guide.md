@@ -1024,6 +1024,25 @@ func GET(ctx *kit.Ctx) error { return realtime.Stream(ctx, hub, "monitors") }
 
 Under `tern dev`, your WebSockets are served by the Go app; only Vite's own connection goes to Vite.
 
+## Live components
+
+A component's logic can be Go running on the server, with Svelte-style runes, while its markup stays Svelte:
+
+```svelte
+<script lang="go" live>
+import "github.com/Unfield/Tern/goscript"
+
+func Setup(c *goscript.Component) {
+	count := goscript.State(c, "count", 0)
+	c.Func("increment", func() { count.Update(func(n int) int { return n + 1 }) })
+}
+</script>
+
+<button onclick={increment} disabled={increment.pending}>{count}</button>
+```
+
+The page talks to the server over one WebSocket. State is rendered on the server for the first load, changes reach the page as patches, and components can share state across visitors and server processes. See [Live components](live-components.md) for the API, access control, bindings, testing and deployment.
+
 ## Markdown and content
 
 ### Markdown pages
@@ -1243,6 +1262,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern dev [-port 5173] [-host localhost]` | development server: hot module replacement for Svelte, automatic rebuilds and reloads for Go, build errors shown in the browser |
 | `tern build [-o build/app]` | production binary with the client, server renderer and prerendered pages embedded |
 | `tern gen` | regenerate `tern.gen.go`, the client manifest and types |
+| `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern routes [dir]` | list routes |
 | `tern new [-module path] <dir>` | create a project |
 | `tern version` | print the version |

@@ -123,6 +123,7 @@ These are built in, where SvelteKit leaves them to libraries:
   - responsive images
   - translations
 - **APIs:** OpenAPI for typed endpoints.
+- **Component logic in Go:** [live components](live-components.md) run on the server, with state shared across visitors.
 
 ## What's different or missing
 

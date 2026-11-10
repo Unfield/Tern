@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "go tool tern dev",
     "build": "go tool tern build",
-    "typecheck": "go tool tern gen && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "typecheck": "go tool tern check --fail-on-warnings",
     "test:e2e": "playwright test"
   },
   "devDependencies": {

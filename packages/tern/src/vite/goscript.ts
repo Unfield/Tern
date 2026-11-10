@@ -144,6 +144,46 @@ function initialState(root: string, id: string): Record<string, unknown> {
 	}
 }
 
+/**
+ * The TypeScript that replaces a live component's Go script. The markup
+ * sees each State, Derived and Show value, each Func (callable, with
+ * .pending, .error, .optimistic and .debounce) and live: the connection,
+ * pending state, bindings, and live.props, everything the parent passed,
+ * such as children and event handlers.
+ */
+export function liveBindings(id: string, values: string[], funcs: string[]): string {
+	const taken = new Set([...values, ...funcs]);
+	let code = `
+	import { useLive } from '@ternkit/tern/goscript';
+	let __goProps = $props();
+	const __goUID = $props.id();
+	const __go = useLive(${JSON.stringify(id)}, __goUID, () => ({ ...__goProps }));
+`;
+	if (!taken.has('live')) code += '\tconst live = __go;\n';
+	for (const v of values) code += `\tconst ${v} = $derived(__go.state[${JSON.stringify(v)}] as any);\n`;
+	for (const f of funcs) code += `\tconst ${f}: any = __go.fn(${JSON.stringify(f)});\n`;
+	return code;
+}
+
+/** Top-level blocks that stay outside the markup's {#if}. */
+const OUTSIDE = /<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<svelte:head\b[\s\S]*?<\/svelte:head>|<svelte:(?:options|window|document|body)\b[^>]*?\/>|<svelte:(window|document|body)\b[^>]*?>[\s\S]*?<\/svelte:\1>/g;
+
+/**
+ * Wraps a live component's markup so it renders once the component has
+ * state (at once after a server render, after the first message after a
+ * client-side navigation), and embeds the server-rendered state.
+ */
+export function wrapLiveMarkup(content: string): string {
+	const kept: string[] = [];
+	let markup = content.replace(OUTSIDE, (block) => {
+		kept.push(block);
+		// Keep line numbers for the markup's compile errors.
+		return '\n'.repeat(block.split('\n').length - 1);
+	});
+	markup = markup.trim() ? `{#if __go.loaded}${markup}{/if}` : markup;
+	return markup + '\n' + kept.join('\n') + '\n<svelte:head>{@html __go.stateScript}</svelte:head>\n';
+}
+
 /** Replaces <script lang="go"> with the JavaScript that binds it to Go. */
 export function goScriptPreprocessor(getRoot: () => string): PreprocessorGroup {
 	return {
@@ -153,27 +193,19 @@ export function goScriptPreprocessor(getRoot: () => string): PreprocessorGroup {
 			// so hydration starts from the same values.
 			const m = GO_SCRIPT.exec(content);
 			if (!m || !/(^|\s)live(\s|=|$)/.test(m[1]!)) return;
-			return { code: content + '\n<svelte:head>{@html __go.stateScript}</svelte:head>\n' };
+			return { code: wrapLiveMarkup(content) };
 		},
 		script({ content, attributes, filename }) {
 			if (attributes.lang !== 'go' || !filename) return;
 			const root = getRoot();
-			if (!goScriptEnabled(root)) {
-				throw new Error(`${filename}: <script lang="go"> is experimental; enable it with "experimental": { "goScript": true } in tern.json`);
-			}
 			const id = componentID(root, filename);
 			const { values, funcs } = exportedNames(content);
 			const { lang: _lang, live, ...rest } = attributes;
-			if (live) {
-				let code = `
-	import { useLive } from '@ternkit/tern/goscript';
-	let __goProps = $props();
-	const __goUID = $props.id();
-	const __go = useLive(${JSON.stringify(id)}, __goUID, () => ({ ...__goProps }));
-`;
-				for (const v of values) code += `\tconst ${v} = $derived(__go.state[${JSON.stringify(v)}] as any);\n`;
-				for (const f of funcs) code += `\tconst ${f} = (...args: unknown[]): any => __go.call(${JSON.stringify(f)}, ...args);\n`;
-				return { code, attributes: { ...rest, lang: 'ts' } };
+			if (live) return { code: liveBindings(id, values, funcs), attributes: { ...rest, lang: 'ts' } };
+			if (!goScriptEnabled(root)) {
+				throw new Error(
+					`${filename}: <script lang="go"> in WebAssembly is experimental; enable it with "experimental": { "goScript": true } in tern.json, or add live to run it on the server`
+				);
 			}
 			const base = path.join(root, DIR).split(path.sep).join('/');
 			let code = `

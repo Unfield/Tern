@@ -191,6 +191,7 @@ func (g *generator) goFile() error {
 			return err
 		}
 		liveImports = g.livePackages(live, mod)
+		g.liveTypes(live, liveImports)
 		b.WriteString("\t\"github.com/Unfield/Tern/goscript\"\n")
 	}
 	if len(aliases) > 0 || len(live) > 0 {

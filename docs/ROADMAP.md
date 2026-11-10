@@ -68,3 +68,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 ## Next
 
 
+
+- [ ] Live components, production ready: per-component goroutines, typed markup with `tern check`, patches, pending and optimistic updates, bindings, events, several server processes through a broker
+- [ ] An MCP server covering all of Tern: project scaffolding, routes and their types, docs, codegen, and running checks, for AI coding tools
+- [ ] A component library: accessible, keyboard-friendly Svelte components with Tern's own design, themeable with CSS variables

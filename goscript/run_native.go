@@ -21,7 +21,7 @@ func Run() {
 	out := map[string]map[string]json.RawMessage{}
 	for _, id := range ids {
 		state := map[string]json.RawMessage{}
-		c, err := mountComponent(id, []byte("{}"), nil, func(name string, v []byte) { state[name] = v }, true)
+		c, err := mountComponent(id, []byte("{}"), nil, hooks{emit: func(name string, v []byte) { state[name] = v }}, true)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

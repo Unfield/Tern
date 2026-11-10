@@ -1,11 +1,16 @@
 <script lang="go" live>
-import "github.com/Unfield/Tern/goscript"
+import (
+	"strconv"
+
+	"github.com/Unfield/Tern/goscript"
+)
 
 // Shared by everyone: this code runs on the server, so package variables
-// are one value for all visitors.
+// are one value for all visitors. Presence counts across server processes
+// too, when the app has a broker.
 var (
 	clicks = goscript.Global(0)
-	online = goscript.Global(0)
+	online = goscript.Presence("room")
 )
 
 func Setup(c *goscript.Component) {
@@ -14,22 +19,19 @@ func Setup(c *goscript.Component) {
 	}
 	_ = c.Props(&props)
 
-	clicks.Show(c, "clicks")
+	total := clicks.Show(c, "clicks")
 	online.Show(c, "online")
 	mine := goscript.State(c, "mine", 0)
 	goscript.Derived(c, "share", func() string {
-		if clicks.Get() == 0 {
+		if total.Get() == 0 {
 			return "no clicks yet"
 		}
-		return fmtPercent(mine.Get(), clicks.Get()) + " of all clicks are yours"
+		return fmtPercent(mine.Get(), total.Get()) + " of all clicks are yours"
 	})
 	goscript.State(c, "hello", "Hello, "+props.Name)
 
-	// Count this visitor while the page is open, not while it renders.
-	if !c.Rendering() {
-		online.Update(func(n int) int { return n + 1 })
-		c.OnDestroy(func() { online.Update(func(n int) int { return n - 1 }) })
-	}
+	// Count this visitor while the page is open (not while it renders).
+	online.Join(c)
 
 	c.Func("click", func() {
 		clicks.Update(func(n int) int { return n + 1 })
@@ -38,19 +40,7 @@ func Setup(c *goscript.Component) {
 }
 
 func fmtPercent(a, b int) string {
-	return itoa(a*100/b) + "%"
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b []byte
-	for n > 0 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-		n /= 10
-	}
-	return string(b)
+	return strconv.Itoa(a*100/b) + "%"
 }
 </script>
 

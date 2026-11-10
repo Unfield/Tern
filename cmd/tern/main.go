@@ -20,6 +20,7 @@ var commands = []command{
 	{"dev", "", "Start the development server"},
 	{"build", "", "Build a production binary"},
 	{"gen", "", "Generate route wiring and TypeScript types"},
+	{"check", "", "Generate code and type-check the app"},
 	{"routes", "[dir]", "List the app's routes"},
 	{"migrate", "new <name>", "Create a database migration"},
 	{"version", "", "Print the Tern version"},
@@ -70,6 +71,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdRoutes(args[1:], stdout, stderr)
 	case "gen":
 		return cmdGen(args[1:], stdout, stderr)
+	case "check":
+		return cmdCheck(args[1:], stdout, stderr)
 	case "dev":
 		return cmdDev(args[1:], stdout, stderr)
 	case "build":

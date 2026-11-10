@@ -267,3 +267,16 @@ test('the public page is server-rendered and the admin stream needs a session', 
 	expect((await request.get('/api/events')).status()).toBe(401);
 	expect((await request.get('/api/public/events', { timeout: 2000 }).catch(() => null))?.status() ?? 200).toBe(200);
 });
+
+test('the live dashboard refuses visitors who are not signed in', async ({ baseURL }) => {
+	const { createHash } = await import('node:crypto');
+	const id = 'c' + createHash('sha256').update('src/lib/LiveMonitors.svelte').digest('hex').slice(0, 10);
+	const ws = new WebSocket(baseURL!.replace('http', 'ws') + '/_tern/live');
+	const reply = await new Promise<{ op: string; error?: string; set?: unknown }>((resolve, reject) => {
+		ws.onopen = () => ws.send(JSON.stringify({ op: 'mount', ref: 1, id, props: {} }));
+		ws.onmessage = (e) => resolve(JSON.parse(String(e.data)));
+		ws.onerror = () => reject(new Error('socket error'));
+	});
+	ws.close();
+	expect(reply).toEqual({ op: 'error', ref: 1, error: 'Sign in to see the monitors.' });
+});

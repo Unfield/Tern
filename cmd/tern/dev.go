@@ -491,7 +491,7 @@ func (d *devRunner) watch(ctx context.Context) error {
 			}
 			kind := classify(filepath.ToSlash(rel), ev.Op)
 			if kind == changeNone && strings.HasSuffix(rel, ".svelte") && hasLiveGoScript(ev.Name) {
-				kind = changeBuild // a live component's Go code is part of the server
+				kind = changeGen // a live component's Go code is part of the server; gen reports whether it changed
 			}
 			switch kind {
 			case changeBuild:

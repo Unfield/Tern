@@ -71,7 +71,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] An MCP server covering all of Tern: project scaffolding, routes and their types, docs, codegen, and running checks, for AI coding tools
 - [x] A component library: accessible, keyboard-friendly Svelte components with Tern's own design, themeable with CSS variables
 
-## v1.4: Everything an app needs
+## v1.4: Everything an app needs (released)
 
 Built alongside a real app, a self-hosted web analytics tool, so every piece is used before it ships.
 
@@ -93,6 +93,28 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 
 **The analytics app**
 - [x] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary
+
+## v1.5: Every app's next questions
+
+**Translations for everything built in**
+- [ ] Tern UI's texts ("Show password", "Previous page", …) and the validation messages through `src/locales` and `t()`, in Go and in the browser, with English as the default
+
+**Type rough edges**
+- [ ] Go slices that are never nil, typed without `| null`: `nil` sent as `[]`, or a tag to say so
+- [ ] Controls that post through hidden inputs, such as `Combobox`, checked as the user types inside a `Form`
+
+**Accounts**
+- [ ] Password reset and email verification, with email and jobs
+- [ ] Passkeys (WebAuthn): sign-in without a password
+- [ ] Signed-in devices: a list of sessions, and signing out of the others
+
+## v1.6: Faster server rendering
+
+[benchmarks/vs-sveltekit](../benchmarks/vs-sveltekit) shows renders are 1.8× to 8.5× slower than SvelteKit on Node, from QuickJS's speed per render and VMs that stop scaling at four.
+
+- [ ] Profile a render to find what is Tern's own cost (payload encoding, shims, string building) and what is QuickJS's
+- [ ] Prototype rendering in several processes of the one binary, and QuickJS in WebAssembly with wazero, and choose by measurement in an ADR
+- [ ] Track the benchmarks in CI, so renders don't get slower unnoticed
 
 ## Next
 

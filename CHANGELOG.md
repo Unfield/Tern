@@ -6,32 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-10
+
 ### Added
 
-- `examples/analytics`: a self-hosted, privacy-friendly web analytics app. A cookie-free tracking script, a live dashboard with charts and tables, sign-in, hourly totals and pruning as jobs, a weekly email report, and a stats API, in one binary.
-
-- Form validation from Go struct tags. `kit.FormAction` decodes a post into a struct and checks `validate:"required,min=3,email,…"` before the action runs, failing with a `kit.Invalid` of errors by field. `tern gen` writes the same rules to `./$forms`, `validate()` from `@ternkit/tern` checks them in the browser with the same messages, and Tern UI's new `Form` checks them as the user types and shows each error on its `Field` by `name`. Typed endpoints check the same tags.
-- `tern ui add <Component>` copies Tern UI components, and the helpers they use, into `src/lib/ui` to change them; `tern ui list` lists them. The MCP server has it as `ui_add`.
-- Tern UI blocks: `SignIn` (OAuth providers and a password form), `SignUp` and `ConsentScreen`.
-- `plugins/oidc`: `ConsentURL` sends users to a consent page of the app, and `ConsentRequest` returns what it shows, checked as the authorize endpoint checks it.
-- `kit.FieldError` and `kit.FormError` fail an action with a message on a field or on the whole form.
-
-- `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`. The flags `-ui`, `-git` and `-install` do the same without questions, and flags may now follow the directory.
-- `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
-- Tern UI overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.
-- Tern UI inputs: `Combobox` (with server search), `SelectMenu`, `Command` (and a ⌘K palette), `Calendar`, `DatePicker` (with ranges), `Slider` (with ranges), `Toggle`, `ToggleGroup`, `PasswordInput`, `InputOTP`, `InputGroup`, `ButtonGroup` and `Label`.
-- Tern UI layout and data: `Sidebar`, `NavigationMenu`, `Breadcrumb`, `Pagination`, `DataTable`, `Table`, `LineChart`, `AreaChart`, `BarChart`, `DonutChart`, `Stat`, `Sparkline`, `Resizable`, `Carousel`, `Collapsible`, `ScrollArea`, `AspectRatio`, `Empty` and `Item`. Charts use a palette validated for color blindness, `--tern-chart-1` to `--tern-chart-8`.
-
+- **Form validation from Go struct tags.** `kit.FormAction` decodes a post into a struct and checks `validate:"required,min=3,email,…"` before the action runs, failing with a `kit.Invalid` of errors by field and the posted values (never passwords). `tern gen` writes the same rules to `./$forms`, `validate()` from `@ternkit/tern` checks them in the browser with the same messages, and Tern UI's new `Form` checks them as the user types and shows each error on its `Field` by `name`. `kit.FieldError` and `kit.FormError` fail with a message on a field or on the whole form. Shared test cases keep Go and TypeScript in step.
+- **The complete Tern UI.**
+  - Overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.
+  - Inputs: `Combobox` (with server search), `SelectMenu`, `Command` (and a ⌘K palette), `Calendar`, `DatePicker` (with ranges), `Slider` (with ranges), `PasswordInput`, `InputOTP`, `Toggle`, `ToggleGroup`, `InputGroup`, `ButtonGroup` and `Label`.
+  - Layout and data: `Sidebar`, `NavigationMenu`, `Breadcrumb`, `Pagination`, `DataTable`, `Table`, `Resizable`, `Carousel`, `Collapsible`, `ScrollArea`, `AspectRatio`, `Empty` and `Item`.
+  - Charts: `LineChart`, `AreaChart`, `BarChart`, `DonutChart`, `Stat` and `Sparkline`, with a palette validated for color blindness (`--tern-chart-1` to `--tern-chart-8`), values read from the keyboard, and a table view.
+  - Blocks: `SignIn` (OAuth providers and a password form), `SignUp` and `ConsentScreen`.
+- **`tern ui add <Component>`** copies Tern UI components, and the helpers they use, into `src/lib/ui` to change them; `tern ui list` lists them. The MCP server has it as `ui_add`.
+- **`npm create tern@latest`** (the new `create-tern` package) runs the matching `tern new`. `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`; `-ui`, `-git` and `-install` do the same without questions, and flags may follow the directory.
+- **`examples/analytics`:** a self-hosted, privacy-friendly web analytics app. A cookie-free tracking script, a live dashboard with charts and tables, sign-in, hourly totals and pruning as jobs, a weekly email report, and a stats API, in one binary.
 - `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
+- `plugins/oidc`: `ConsentURL` sends users to a consent page of the app, and `ConsentRequest` returns what it shows, checked as the authorize endpoint checks it.
 - The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.
-- The guide has a recipe for signing in with a password: sessions, a sign-in action, a hook, guarded pages and signing out.
+- The guide has recipes for signing in with a password and for validating forms.
 
 ### Changed
 
-- Tern UI's charts accept any object rows, including the interfaces `tern gen` generates.
-
+- Typed endpoints check `validate` tags on their input, as `kit.FormAction` does, and answer 400 when they fail. Inputs with such tags were accepted unchecked before.
 - Tern UI's menus and tooltips open in the top layer and stay on screen, so containers with `overflow` no longer clip them. `Tooltip` takes `left` and `right` too.
-
 - Once `kit.WithTrustedProxies` is set, `X-Forwarded-Proto` is only believed from those proxies.
 - Compact numbers during server rendering round like browsers do (`12K`, not `12.3K`; `999,999` is `1M`).
 
@@ -212,7 +209,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Unfield/Tern/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Unfield/Tern/releases/tag/v1.3.0
 [1.2.1]: https://github.com/Unfield/Tern/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Unfield/Tern/releases/tag/v1.2.0

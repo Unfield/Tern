@@ -7,11 +7,11 @@ Tern follows [semantic versioning](https://semver.org). From v1.0.0, minor and p
 | Area | Covered |
 |---|---|
 | **Route conventions** | `src/routes`, `+page.svelte`, `+layout.svelte`, `+error.svelte`, the `.param`, `.optional`, `.rest` and `.group` directory suffixes, and the exported names `Load`, `LayoutLoad`, `Actions`, `GET` (and other methods), `SSR`, `Prerender` and `Entries` |
-| **`kit` for application code** | `Ctx` and its methods, `LoadOf`, `Action`, `Actions`, `Parent`, `Defer` and `Deferred`, `Error`, `NotFound`, `Redirect`, `Fail` and their error types, `App`, `New`'s options (`With…`), `Plugin` and `Setup` |
+| **`kit` for application code** | `Ctx` and its methods, `LoadOf`, `Action`, `FormAction`, `Actions`, `Parent`, `Defer` and `Deferred`, `Error`, `NotFound`, `Redirect`, `Fail`, `FieldError`, `FormError` and their error types, `Invalid`, the `validate`, `form`, `label` and `message` struct tags and the rules' messages, `App`, `New`'s options (`With…`), `Plugin` and `Setup` |
 | **Built-in plugins** | Everything under `plugins/` |
 | **Live components** | `<script lang="go" live>`, the `goscript` API they use (except `MountLive`, `StartLive`, `Instance` and `LiveOptions`, which the generated code and `kit` use), `goscript/livetest`, `realtime/pgbroker`, and what the markup sees (values, Funcs and `live`) |
 | **`@ternkit/tern`** | Everything exported from `@ternkit/tern`, `@ternkit/tern/vite` and `@ternkit/tern/ui` (components, their props, and the `--tern-*` custom properties; their exact look may be refined in minor releases) |
-| **Generated modules** | The names exported from `./$types` (`PageProps`, `PageData`, `LayoutProps`, `LayoutData`, `ActionData`, `RouteParams`, …) and from `$routes` (`route`, `base`, `Routes`, `RoutePattern`) |
+| **Generated modules** | The names exported from `./$types` (`PageProps`, `PageData`, `LayoutProps`, `LayoutData`, `ActionData`, `RouteParams`, …) and from `$routes` (`route`, `base`, `Routes`, `RoutePattern`), and `forms` from `./$forms` |
 | **Wire format** | How Go types map to TypeScript, the placeholders in `src/app.html`, and `tern.json` |
 | **CLI** | The `tern` commands and their flags |
 | **Runtime behavior** | The documented behavior in the [guide](guide.md), such as when loads rerun and which headers are sent |

@@ -4,7 +4,7 @@ Thanks for your interest in Tern. This guide explains how to get set up and how 
 
 ## Ground rules
 
-- Be kind. Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Be respectful. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Open an issue before starting large changes.** New features, API changes and anything touching the architecture should be discussed first, so nobody's work is wasted. Small fixes (typos, obvious bugs, docs) can go straight to a pull request.
 - Report security problems privately. See [SECURITY.md](SECURITY.md).
 

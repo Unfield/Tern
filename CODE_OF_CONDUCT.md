@@ -1,43 +1,25 @@
 # Code of Conduct
 
-## Our pledge
+Tern is a software project. Everyone who takes part is treated the same way and judged by their contributions and their conduct, nothing else.
 
-We, as members, contributors and maintainers, pledge to make taking part in the Tern community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
+## Expected
 
-We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive and healthy community.
+- Be respectful and stay on topic.
+- Give and accept technical feedback in good faith.
+- Own your mistakes and fix them.
 
-## Our standards
+## Not accepted
 
-Examples of behavior that contributes to a positive environment:
-
-- Showing empathy and kindness toward other people
-- Being respectful of differing opinions, viewpoints and experiences
-- Giving and gracefully accepting constructive feedback
-- Accepting responsibility for our mistakes, apologizing to those affected, and learning from the experience
-- Focusing on what is best for the community as a whole, not just for ourselves
-
-Examples of unacceptable behavior:
-
-- Sexualized language or imagery, and sexual attention or advances of any kind
-- Trolling, insulting or derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information, such as a physical or email address, without their explicit permission
-- Other conduct that could reasonably be considered inappropriate in a professional setting
-
-## Responsibilities
-
-Maintainers are responsible for clarifying and enforcing these standards, and will take appropriate and fair corrective action in response to any behavior they deem inappropriate, threatening, offensive or harmful. Maintainers may remove, edit or reject comments, commits, code, wiki edits, issues and other contributions that do not align with this Code of Conduct, and will explain moderation decisions when appropriate.
+- Insults, personal attacks and harassment, in public or in private.
+- Trolling, spam and deliberately derailing discussions.
+- Publishing someone's private information, such as an address or email, without their permission.
 
 ## Scope
 
-This Code of Conduct applies in all community spaces, such as the issue tracker, pull requests and discussions, and when someone is officially representing the community in public spaces.
+This applies in the project's spaces: the issue tracker, pull requests and discussions.
 
 ## Enforcement
 
-Report abusive, harassing or otherwise unacceptable behavior to the maintainers privately via [GitHub's private reporting](https://github.com/Unfield/Tern/security/advisories/new) or by contacting a maintainer directly. All complaints will be reviewed and investigated promptly and fairly, and the privacy and security of the reporter will be respected.
+Report a problem to the maintainers privately via [GitHub's private reporting](https://github.com/Unfield/Tern/security/advisories/new) or by contacting a maintainer directly. Reports are handled confidentially.
 
-Depending on severity, maintainers may respond with a private warning, a temporary ban from community spaces, or a permanent ban.
-
-## Attribution
-
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, available at <https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>.
+Maintainers may edit, hide or remove comments and contributions that break these rules, and may warn or ban the people responsible, temporarily or permanently.

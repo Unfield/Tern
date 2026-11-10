@@ -19,19 +19,42 @@ Faster JavaScript engines (V8, JavaScriptCore) would need cgo and give up the si
 
 ## Decision (proposed)
 
-Compile components to Go at build time, and render with them where they can be compiled, falling back to the JavaScript engine for the rest.
+Compile the server build's components to Go at build time, render with them, and fall back to the JavaScript engine for anything that can't be compiled.
 
-- **What is translated:** Svelte's own server output, not the component source.
-  - Svelte decides the markup and the hydration markers.
-  - The translator only turns its JavaScript into Go: `push`es of template strings, a small set of helpers (`escape`, `attr`, `attr_class`, `attr_style`, `stringify`, `ensure_array_like`, …), loops, conditionals, snippets and derived values.
-- **Types come from Go:** a load's data is a Go struct, so props have Go types. Expressions such as `item.price.toFixed(2)` or `items.filter((i) => i.stock === 0).length` translate to typed Go, with JavaScript's semantics for numbers and strings in a small runtime.
-- **A subset, with a fallback:**
-  - **Supported:** property access, arithmetic and comparison, template strings, conditionals, array methods with arrow functions, and known string and number methods.
-  - **Everything else:** a component that uses anything else, such as an imported library, stays in JavaScript.
-  - **Mixing:** both can mix in one page, component by component.
-  - **Reporting:** `tern build` reports which components are native and why the others aren't.
-- **Where it runs:** the translator is TypeScript in the Vite plugin, with Svelte's own parser, since builds already run Node. It writes Go to `.tern/native/`, which `tern gen` wires in like routes.
-- **Proof:** a differential test renders every component of the examples both ways and requires identical HTML. Svelte's supported versions are pinned and tested, since its server output is internal.
+### What is compiled, and from what
+
+- **Input:** each module of the server build, as Vite hands it to the bundler: Svelte's server output for components (TypeScript already stripped), and the JavaScript of local modules and libraries.
+  - A Vite plugin captures each module's code, its ESTree from acorn, and its resolved imports, when `tern build` asks (`.tern/native/ir.json`).
+  - Svelte decides the markup and hydration markers. The compiler only has to keep the meaning of the JavaScript.
+- **Svelte's server runtime** (`svelte/internal/server`: the `Renderer`, `escape`, `attr`, `attributes`, `clsx`, `props_id`, …) is written in Go once per supported Svelte version, from Svelte's source, and pinned: `tern build` compiles natively only with a Svelte version it supports.
+- **Tern's runtime** that components import (`page`, `t`, …) is provided natively from what Go already knows. The route, its layouts and the data merging are Go's own.
+
+### How JavaScript becomes Go
+
+- **Exact values first.**
+  - **The value model:** compiled code works on a Go model of JavaScript values: `undefined`, `null`, booleans, numbers, strings with UTF-16 semantics, objects in property order with getters, arrays, functions, symbols. Operators and built-ins follow the spec, and are tested against Node.
+  - **The data:** loads' data comes from the same JSON payload the browser gets, so `omitempty`, `MarshalJSON` and integers beyond 2^53 can't differ.
+- **Types as an optimisation.**
+  - **Where:** when a value's type is known, typed Go is emitted instead of dynamic operations. Types come from the loads' Go structs (through `encoding/json`'s rules), literals and inference.
+  - **Proof:** every typed path must produce the same result as the dynamic one, proven by the same differential tests.
+- **Helpers on the hot path,** such as `escape` and `attr`, are native Go.
+
+### When it can't be compiled
+
+- **At build time:** a construct the compiler doesn't support (a `Proxy`, a generator, an async `{#await}`) marks its module unsupported, and with it every route whose components use it. Those routes render with QuickJS, as now. `tern build` reports which routes are native and, for the rest, the first reason.
+- **At run time:** compiled code that meets a case it can't handle stops, and that request renders with QuickJS.
+
+### Proving it
+
+- **Differential tests:** each example's routes render both ways and must produce identical HTML.
+- **Shadow mode:** `TERN_NATIVE_VERIFY=1` renders every page both ways in a running app, serves QuickJS's HTML, and logs any difference. The end-to-end suites run with it.
+- **Value tests:** each operator and built-in has cases checked against Node.
+
+### Phases
+
+1. **The pipeline:** capturing modules, the dynamic compiler, Svelte's runtime in Go, kit's native path with fallback and shadow mode, the differential tests, and the benchmark app native.
+2. **Types:** typed fast paths from Go structs, to approach the spike's speed.
+3. **Coverage:** the examples and Tern UI native, driven by what `tern build` reports. Bindings (`copy`/`subsume`), `<select>` options, `{#await}`, and libraries such as `clsx` and `tailwind-merge`.
 
 ## Consequences
 

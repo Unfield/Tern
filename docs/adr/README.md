@@ -11,6 +11,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0005](0005-selective-reloading.md) | Selective reloading of layout data | Accepted |
 | [0006](0006-plugins.md) | A small plugin interface on top of net/http | Accepted |
 | [0007](0007-ssr-throughput-and-memory.md) | Server-rendering throughput and memory | Accepted |
+| [0008](0008-oauth-and-oidc.md) | OAuth 2.0 and OpenID Connect, as a client and as a provider | Accepted |
 
 ## Template
 

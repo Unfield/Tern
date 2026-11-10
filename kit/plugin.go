@@ -62,6 +62,14 @@ func (s *Setup) Middleware(mw func(http.Handler) http.Handler) {
 // origin, as WithTrustedOrigins does. CORS plugins use it.
 func (s *Setup) TrustOrigin(origin string) { s.o.trustedOrigins = append(s.o.trustedOrigins, origin) }
 
+// AllowCrossOrigin exempts requests matching pattern (net/http.ServeMux
+// syntax) from cross-origin protection. Use it only for endpoints that
+// don't act on cookies, such as an OAuth token endpoint that clients on
+// other sites call with their own credentials.
+func (s *Setup) AllowCrossOrigin(pattern string) {
+	s.o.crossOriginOK = append(s.o.crossOriginOK, pattern)
+}
+
 // Matcher registers a parameter matcher, as WithMatcher does.
 func (s *Setup) Matcher(name string, match func(value string) bool) { s.o.matchers[name] = match }
 
@@ -71,6 +79,24 @@ func (s *Setup) Handle(pattern string, h http.Handler) {
 	s.app.pluginMux.Handle(pattern, h)
 	s.app.hasPluginRoutes = true
 }
+
+// Endpoint serves pattern with fn like a route's endpoint: after the hooks,
+// with a Ctx, so it can use sessions and Locals, and with errors handled
+// like an endpoint's. Patterns use net/http.ServeMux syntax, such as
+// "GET /auth/{provider}/login"; read wildcards with ctx.Request.PathValue.
+// Endpoints take precedence over the app's routes.
+func (s *Setup) Endpoint(pattern string, fn HandlerFunc) {
+	s.app.ctxMux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		c := r.Context().Value(ctxKey{}).(*Ctx)
+		c.Request = r // with the pattern's path values
+		if err := c.app.safely(func() error { return fn(c) }); err != nil {
+			c.app.endpointError(c, err)
+		}
+	})
+	s.app.hasCtxRoutes = true
+}
+
+type ctxKey struct{}
 
 // Head adds HTML to the <head> of every page, such as a <meta> tag or an
 // analytics script. Scripts should use the per-request nonce; see

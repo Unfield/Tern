@@ -126,6 +126,7 @@ type options struct {
 	middleware      []func(http.Handler) http.Handler
 	matchers        map[string]func(string) bool
 	trustedOrigins  []string
+	crossOriginOK   []string
 	csrf            bool
 	bodyLimit       int64
 	multipartMemory int64

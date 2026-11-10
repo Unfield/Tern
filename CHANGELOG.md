@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `plugins/oauth`: sign in with GitHub, Google or any OpenID Connect provider, with PKCE, state and nonce in an encrypted cookie and verified ID tokens.
+- `plugins/oidc`: an OAuth 2.0 authorization server and OpenID Connect provider with discovery, JWKS, consent, the authorization code flow with PKCE, refresh token rotation with reuse detection, client credentials, userinfo, revocation and introspection, RS256 JWT access tokens and `provider.Bearer` for APIs. Its state lives in a `MemoryStore` or a `SQLStore` (SQLite, PostgreSQL).
+- `rbac`: roles, permissions with wildcards and included roles, `Require`, `Can` and a hook for whole sections.
+- `Setup.Endpoint` (plugin routes with a `Ctx`, after hooks) and `Setup.AllowCrossOrigin`.
 - [examples/status](examples/status): a self-hosted status page and uptime monitor (HTTP, TCP, DNS and certificate checks, a live dashboard, a public page with 90-day uptime, incidents, webhook, Slack, Discord and email notifications, and badges) built on migrations, jobs, realtime and sessions.
 - Background jobs: the `jobs` package stores jobs in SQLite or PostgreSQL, runs them with retries, backoff, timeouts, delays, unique keys and transactional enqueueing, and runs cron and `@every` schedules once across instances. `q.Stats`, `q.List` and `q.Retry` support admin pages.
 - Database migrations: the `migrate` package applies `<version>_<name>.sql` files in transactions on startup (`migrate.Plugin`), detects edited migrations, and supports `-- +down` sections. `tern migrate new <name>` creates a file.

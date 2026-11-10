@@ -58,7 +58,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Markdown pages and content collections
 - [x] WebSocket and server-sent event helpers, with pub/sub
 - [x] Background jobs, cron and database migrations
-- [ ] OAuth2 and OpenID Connect: sign-in with providers, and a provider of your own
+- [x] OAuth2 and OpenID Connect: sign-in with providers, a provider of your own, and roles ([ADR 0008](adr/0008-oauth-and-oidc.md))
 - [ ] Email with Svelte templates; file uploads and storage
 - [ ] OpenAPI from endpoints, with a typed client
 - [x] A status page example

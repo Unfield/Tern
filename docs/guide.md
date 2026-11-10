@@ -358,6 +358,10 @@ app, err := ternApp(kit.WithPlugins(
 | `plugins/metrics` | Prometheus metrics at `/metrics`: requests by route and status, a latency histogram, in-flight requests and Go runtime stats. Routes are labeled by pattern, so the number of series stays bounded. |
 | `plugins/ratelimit` | A token bucket per client; by default only form actions and other writes are limited. Over the limit: 429 with `Retry-After`. |
 | `plugins/cors` | CORS for endpoints, including preflights; the allowed origins are also trusted by cross-site request protection. |
+| `plugins/oauth` | Sign in with GitHub, Google or any OpenID Connect provider. See [Authentication](#authentication). |
+| `plugins/oidc` | Make your app an OAuth 2.0 and OpenID Connect provider. See [Authentication](#authentication). |
+
+Plugins can also serve routes with a `Ctx` (`Setup.Endpoint`), start work with the server (`Setup.OnStart`), and exempt cookie-free endpoints from cross-site protection (`Setup.AllowCrossOrigin`).
 
 ### Writing a plugin
 
@@ -593,6 +597,126 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Files in `static/` are served at the root: `static/robots.txt` is `/robots.txt`.
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
+
+## Authentication
+
+Tern's building blocks for sign-in work together: `plugins/sessions` remembers who is signed in, `plugins/oauth` signs users in with other providers, `plugins/oidc` lets other apps sign in with yours, and `rbac` checks permissions.
+
+### Sign in with GitHub, Google or OpenID Connect
+
+```go
+oauth.New(oauth.Options{
+	Secret: secret, // at least 32 bytes; the sessions secret works
+	Providers: []*oauth.Provider{
+		oauth.GitHub(os.Getenv("GITHUB_CLIENT_ID"), os.Getenv("GITHUB_CLIENT_SECRET")),
+		oauth.Google(os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET")),
+		oauth.OIDC("company", "Company SSO", "https://sso.example.com", clientID, clientSecret),
+	},
+	OnLogin: func(ctx *kit.Ctx, id oauth.Identity) error {
+		user, err := users.FindOrCreate(ctx, id.Provider, id.Subject, id.Email)
+		if err != nil {
+			return err
+		}
+		return sessions.Get(ctx).Set("user", user.ID)
+	},
+})
+```
+
+A link to `/auth/github/login?next=/dashboard` starts the sign-in. Register `https://your.app/auth/github/callback` as the redirect URL with the provider. After `OnLogin`, the user lands on `next`. `next` must be a path on your site, which prevents open redirects. If the user cancels, or the sign-in fails, they go to `/login?error=<code>` (`ErrorURL`).
+
+- **Flow security:** every sign-in uses PKCE and a `state` value, plus a nonce for OpenID Connect. These travel in a short-lived encrypted cookie.
+- **Token checks:** ID tokens are verified against the provider's published keys.
+- **Identifying users:** look users up by `Provider` and `Subject`. Use the email only if `EmailVerified` is true.
+- **Identity fields:** `Identity` also carries the provider's claims and its OAuth token, for calling its API.
+- **Proxies:** behind a proxy that changes the host, set `URL` to the app's public address.
+
+### Be an OpenID Connect provider
+
+With `plugins/oidc`, your app is the place users sign in. Other apps (your other services, a wiki, a mobile app, a single-page app) send users to it and get tokens back:
+
+```go
+store, _ := oidc.NewSQLStore(db)
+provider := oidc.New(oidc.Options{
+	Issuer: "https://auth.example.com",
+	Store:  store,
+	Clients: []oidc.Client{
+		{ID: "wiki", Secret: os.Getenv("WIKI_SECRET"), Name: "Team wiki",
+			RedirectURIs: []string{"https://wiki.example.com/oauth/callback"}},
+		{ID: "mobile", Public: true, Trusted: true, RedirectURIs: []string{"com.example.app:/callback"}},
+		{ID: "billing", Secret: os.Getenv("BILLING_SECRET"), GrantTypes: []string{"client_credentials"}, Scopes: []string{"api:read"}},
+	},
+	Scopes:   []string{"api:read", "api:write"},
+	LoginURL: "/login", // signed-out users go here with ?next=
+	Authenticate: func(ctx *kit.Ctx) (string, error) {
+		return sessions.Get(ctx).GetString("user"), nil
+	},
+	Claims: func(ctx context.Context, subject string, scopes []string) (map[string]any, error) {
+		u, err := users.Get(ctx, subject)
+		return map[string]any{"email": u.Email, "email_verified": true, "name": u.Name}, err
+	},
+})
+```
+
+**Endpoints:**
+
+| Endpoint | What it does |
+|---|---|
+| `/.well-known/openid-configuration` | Discovery |
+| `/oauth/jwks` | Signing keys |
+| `/oauth/authorize` | Sign-in and consent |
+| `/oauth/token` | Issues tokens |
+| `/oauth/userinfo` | The user's claims |
+| `/oauth/revoke` | Revocation (RFC 7009) |
+| `/oauth/introspect` | Introspection (RFC 7662) |
+
+**Flows:**
+- **Authorization code with PKCE:** PKCE is required for public clients, and only S256 is accepted. The authorization response includes `iss` (RFC 9207).
+- **Refresh tokens:** they rotate on every use. A refresh token used twice revokes every token from that sign-in, since the reuse means one was stolen.
+- **Client credentials:** for services that act as themselves rather than for a user.
+
+**Tokens:** access tokens are RS256 JWTs (`typ: at+jwt`, RFC 9068), and ID tokens are RS256 JWTs.
+
+**Consent:** apps that aren't `Trusted` get a consent screen, which can't be framed. The answer is remembered for each user and app.
+
+**Validation:** before anything is redirected, the client and its exact redirect URI are checked, so the endpoint can't send users to arbitrary sites. Codes and refresh tokens are stored only as hashes.
+
+**Your own APIs:** protect them with the provider's tokens:
+
+```go
+func GET(ctx *kit.Ctx) error {
+	token, err := provider.Bearer(ctx, "api:read") // 401 or 403 with WWW-Authenticate
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(200, projectsOf(token.Subject))
+}
+```
+
+Other services can verify the same tokens against `/oauth/jwks`, or ask `/oauth/introspect`. The signing key is created on first start and kept in the store. `MemoryStore` forgets everything on restart, so use `NewSQLStore` in production.
+
+### Roles and permissions
+
+```go
+var policy = rbac.New(map[string][]string{
+	"viewer": {"projects:read"},
+	"editor": {"role:viewer", "projects:write"},
+	"admin":  {"*"},
+}, func(ctx *kit.Ctx) []string {
+	return currentUser(ctx).Roles // nil when signed out
+})
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	if err := policy.Require(ctx, "projects:read"); err != nil {
+		return Page{}, err // 401 signed out, 403 without the permission
+	}
+	...
+}
+```
+
+- **Wildcards:** `"projects:*"` grants every `projects:` permission.
+- **Role includes:** `"role:viewer"` includes another role's permissions.
+- **Checks in components:** `policy.Can(ctx, perm)` returns a bool, for showing or hiding parts of a page.
+- **Guarding a section:** `kit.WithHook(policy.Hook("/admin", "admin:access"))` guards everything under `/admin`.
 
 ## Databases
 

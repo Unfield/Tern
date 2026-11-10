@@ -49,6 +49,8 @@ type App struct {
 	// Set up by plugins.
 	pluginMux       *http.ServeMux
 	hasPluginRoutes bool
+	ctxMux          *http.ServeMux // Setup.Endpoint
+	hasCtxRoutes    bool
 	head            []func(*Ctx, string) string
 	shutdown        []func(context.Context) error
 	start           []func(context.Context) error
@@ -84,7 +86,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		o.logger = slog.Default()
 	}
 
-	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux()}
+	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux(), ctxMux: http.NewServeMux()}
 	a.shutdownCtx, a.beginShutdown = context.WithCancel(context.Background())
 	if err := a.setupPlugins(); err != nil {
 		return nil, err
@@ -167,6 +169,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			if err := cop.AddTrustedOrigin(origin); err != nil {
 				return nil, fmt.Errorf("kit: trusted origin: %w", err)
 			}
+		}
+		for _, pattern := range o.crossOriginOK {
+			cop.AddInsecureBypassPattern(pattern)
 		}
 		cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Cross-site request blocked", http.StatusForbidden)
@@ -285,6 +290,14 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	for _, hook := range a.opts.hooks {
 		if err := a.safely(func() error { return hook(c) }); err != nil {
 			a.failRequest(c, def, isData, err)
+			return
+		}
+	}
+
+	if a.hasCtxRoutes && !isData {
+		if _, pattern := a.ctxMux.Handler(r); pattern != "" {
+			// Through the mux, so the handler sees the pattern's path values.
+			a.ctxMux.ServeHTTP(rw, r.WithContext(context.WithValue(r.Context(), ctxKey{}, c)))
 			return
 		}
 	}

@@ -20,6 +20,7 @@
 		<a href="/layout" aria-current={page.url.pathname === '/layout' ? 'page' : undefined}>Layout</a>
 		<a href="/data" aria-current={page.url.pathname === '/data' ? 'page' : undefined}>Data</a>
 		<a href="/overlays" aria-current={page.url.pathname === '/overlays' ? 'page' : undefined}>Overlays</a>
+		<a href="/auth/signin" aria-current={page.url.pathname.startsWith('/auth') ? 'page' : undefined}>Auth</a>
 		<a href="/form" aria-current={page.url.pathname === '/form' ? 'page' : undefined}>Form</a>
 	</nav>
 	<Button variant="ghost" size="sm" onclick={() => (dark = !dark)} aria-pressed={dark} data-testid="theme">{dark ? 'Light' : 'Dark'} mode</Button>

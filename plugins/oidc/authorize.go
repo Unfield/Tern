@@ -99,6 +99,13 @@ func (p *Plugin) authorize(ctx *kit.Ctx) error {
 				return err
 			}
 		default:
+			if p.opts.ConsentURL != "" {
+				sep := "?"
+				if strings.Contains(p.opts.ConsentURL, "?") {
+					sep = "&"
+				}
+				return kit.Redirect(http.StatusSeeOther, p.opts.ConsentURL+sep+consentParams(q).Encode())
+			}
 			return p.consentPage(ctx, client, scopes, q)
 		}
 	}
@@ -158,14 +165,20 @@ var pages = template.Must(template.New("").Parse(`
 {{define "error"}}{{template "head" .}}<h1>Sign-in failed</h1><p>{{.Message}}</p></main></body></html>{{end}}
 `))
 
-func (p *Plugin) consentPage(ctx *kit.Ctx, client *Client, scopes []string, q url.Values) error {
-	params := map[string]string{}
+// consentParams are the parts of an authorization request the consent
+// form posts back.
+func consentParams(q url.Values) url.Values {
+	out := url.Values{}
 	for _, k := range []string{"client_id", "redirect_uri", "response_type", "scope", "state", "nonce", "code_challenge", "code_challenge_method"} {
 		if v := q.Get(k); v != "" {
-			params[k] = v
+			out.Set(k, v)
 		}
 	}
-	var lines []string
+	return out
+}
+
+func describeScopes(scopes []string) []string {
+	lines := make([]string, 0, len(scopes))
 	for _, s := range scopes {
 		if t, ok := scopeText[s]; ok {
 			lines = append(lines, t)
@@ -173,10 +186,76 @@ func (p *Plugin) consentPage(ctx *kit.Ctx, client *Client, scopes []string, q ur
 			lines = append(lines, s)
 		}
 	}
-	name := client.Name
-	if name == "" {
-		name = client.ID
+	return lines
+}
+
+func clientName(c *Client) string {
+	if c.Name != "" {
+		return c.Name
 	}
+	return c.ID
+}
+
+// Consent is what a consent page shows and posts: see ConsentRequest.
+type Consent struct {
+	// Client is the app asking, such as "Team wiki".
+	Client string `json:"client"`
+	// Scopes describe what it may do, such as "See your email address".
+	Scopes []string `json:"scopes"`
+	// Action is where the form posts, with the Params as hidden inputs and
+	// a "decision" of "allow" or "deny" from the buttons.
+	Action string            `json:"action"`
+	Params map[string]string `json:"params"`
+}
+
+// ConsentRequest reads the authorization request on the page at
+// Options.ConsentURL and returns what to show. It checks the request as the
+// authorize endpoint does, which checks it again when the form is posted;
+// a signed-out user is sent to sign in first. It sets X-Frame-Options, so
+// other sites can't frame the page to trick users into approving.
+//
+//	func Load(ctx *kit.Ctx) (oidc.Consent, error) { return provider.ConsentRequest(ctx) }
+func (p *Plugin) ConsentRequest(ctx *kit.Ctx) (Consent, error) {
+	q := ctx.Request.URL.Query()
+	client := p.clients[q.Get("client_id")]
+	if client == nil {
+		return Consent{}, kit.Error(http.StatusBadRequest, "This app is not registered.")
+	}
+	if !slices.Contains(client.RedirectURIs, q.Get("redirect_uri")) {
+		return Consent{}, kit.Error(http.StatusBadRequest, "The app asked to return to an address it has not registered.")
+	}
+	subject, err := p.opts.Authenticate(ctx)
+	if err != nil {
+		return Consent{}, err
+	}
+	if subject == "" {
+		sep := "?"
+		if strings.Contains(p.opts.LoginURL, "?") {
+			sep = "&"
+		}
+		return Consent{}, kit.Redirect(http.StatusSeeOther, p.opts.LoginURL+sep+"next="+url.QueryEscape(ctx.Request.URL.RequestURI()))
+	}
+	ctx.SetHeader("X-Frame-Options", "DENY")
+	ctx.SetHeader("Cache-Control", "no-store")
+	params := map[string]string{}
+	for k, v := range consentParams(q) {
+		params[k] = v[0]
+	}
+	return Consent{
+		Client: clientName(client),
+		Scopes: describeScopes(p.allowedScopes(client, strings.Fields(q.Get("scope")))),
+		Action: ctx.Path(p.opts.Path + "/authorize"),
+		Params: params,
+	}, nil
+}
+
+func (p *Plugin) consentPage(ctx *kit.Ctx, client *Client, scopes []string, q url.Values) error {
+	params := map[string]string{}
+	for k, v := range consentParams(q) {
+		params[k] = v[0]
+	}
+	lines := describeScopes(scopes)
+	name := clientName(client)
 	// After the form is posted, the browser is redirected to the client,
 	// which form-action must allow.
 	actions := []string{"'self'"}

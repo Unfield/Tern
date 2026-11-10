@@ -93,6 +93,11 @@ type Options struct {
 	// LoginURL is where signed-out users go, with ?next=<the authorize
 	// URL> to come back to.
 	LoginURL string
+	// ConsentURL is a page of the app that asks users to approve a client,
+	// such as one with Tern UI's ConsentScreen, instead of the plugin's
+	// own page. It gets the authorization request as its query; its load
+	// calls ConsentRequest for what to show.
+	ConsentURL string
 	// Claims returns the user's claims for ID tokens and userinfo, such as
 	// email, email_verified, name and picture. scopes lets you leave out
 	// what wasn't asked for. It may be nil.

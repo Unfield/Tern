@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -35,7 +36,7 @@ type env struct {
 }
 
 // newEnv starts a provider app and a client app that signs in with it.
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T, configure ...func(*oidc.Options)) *env {
 	t.Helper()
 	e := &env{signedIn: true}
 	pl, _ := net.Listen("tcp", "127.0.0.1:0")
@@ -43,7 +44,7 @@ func newEnv(t *testing.T) *env {
 	e.issuer = "http://" + pl.Addr().String()
 	e.clientURL = "http://" + cl.Addr().String()
 
-	e.provider = oidc.New(oidc.Options{
+	opts := oidc.Options{
 		Issuer: e.issuer,
 		Clients: []oidc.Client{
 			{ID: "rp", Secret: "rp-secret-0123456789", Name: "Team wiki", RedirectURIs: []string{e.clientURL + "/auth/tern/callback"}},
@@ -58,7 +59,11 @@ func newEnv(t *testing.T) *env {
 		Claims: func(_ context.Context, subject string, _ []string) (map[string]any, error) {
 			return map[string]any{"email": subject + "@example.com", "email_verified": true, "name": "Alice", "role": "admin"}, nil
 		},
-	})
+	}
+	for _, c := range configure {
+		c(&opts)
+	}
+	e.provider = oidc.New(opts)
 	providerApp, err := kit.New(&kit.Manifest{
 		AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`,
 		Routes: []kit.RouteDef{
@@ -73,6 +78,13 @@ func newEnv(t *testing.T) *env {
 					return err
 				}
 				return kit.Redirect(http.StatusSeeOther, c.Request.URL.Query().Get("next"))
+			}}},
+			{ID: "/consent", Endpoint: map[string]kit.HandlerFunc{"GET": func(c *kit.Ctx) error {
+				req, err := e.provider.ConsentRequest(c)
+				if err != nil {
+					return err
+				}
+				return c.JSON(200, req)
 			}}},
 			{ID: "/api/projects", Endpoint: map[string]kit.HandlerFunc{"GET": func(c *kit.Ctx) error {
 				tok, err := e.provider.Bearer(c, "api:read")
@@ -462,4 +474,48 @@ func read(t *testing.T, res *http.Response) string {
 
 func htmlUnescape(s string) string {
 	return strings.NewReplacer("&amp;", "&", "&lt;", "<", "&gt;", ">", "&#34;", `"`, "&#39;", "'", "&#43;", "+", "&quot;", `"`).Replace(s)
+}
+
+func TestConsentOnAnAppPage(t *testing.T) {
+	e := newEnv(t, func(o *oidc.Options) { o.ConsentURL = "/consent" })
+	b := browser()
+	res, err := b.Get(e.clientURL + "/auth/tern/login?next=/done")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Request.URL.Path != "/consent" {
+		t.Fatalf("expected the app's consent page, got %s", res.Request.URL)
+	}
+	if res.Header.Get("X-Frame-Options") != "DENY" {
+		t.Error("the consent page can be framed")
+	}
+	var c oidc.Consent
+	if err := json.NewDecoder(res.Body).Decode(&c); err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if c.Client != "Team wiki" || !slices.Contains(c.Scopes, "See your email address") || c.Action != "/oauth/authorize" || c.Params["client_id"] != "rp" {
+		t.Fatalf("consent = %+v", c)
+	}
+	form := url.Values{"decision": {"allow"}}
+	for k, v := range c.Params {
+		form.Set(k, v)
+	}
+	res, err = b.PostForm(e.issuer+c.Action, form)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body := read(t, res); body != "signed in" {
+		t.Fatalf("after consent: %s %q", res.Request.URL, body)
+	}
+
+	// A forged request is refused before anything is shown.
+	res, err = b.Get(e.issuer + "/consent?client_id=rp&redirect_uri=https://evil.example/cb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	read(t, res)
+	if res.StatusCode != http.StatusBadRequest {
+		t.Errorf("forged redirect: %d", res.StatusCode)
+	}
 }

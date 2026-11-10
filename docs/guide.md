@@ -913,6 +913,8 @@ func GET(ctx *kit.Ctx) error {
 
 Other services can verify the same tokens against `/oauth/jwks`, or ask `/oauth/introspect`. The signing key is created on first start and kept in the store. `MemoryStore` forgets everything on restart, so use `NewSQLStore` in production.
 
+- **Your own consent page:** set `ConsentURL` to a page of your app, and the plugin sends users there instead of its built-in page. The page's load returns `provider.ConsentRequest(ctx)`, and Tern UI's `ConsentScreen` shows it and posts the decision back. The plugin checks the request again on that post.
+
 ### Roles and permissions
 
 ```go

@@ -135,6 +135,28 @@ const items: MenuItem[] = [
 
 Outside a `Form`, pass `error` to a `Field` yourself.
 
+## Blocks
+
+Whole screens, wired to Tern's plugins:
+
+| Block | |
+|---|---|
+| `SignIn` | buttons for `plugins/oauth` providers, an email and password `Form` for your own action, "Keep me signed in", and the error `plugins/oauth` sends back in `?error=` |
+| `SignUp` | name, email, password (its hint comes from the action's `min` rule), an optional confirmation and terms checkbox |
+| `ConsentScreen` | the approval page for `plugins/oidc`, showing who is signed in and what the app may do. It posts the decision back to the plugin, which checks the request again |
+
+```svelte
+<SignIn providers={data.providers} rules={forms.default} {form} error={data.error} signUpHref="/signup" />
+```
+
+For `ConsentScreen`, set `ConsentURL: "/consent"` in the `plugins/oidc` options and return the request from the page's load:
+
+```go
+func Load(ctx *kit.Ctx) (oidc.Consent, error) { return provider.ConsentRequest(ctx) }
+```
+
+`ConsentRequest` checks the client and its redirect address, sends signed-out users to sign in, and stops other sites from framing the page.
+
 ## Theming
 
 Every color, radius and shadow is a CSS custom property, so a theme is a few overrides:

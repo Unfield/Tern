@@ -56,7 +56,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Web APIs for libraries during server rendering, and a compatibility suite checked against Node
 - [x] Fuzz tests for routing and messages
 - [x] Markdown pages and content collections
-- [ ] WebSocket and server-sent event helpers, with pub/sub
+- [x] WebSocket and server-sent event helpers, with pub/sub
 - [ ] Background jobs, cron and database migrations
 - [ ] OAuth2 and OpenID Connect: sign-in with providers, and a provider of your own
 - [ ] Email with Svelte templates; file uploads and storage

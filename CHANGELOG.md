@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Realtime: `ctx.EventStream` for server-sent events and `ctx.WebSocket` for WebSockets (same-origin by default), both ending cleanly on shutdown; the `realtime` package's `Hub` publishes to subscribers through a pluggable `Broker`; `stream()` and `socket()` from `@ternkit/tern` keep the latest message in reactive state and reconnect.
 - Markdown pages: a `+page.md` route is rendered to HTML by `tern gen`, with its front matter's `title` and `description` in the page head.
 - Content collections: the `content` package reads Markdown from `src/content` with typed YAML front matter, rendered with GitHub-flavored Markdown, heading IDs, footnotes and highlighted code. `src/content` is embedded in the binary; drafts show only under `tern dev`. `ctx.Content()` returns the directory.
 - `Entries` may take a `ctx *kit.Ctx`, for example to list a collection's slugs.
@@ -24,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Under `tern dev`, the app's own WebSocket endpoints were proxied to Vite; only Vite's connection is now.
 - Server rendering no longer leaks memory. The `URL` polyfill stored its state in a way QuickJS never frees, losing about 5 KB per render; Tern now ships its own `URL` and `URLSearchParams` and no longer depends on core-js.
 
 ## [1.1.0] - 2026-11-10

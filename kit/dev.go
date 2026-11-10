@@ -42,7 +42,9 @@ func newDevServer(viteURL, root, entry, base string) (*devServer, error) {
 
 func (d *devServer) handles(r *http.Request) bool {
 	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
-		return true // Vite's HMR connection
+		// Vite's HMR connection uses the vite-hmr subprotocol; other
+		// WebSockets are the app's own.
+		return strings.Contains(r.Header.Get("Sec-WebSocket-Protocol"), "vite-") // vite-hmr, vite-ping
 	}
 	path := r.URL.Path
 	if d.base != "" {

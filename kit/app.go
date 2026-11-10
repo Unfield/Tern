@@ -50,6 +50,11 @@ type App struct {
 	hasPluginRoutes bool
 	head            []func(*Ctx, string) string
 	shutdown        []func(context.Context) error
+
+	// shutdownCtx is canceled when the server begins shutting down, which
+	// ends event streams and WebSockets.
+	shutdownCtx   context.Context
+	beginShutdown context.CancelFunc
 }
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -76,6 +81,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	}
 
 	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux()}
+	a.shutdownCtx, a.beginShutdown = context.WithCancel(context.Background())
 	if err := a.setupPlugins(); err != nil {
 		return nil, err
 	}
@@ -173,6 +179,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 // Close releases the app's resources, such as server-rendering VMs.
 // ListenAndServe and Serve call it on shutdown.
 func (a *App) Close() error {
+	a.beginShutdown()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	errs := []error{a.runShutdown(ctx)}

@@ -594,6 +594,90 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
 
+## Realtime
+
+### Server-sent events
+
+`ctx.EventStream` keeps a response open and pushes events to the browser. It sends a keep-alive comment every 20 seconds and ends when the client disconnects or the server shuts down:
+
+```go
+func GET(ctx *kit.Ctx) error {
+	return ctx.EventStream(func(ctx context.Context, s *kit.EventStream) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				if err := s.Send("tick", map[string]any{"at": time.Now()}); err != nil {
+					return err
+				}
+			}
+		}
+	})
+}
+```
+
+`Send` encodes data as JSON, or sends strings as they are. `SendEvent` also sets an `ID`, which the browser sends back as `LastEventID()` when it reconnects, and a `Retry` delay.
+
+In components, `stream` from `@ternkit/tern` subscribes and keeps the latest value in reactive state:
+
+```svelte
+<script lang="ts">
+	import { stream } from '@ternkit/tern';
+	let { data } = $props();
+	const clock = stream<{ at: string }>('/api/clock', { events: ['tick'], initial: data.clock });
+</script>
+
+<p>{clock.current?.at} ({clock.status})</p>
+```
+
+It doesn't connect during server rendering, where `current` is the `initial` value, and it closes when the component is destroyed. The browser reconnects by itself after errors.
+
+### WebSockets
+
+`ctx.WebSocket` upgrades an endpoint request. `Receive` and `Send` read and write JSON; `ReceiveText`, `SendText` and `Conn` give lower-level access:
+
+```go
+func GET(ctx *kit.Ctx) error {
+	return ctx.WebSocket(nil, func(ctx context.Context, ws *kit.WebSocket) error {
+		for {
+			var msg ChatMessage
+			if err := ws.Receive(&msg); err != nil {
+				return err // a closed connection ends the handler without an error being logged
+			}
+			hub.Publish("chat", msg)
+		}
+	})
+}
+```
+
+Only pages on the app's own origin can connect; list other origins in `WebSocketOptions.Origins`. When the server shuts down, connections are closed with "going away". In components, `socket` connects, queues messages sent while connecting, decodes JSON and reconnects with backoff:
+
+```svelte
+<script lang="ts">
+	import { socket } from '@ternkit/tern';
+	const chat = socket<ChatMessage, ChatMessage>('/api/chat', { onMessage: (m) => messages.push(m) });
+</script>
+```
+
+### Publish and subscribe
+
+The `realtime` package connects the parts of an app that change things with the browsers watching them:
+
+```go
+var hub = realtime.NewHub[MonitorStatus]()
+
+// When a check finishes:
+hub.Publish("monitors", status)
+
+// An endpoint that streams the topic to the browser:
+func GET(ctx *kit.Ctx) error { return realtime.Stream(ctx, hub, "monitors") }
+```
+
+`hub.Subscribe(ctx, topic)` returns a channel for your own WebSocket or stream handlers. Subscribers that fall more than `Buffer` messages behind miss messages instead of slowing publishers down. The hub is in memory; to run several instances, implement `realtime.Broker` with Redis, NATS or Postgres `LISTEN/NOTIFY` and use `realtime.NewHubWith`.
+
+Under `tern dev`, your WebSockets are served by the Go app; only Vite's own connection goes to Vite.
+
 ## Markdown and content
 
 ### Markdown pages

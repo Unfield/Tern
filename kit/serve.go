@@ -41,6 +41,7 @@ func (a *App) Serve(ctx context.Context) error {
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
+	srv.RegisterOnShutdown(a.beginShutdown)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

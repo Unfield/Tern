@@ -82,9 +82,9 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 **Tern UI: the complete set**
 - [x] Overlays: Popover, Hover Card, Alert Dialog, Sheet, Drawer, Context Menu, Menubar
 - [x] Inputs: Combobox, Command palette, custom Select, Slider, Toggle, Toggle Group, Input OTP, Input Group, Date Picker, Calendar, Label, Button Group, Password input
-- [ ] Layout and navigation: Sidebar, Navigation Menu, Breadcrumb, Pagination, Collapsible, Resizable, Scroll Area, Aspect Ratio, Carousel, Empty, Item, Table
-- [ ] Data: a Data Table with sorting, filtering, selection and pagination
-- [ ] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers
+- [x] Layout and navigation: Sidebar, Navigation Menu, Breadcrumb, Pagination, Collapsible, Resizable, Scroll Area, Aspect Ratio, Carousel, Empty, Item, Table
+- [x] Data: a Data Table with sorting, filtering, selection and pagination
+- [x] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers
 - [ ] Blocks wired to Tern's plugins: sign-in and sign-up (passwords, `plugins/oauth`), the consent screen for `plugins/oidc`, account and sessions pages, a dashboard shell
 - [ ] `tern ui add <component>`: copy a component into the project, to own and change it
 

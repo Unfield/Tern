@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
 - Tern UI overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.
 - Tern UI inputs: `Combobox` (with server search), `SelectMenu`, `Command` (and a ⌘K palette), `Calendar`, `DatePicker` (with ranges), `Slider` (with ranges), `Toggle`, `ToggleGroup`, `PasswordInput`, `InputOTP`, `InputGroup`, `ButtonGroup` and `Label`.
+- Tern UI layout and data: `Sidebar`, `NavigationMenu`, `Breadcrumb`, `Pagination`, `DataTable`, `Table`, `LineChart`, `AreaChart`, `BarChart`, `DonutChart`, `Stat`, `Sparkline`, `Resizable`, `Carousel`, `Collapsible`, `ScrollArea`, `AspectRatio`, `Empty` and `Item`. Charts use a palette validated for color blindness, `--tern-chart-1` to `--tern-chart-8`.
 
 - `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
 - The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.

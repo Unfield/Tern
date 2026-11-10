@@ -60,6 +60,15 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Alert` | with `live`, `role="alert"` (danger, warning) or `role="status"` |
 | `Progress` | `role="progressbar"` with values; with no value, it is indeterminate |
 | `Spinner` | `role="status"` with a hidden label |
+| `Sidebar` | an app shell: a labelled navigation with groups, badges and sub-links, current page marked, that collapses to icons and becomes a sheet on phones |
+| `NavigationMenu` | site navigation with dropdown panels of links, built on the disclosure pattern (links don't belong in an ARIA menu). ArrowDown enters a panel, Escape returns |
+| `Breadcrumb`, `Pagination` | labelled `nav`s with `aria-current="page"`. Long breadcrumbs fold their middle into a menu; pagination can render links (`href`) so it works without JavaScript |
+| `DataTable`, `Table` | semantic tables with captions. `DataTable` sorts (`aria-sort`), searches, selects with checkboxes and pages, on the client or through `onquery` on the server, and announces what it shows |
+| `LineChart`, `AreaChart`, `BarChart`, `DonutChart` | a figure with a heading, a legend for two or more series, a hover readout, arrow keys that read values aloud, and a "Show data" table. Colors are checked for color blindness in both modes |
+| `Stat`, `Sparkline` | a headline number with a signed change (whose color knows whether up is good) and a trend |
+| `Resizable` | two panes with a focusable splitter (`role="separator"`) moved by pointer or arrow keys |
+| `Carousel` | `aria-roledescription` carousel and slides, previous and next buttons, slides out of view made inert, and a stop button when it plays by itself. It pauses on hover and focus |
+| `Collapsible`, `ScrollArea`, `AspectRatio`, `Empty`, `Item` | a disclosure; a focusable, labelled scroll region; a fixed ratio box; an empty state; a list row whose whole area is its link |
 | `Card`, `Badge`, `Avatar`, `Skeleton`, `Separator`, `Kbd` | semantic elements. `Card` takes a heading `level` and `as` (section, article). `Avatar` falls back to initials labelled with the name |
 
 Tables use `<table class="tern-table">`, and `.tern-sr-only` hides text visually while keeping it for screen readers.
@@ -89,6 +98,21 @@ const items: MenuItem[] = [
 	{ label: 'Delete', danger: true, onselect: remove }
 ];
 ```
+
+### Charts
+
+```svelte
+<LineChart
+	title="Traffic"
+	data={days}
+	x="day"
+	series={[{ key: 'pageviews', label: 'Pageviews' }, { key: 'visitors', label: 'Visitors' }]}
+/>
+```
+
+- **Data:** rows of plain objects. `x` may hold dates (`Date` or ISO strings, which get a time axis), numbers or categories.
+- **Colors:** series take `--tern-chart-1` to `--tern-chart-8` in order. The palette is validated for color vision deficiencies on Tern's surfaces in light and dark mode. A ninth series is a sign to fold the rest into "Other", as `DonutChart` does.
+- **Reading values:** hover shows every series at that point. Focus the chart and use the arrow keys to hear them. "Show data" shows them all as a table.
 
 ## Forms
 

@@ -42,6 +42,15 @@
 	--tern-shadow: 0 1px 2px oklch(0.24 0.02 240 / 0.06), 0 1px 1px oklch(0.24 0.02 240 / 0.04);
 	--tern-shadow-lg: 0 12px 32px -8px oklch(0.24 0.02 240 / 0.18), 0 2px 6px oklch(0.24 0.02 240 / 0.08);
 	--tern-control-height: 2.25rem;
+	/* Chart series, in order; validated for color vision deficiencies on these surfaces. */
+	--tern-chart-1: #2a78d6;
+	--tern-chart-2: #eb6834;
+	--tern-chart-3: #1baf7a;
+	--tern-chart-4: #eda100;
+	--tern-chart-5: #e87ba4;
+	--tern-chart-6: #008300;
+	--tern-chart-7: #6250d6;
+	--tern-chart-8: #e34948;
 	--tern-duration: 140ms;
 }
 
@@ -70,6 +79,14 @@
 		--tern-ring: oklch(0.75 0.11 200);
 		--tern-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
 		--tern-shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+		--tern-chart-1: #3987e5;
+		--tern-chart-2: #d95926;
+		--tern-chart-3: #199e70;
+		--tern-chart-4: #c98500;
+		--tern-chart-5: #d55181;
+		--tern-chart-6: #008300;
+		--tern-chart-7: #9085e9;
+		--tern-chart-8: #e66767;
 	}
 }
 
@@ -97,6 +114,14 @@
 	--tern-ring: oklch(0.75 0.11 200);
 	--tern-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
 	--tern-shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+	--tern-chart-1: #3987e5;
+	--tern-chart-2: #d95926;
+	--tern-chart-3: #199e70;
+	--tern-chart-4: #c98500;
+	--tern-chart-5: #d55181;
+	--tern-chart-6: #008300;
+	--tern-chart-7: #9085e9;
+	--tern-chart-8: #e66767;
 }
 
 @media (prefers-reduced-motion: reduce) {

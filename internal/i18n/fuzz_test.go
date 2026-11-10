@@ -2,9 +2,9 @@ package i18n
 
 import (
 	"strings"
-	"unicode/utf8"
 	"testing"
 	"testing/fstest"
+	"unicode/utf8"
 )
 
 // FuzzFormat checks that formatting any message never panics, and that text

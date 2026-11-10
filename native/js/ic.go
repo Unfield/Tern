@@ -1,5 +1,7 @@
 package js
 
+import "math/big"
+
 // Inline caches. Each property access in compiled code with a fixed key,
 // like obj.name or obj.method(…), has an IC: where it last found the
 // property, for objects of one shape. While objects of that shape come
@@ -56,6 +58,8 @@ func (rt *Realm) receiverShape(v Value) *Shape {
 		return rt.numberShape
 	case bool:
 		return rt.booleanShape
+	case *big.Int:
+		return rt.bigintShape
 	}
 	return nil
 }

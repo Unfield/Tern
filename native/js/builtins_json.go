@@ -2,6 +2,7 @@ package js
 
 import (
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -154,6 +155,8 @@ func (st *stringifier) property(b *strings.Builder, holder *Object, key string, 
 		}
 	case string:
 		QuoteJSON(b, x)
+	case *big.Int:
+		panic(TypeErrorf("Do not know how to serialize a BigInt"))
 	case float64:
 		if math.IsNaN(x) || math.IsInf(x, 0) {
 			b.WriteString("null")

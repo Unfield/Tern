@@ -21,6 +21,10 @@ type Realm struct {
 	arrayValues, iteratorSelf, genNext, defaultHasInstance              Value
 	typedKinds                                                          []*typedKind
 	stringShape, numberShape, booleanShape                              *Shape
+	BigIntPrototype                                                     *Object
+	AsyncIteratorPrototype                                              *Object
+	AsyncGeneratorPrototype                                             *Object
+	bigintShape                                                         *Shape
 
 	// Global is globalThis.
 	Global *Object
@@ -30,7 +34,8 @@ type Realm struct {
 
 	// interrupted stops the realm's code at the next call or loop turn.
 	interrupted atomic.Bool
-	depth       int // calls in progress, to stop runaway recursion
+	depth       int     // calls in progress, to stop runaway recursion
+	newTarget   *Object // being handed to a function that reads new.target
 
 	argStack    []Value    // see invoke
 	lastConcat  []byte     // see Concat
@@ -102,6 +107,8 @@ func (rt *Realm) setup() {
 	rt.setupGenerators()
 	rt.setupPromise()
 	rt.setupProxy()
+	rt.setupBigInt()
+	rt.setupAsyncGenerators()
 	rt.setupGlobals()
 	rt.Global.sh()
 	rt.Global.reshape() // globals change; reads of them have their own cache
@@ -145,8 +152,11 @@ func (rt *Realm) setupSymbol() {
 	})
 	rt.SymbolCtor.DefineHidden("prototype", rt.SymbolPrototype)
 	rt.SymbolPrototype.DefineHidden("constructor", rt.SymbolCtor)
-	for name, s := range map[string]*Symbol{"iterator": SymbolIterator, "toPrimitive": SymbolToPrimitive, "toStringTag": SymbolToStringTag, "hasInstance": symbolHasInstance} {
-		rt.SymbolCtor.add(prop{key: name, value: s})
+	for _, w := range []struct {
+		name string
+		s    *Symbol
+	}{{"asyncIterator", SymbolAsyncIterator}, {"hasInstance", symbolHasInstance}, {"iterator", SymbolIterator}, {"toPrimitive", SymbolToPrimitive}, {"toStringTag", SymbolToStringTag}} {
+		rt.SymbolCtor.add(prop{key: w.name, value: w.s})
 	}
 	registry := map[string]*Symbol{}
 	rt.method(rt.SymbolCtor, "for", 1, func(_ Value, args []Value) Value {

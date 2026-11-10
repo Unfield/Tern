@@ -1,6 +1,9 @@
 package js
 
-import "math"
+import (
+	"math"
+	"math/big"
+)
 
 // Map and Set keep insertion order; keys compare with SameValueZero.
 type ordered struct {
@@ -21,6 +24,9 @@ func mapKey(v Value) any {
 	}
 	if s, ok := v.(string); ok {
 		return "s" + s
+	}
+	if b, ok := v.(*big.Int); ok {
+		return "n" + b.String() // equal BigInts are one key
 	}
 	return v
 }

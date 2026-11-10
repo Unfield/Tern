@@ -68,6 +68,11 @@ type fnCtx struct {
 	afterSuper string // field initializers to run after super()
 	generator  string // the Go name of the generator's *js.Gen, in a generator or async function
 	async      bool
+	asyncGen   bool // an async generator: yield awaits first
+	// new.target: a class constructor's is the construct call's newTarget;
+	// a function's that reads it, newTargetVar.
+	classCtor    bool
+	newTargetVar string
 }
 
 func (f *fnCtx) push(t *target) {

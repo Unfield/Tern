@@ -42,7 +42,12 @@ func (rt *Realm) NewAsyncFunction(name string, length int, call func(this Value,
 
 // Await is an await expression: the body waits for v to settle, and gets
 // its value, or its reason thrown.
-func (g *Gen) Await(v Value) Value { return g.Yield(v) }
+func (g *Gen) Await(v Value) Value {
+	if g.async {
+		return g.Yield(awaiting{v}) // the driver tells awaits from yields
+	}
+	return g.Yield(v)
+}
 
 // catchThrow runs f and returns the JavaScript exception it threw, if
 // any; other panics go on.
@@ -58,4 +63,21 @@ func catchThrow(f func()) (thrown *Throw) {
 	}()
 	f()
 	return nil
+}
+
+// DynamicImport is import() of a compiled module: a promise that loads
+// the module in a job, as bundlers compile import(). A render never runs
+// the job, in QuickJS or natively.
+func (rt *Realm) DynamicImport(load func() Value) *Object {
+	start := rt.promiseResolve(Undefined).Internal.(*promise)
+	return start.then(rt.NewFunction("", 0, func(Value, []Value) Value { return load() }), Undefined)
+}
+
+// FailedImport is import() of a module no bundle has, such as a Node
+// built-in: a promise that rejects in a job.
+func (rt *Realm) FailedImport(spec Value) *Object {
+	start := rt.promiseResolve(Undefined).Internal.(*promise)
+	return start.then(rt.NewFunction("", 0, func(Value, []Value) Value {
+		panic(TypeErrorf("Cannot find module '%s'", ToString(spec)))
+	}), Undefined)
 }

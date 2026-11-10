@@ -148,3 +148,24 @@ func (n *Node) Has(key string) bool {
 	raw, ok := n.fields[key]
 	return ok && string(raw) != "null"
 }
+
+// walkNodes calls fn on n and every node below it.
+func walkNodes(n *Node, fn func(*Node)) {
+	if n == nil {
+		return
+	}
+	fn(n)
+	for key, raw := range n.fields {
+		if len(raw) == 0 {
+			continue
+		}
+		switch raw[0] {
+		case '{':
+			walkNodes(n.Child(key), fn)
+		case '[':
+			for _, ch := range n.List(key) {
+				walkNodes(ch, fn)
+			}
+		}
+	}
+}

@@ -3,6 +3,7 @@ package js
 import (
 	"errors"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -54,6 +55,8 @@ func ToString(v Value) string {
 		return "null"
 	case *Symbol:
 		panic(TypeErrorf("Cannot convert a Symbol value to a string"))
+	case *big.Int:
+		return x.String()
 	case *Object:
 		return ToString(ToPrimitive(x, "string"))
 	}
@@ -142,6 +145,8 @@ func ToNumber(v Value) float64 {
 		return 0
 	case string:
 		return StringToNumber(x)
+	case *big.Int:
+		panic(TypeErrorf("Cannot convert a BigInt value to a number"))
 	case undefinedType:
 		return math.NaN()
 	case nullType:
@@ -275,6 +280,9 @@ func ToIntegerOrInfinity(v Value) float64 {
 
 // ToInt32 is ToInt32, for the bitwise operators.
 func ToInt32(v Value) int32 {
+	if _, ok := v.(*big.Int); ok {
+		panic(TypeErrorf("Cannot mix BigInt and other types, use explicit conversions"))
+	}
 	n := ToNumber(v)
 	if math.IsNaN(n) || math.IsInf(n, 0) {
 		return 0
@@ -334,6 +342,10 @@ func (rt *Realm) ToObject(v Value) *Object {
 	case *Symbol:
 		o := NewObject(rt.SymbolPrototype)
 		o.Class, o.Internal = "Symbol", x
+		return o
+	case *big.Int:
+		o := NewObject(rt.BigIntPrototype)
+		o.Class, o.Internal = "BigInt", x
 		return o
 	}
 	panic(TypeErrorf("unknown value of Go type %T", v))

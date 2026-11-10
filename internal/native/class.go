@@ -93,10 +93,16 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 		cw.line("this := js.Value(js.OrdinaryCreateFromConstructor(newTarget, %s))", proto)
 		cw.line("%s(this)", init)
 		if ctorNode != nil {
-			fn := c.methodFunction(cs, ctorNode.Child("value"), name, "", parentProto)
+			fn := c.functionWith(cs, ctorNode.Child("value"), name, func(f *fnCtx) {
+				f.superProto = parentProto
+				if parentProto == "" {
+					f.superProto = "js.ProtoOf(\"\")"
+				}
+				f.classCtor = true
+			})
 			length = len(ctorNode.Child("value").List("params"))
-			cw.line("r := js.Call(%s, this, args...)", fn)
-			cw.line("if o, ok := r.(*js.Object); ok { return o }")
+			cw.line("res := js.Call(%s, this, args...)", fn)
+			cw.line("if o, ok := res.(*js.Object); ok { return o }")
 		}
 		cw.line("return this")
 	} else {
@@ -113,9 +119,10 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 				f.superCtor = parent
 				f.superProto = parentProto
 				f.afterSuper = init
+				f.classCtor = true
 			})
-			cw.line("r := js.Call(%s, js.Undefined, args...)", body)
-			cw.line("if o, ok := r.(*js.Object); ok { return o }")
+			cw.line("res := js.Call(%s, js.Undefined, args...)", body)
+			cw.line("if o, ok := res.(*js.Object); ok { return o }")
 			cw.line("return js.CheckThis(%s)", th)
 		}
 	}

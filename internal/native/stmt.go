@@ -339,22 +339,36 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 	case "ForOfStatement", "ForInStatement":
 		out.open("{")
 		next := c.temp("next")
-		if n.Type == "ForOfStatement" {
+		awaitGen := ""
+		switch {
+		case n.Type == "ForOfStatement" && n.Bool("await") && ls.fn.async:
+			awaitGen = ls.fn.generator
+			out.line("%s := r.AsyncIterate(%s)", next, c.expr(ls, n.Child("right")))
+		case n.Type == "ForOfStatement":
 			if n.Bool("await") {
-				c.problem(n, "for await")
+				c.problem(n, "for await outside an async function")
 			}
 			out.line("%s := js.Iterate(%s)", next, c.expr(ls, n.Child("right")))
-		} else {
+		default:
 			out.line("%s := js.ForInKeys(%s)", next, c.expr(ls, n.Child("right")))
 		}
 		out.line("%s", mark)
 		out.open("for {")
 		out.line("r.Tick()")
 		v := c.temp("x")
-		out.line("%s, ok := %s()", v, next)
-		out.open("if !ok {")
-		out.line("break")
-		out.close("")
+		if awaitGen != "" {
+			res := c.temp("res")
+			out.line("%s := %s.Await(%s())", res, awaitGen, next)
+			out.open("if js.Truthy(r.Get(%s, \"done\")) {", res)
+			out.line("break")
+			out.close("")
+			out.line("%s := r.Get(%s, \"value\")", v, res)
+		} else {
+			out.line("%s, ok := %s()", v, next)
+			out.open("if !ok {")
+			out.line("break")
+			out.close("")
+		}
 		body := newScope(ls, ls.fn)
 		left := n.Child("left")
 		if left.Type == "VariableDeclaration" {

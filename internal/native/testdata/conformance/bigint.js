@@ -1,0 +1,12 @@
+const big = 2n ** 64n;
+const tests = [];
+const t = (f) => { try { tests.push(f()); } catch (e) { tests.push(e.constructor.name); } };
+t(() => String(big)); t(() => typeof 1n); t(() => 7n / 2n); t(() => -7n / 2n); t(() => -7n % 2n);
+t(() => 1n + 1); t(() => 1n < 2); t(() => 2 > 1n); t(() => 1n == 1); t(() => 1n === 1); t(() => 0n ? 'y' : 'n');
+t(() => !0n && 0n !== 0); t(() => 5n & 3n); t(() => -1n >> 1n); t(() => 1n << 70n); t(() => ~5n);
+t(() => BigInt('0x1f')); t(() => BigInt(42)); t(() => BigInt(1.5)); t(() => BigInt('x'));
+t(() => (255n).toString(16)); t(() => JSON.stringify({ a: 1n })); t(() => `${10n}`); t(() => 1n + 'x');
+t(() => BigInt.asIntN(8, 255n)); t(() => BigInt.asUintN(8, -1n)); t(() => [3n, 1n, 2n].sort().join());
+t(() => new Map([[1n, 'a']]).get(1n)); t(() => Number(5n)); t(() => +5n); t(() => 5n ** -1n);
+let i = 1n; i++; t(() => i); t(() => 10n == '10'); t(() => 9007199254740993n > 9007199254740992);
+globalThis.out = tests.map(String);

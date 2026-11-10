@@ -73,12 +73,23 @@ export function nativePlugin(getRoot: () => string, entry: string): Plugin {
 			try {
 				const ast = parse(code, { ecmaVersion: 'latest', sourceType: 'module' });
 				const imports: Record<string, string | null> = {};
+				const sources: string[] = [];
 				for (const node of ast.body) {
-					const source =
-						node.type === 'ImportDeclaration' || node.type === 'ExportAllDeclaration' || (node.type === 'ExportNamedDeclaration' && node.source)
-							? (node.source!.value as string)
-							: null;
-					if (source === null || source in imports) continue;
+					if (node.type === 'ImportDeclaration' || node.type === 'ExportAllDeclaration' || (node.type === 'ExportNamedDeclaration' && node.source)) {
+						sources.push(node.source!.value as string);
+					}
+				}
+				// import('./x') with a literal resolves like a static import.
+				const walk = (n: unknown): void => {
+					if (!n || typeof n !== 'object') return;
+					if (Array.isArray(n)) return n.forEach(walk);
+					const node = n as { type?: string; source?: { type: string; value: unknown } };
+					if (node.type === 'ImportExpression' && node.source?.type === 'Literal' && typeof node.source.value === 'string') sources.push(node.source.value);
+					for (const v of Object.values(node)) if (v && typeof v === 'object') walk(v);
+				};
+				walk(ast.body);
+				for (const source of sources) {
+					if (source in imports) continue;
 					const resolved = await this.resolve(source, id, { ssr: true } as never);
 					const target = resolved && !resolved.external && !resolved.id.startsWith('\0') ? resolved.id : null;
 					imports[source] = target && !native(target) ? rel(target) : null;

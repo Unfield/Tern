@@ -128,10 +128,13 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 			re := n.Child("regex")
 			return fmt.Sprintf("js.RegExpLiteral(%s, %s)", quote(re.Str("pattern")), quote(re.Str("flags")))
 		}
+		if n.Has("bigint") {
+			return fmt.Sprintf("js.BigIntLit(%s)", quote(n.Str("bigint")))
+		}
 		v, ok := literalValue(n)
 		if !ok {
-			c.problem(n, "a BigInt literal")
-			return "js.Fail(\"BigInt\")"
+			c.problem(n, "a literal it can't read")
+			return "js.Fail(\"literal\")"
 		}
 		return goLiteral(v)
 	case "TemplateLiteral":
@@ -256,6 +259,13 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		if a := n.Child("argument"); a != nil {
 			v = c.expr(s, a)
 		}
+		if s.fn.asyncGen {
+			if n.Bool("delegate") {
+				c.problem(n, "yield* in an async generator")
+				return "js.Fail(\"yield*\")"
+			}
+			return fmt.Sprintf("%s.AsyncYield(%s)", g, v)
+		}
 		if n.Bool("delegate") {
 			return fmt.Sprintf("%s.YieldStar(%s)", g, v)
 		}
@@ -267,11 +277,32 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		}
 		return fmt.Sprintf("%s.Await(%s)", s.fn.generator, c.expr(s, n.Child("argument")))
 	case "ImportExpression":
-		c.problem(n, "dynamic import()")
-		return "js.Fail(\"import()\")"
+		if src := n.Child("source"); src != nil && src.Type == "Literal" {
+			if dep := c.resolveModule(c.cur, src.Str("value")); dep != nil {
+				return fmt.Sprintf("js.Value(r.DynamicImport(func() js.Value {\nr.load%d()\nreturn r.ns%d()\n}))", dep.index, dep.index)
+			}
+		}
+		// A module no bundle has, such as a Node built-in: the promise
+		// rejects, in a job, as the engine's does.
+		return fmt.Sprintf("js.Value(r.FailedImport(%s))", c.expr(s, n.Child("source")))
 	case "MetaProperty":
 		if n.Child("meta").Str("name") == "import" && n.Child("property").Str("name") == "meta" {
 			return c.importMeta()
+		}
+		if n.Child("meta").Str("name") == "new" && n.Child("property").Str("name") == "target" {
+			f := s.fn
+			for f != nil && f.arrow {
+				f = f.parent
+			}
+			switch {
+			case f == nil || f.module:
+				return "js.Undefined"
+			case f.classCtor:
+				return "js.Value(newTarget)"
+			case f.newTargetVar != "":
+				return f.newTargetVar
+			}
+			return "js.Undefined" // a method: never constructed
 		}
 		c.problem(n, "%s.%s", n.Child("meta").Str("name"), n.Child("property").Str("name"))
 		return "js.Fail(\"meta property\")"

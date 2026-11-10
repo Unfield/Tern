@@ -578,3 +578,31 @@ func (rt *Realm) TreeShaken(spec, name string) Value {
 	target.SetConstruct(func([]Value, *Object) Value { return Undefined })
 	return rt.NewProxy(target, h)
 }
+
+// NonArrowNewTarget is NonArrow for a function that reads new.target: its
+// construct hands the new target over, which the function's first
+// statement takes (TakeNewTarget).
+func (rt *Realm) NonArrowNewTarget(f *Object) *Object {
+	rt.NonArrow(f)
+	call := f.call
+	f.construct = func(args []Value, nt *Object) Value {
+		this := OrdinaryCreateFromConstructor(nt, f.realm.ObjectPrototype)
+		f.realm.newTarget = nt
+		if r, ok := call(this, args).(*Object); ok {
+			return r
+		}
+		return this
+	}
+	return f
+}
+
+// TakeNewTarget is new.target in a function: the new target its construct
+// handed over, or undefined for a call.
+func (rt *Realm) TakeNewTarget() Value {
+	nt := rt.newTarget
+	rt.newTarget = nil
+	if nt == nil {
+		return Undefined
+	}
+	return nt
+}

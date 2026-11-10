@@ -2,6 +2,7 @@ package js
 
 import (
 	"math"
+	"math/big"
 	"math/bits"
 	"strconv"
 	"strings"
@@ -21,17 +22,27 @@ func thisNumber(this Value, name string) float64 {
 	panic(TypeErrorf("Number.prototype.%s requires that 'this' be a Number", name))
 }
 
+// numberOf is Number(v): like ToNumber, but a BigInt converts.
+func numberOf(v Value) float64 {
+	p := ToPrimitive(v, "number")
+	if b, ok := p.(*big.Int); ok {
+		f, _ := new(big.Float).SetInt(b).Float64()
+		return f
+	}
+	return ToNumber(p)
+}
+
 func (rt *Realm) setupNumber() {
 	rt.NumberCtor = rt.NewConstructor("Number", 1, func(_ Value, args []Value) Value {
 		if len(args) == 0 {
 			return 0.0
 		}
-		return ToNumber(args[0])
+		return Box(numberOf(args[0]))
 	}, func(args []Value, nt *Object) Value {
 		o := OrdinaryCreateFromConstructor(nt, rt.NumberPrototype)
 		n := 0.0
 		if len(args) > 0 {
-			n = ToNumber(args[0])
+			n = numberOf(args[0])
 		}
 		o.Class, o.Internal = "Number", n
 		return o

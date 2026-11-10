@@ -62,10 +62,6 @@ func (c *Compiler) methodFunction(s *scope, n *Node, name, home, superProto stri
 func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCtx)) string {
 	arrow := n.Type == "ArrowFunctionExpression"
 	async := n.Bool("async")
-	if async && n.Bool("generator") {
-		c.problem(n, "an async generator")
-		return fmt.Sprintf("js.Value(js.NewFunction(%s, 0, func(js.Value, []js.Value) js.Value { panic(js.NotSupported(%s)) }))", quote(name), quote("an async generator"))
-	}
 	id := strconv.Itoa(c.site())
 	f := &fnCtx{parent: s.fn, arrow: arrow, args: "args" + id}
 	if !arrow {
@@ -77,8 +73,12 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 	if n.Bool("generator") || async {
 		f.generator = "gen" + id
 		f.async = async
+		f.asyncGen = async && n.Bool("generator")
 	}
 	setup(f)
+	if !arrow && !f.classCtor && f.generator == "" && usesNewTarget(n) {
+		f.newTargetVar = "nt" + id
+	}
 	outer := s
 	selfName := ""
 	if n.Type == "FunctionExpression" && n.Child("id") != nil {
@@ -155,11 +155,19 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 	if f.usesArguments {
 		prelude = fmt.Sprintf("\t%s := js.Value(js.NewArguments(%s))\n\t_ = %s\n", f.argumentsVar, f.args, f.argumentsVar)
 	}
+	if f.newTargetVar != "" {
+		// First, so no call in between can take it.
+		prelude = fmt.Sprintf("\t%s := r.TakeNewTarget()\n\t_ = %s\n", f.newTargetVar, f.newTargetVar) + prelude
+	}
 	if f.generator != "" {
 		// The parameters are bound when the generator function is called,
 		// the body runs on the first next().
 		ctor := "js.NewGeneratorFunction"
-		if f.async {
+		switch {
+		case f.async && n.Bool("generator"):
+			ctor = "js.NewAsyncGeneratorFunction"
+			f.asyncGen = true
+		case f.async:
 			ctor = "js.NewAsyncFunction"
 		}
 		fn := fmt.Sprintf("js.WithInfo("+ctor+"(%s, %d, func(%s js.Value, %s []js.Value) func(*js.Gen) js.Value {\n%s%s\treturn func(%s *js.Gen) js.Value {\n%s\t}\n}), &%s)",
@@ -170,7 +178,10 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 		return "js.Value(" + fn + ")"
 	}
 	fn := fmt.Sprintf("js.NewFunctionOf(&%s, func(%s js.Value, %s []js.Value) js.Value {\n%s%s%s})", c.fnInfo(name, length, n), thisParam, f.args, prelude, body.String(), main.String())
-	if !arrow {
+	switch {
+	case f.newTargetVar != "":
+		fn = fmt.Sprintf("js.NonArrowNewTarget(%s)", fn)
+	case !arrow:
 		fn = fmt.Sprintf("js.NonArrow(%s)", fn)
 	}
 	if selfName != "" {
@@ -184,4 +195,42 @@ func simpleName(p *Node) string {
 		return p.Str("name")
 	}
 	return ""
+}
+
+// usesNewTarget reports whether a function's own code reads new.target:
+// arrows inherit it, other functions have their own.
+func usesNewTarget(fn *Node) bool {
+	found := false
+	var walk func(n *Node, top bool)
+	walk = func(n *Node, top bool) {
+		if n == nil || found {
+			return
+		}
+		switch n.Type {
+		case "FunctionDeclaration", "FunctionExpression", "ClassDeclaration", "ClassExpression":
+			if !top {
+				return
+			}
+		case "MetaProperty":
+			if n.Child("meta").Str("name") == "new" {
+				found = true
+				return
+			}
+		}
+		for key, raw := range n.fields {
+			if len(raw) == 0 {
+				continue
+			}
+			switch raw[0] {
+			case '{':
+				walk(n.Child(key), false)
+			case '[':
+				for _, ch := range n.List(key) {
+					walk(ch, false)
+				}
+			}
+		}
+	}
+	walk(fn, true)
+	return found
 }

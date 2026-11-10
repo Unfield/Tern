@@ -62,8 +62,10 @@ type module struct {
 	// starFrom lists modules whose exports `export * from` re-exports.
 	starFrom []*module
 	// zero is the module struct's initial value: every binding undefined.
-	zero     string
-	resolved bool
+	zero string
+	// deps are the modules it imports, in order; dynamic those it import()s.
+	deps, dynamic []*module
+	resolved      bool
 }
 
 // Compiler turns the IR into Go.
@@ -109,7 +111,14 @@ func Compile(ir *IR, opts Options) (*Result, error) {
 	if !ok {
 		return nil, fmt.Errorf("native: the entry %s is not in the IR", ir.Entry)
 	}
-	c.visit(entry, map[*module]bool{})
+	seen := map[*module]bool{}
+	c.visit(entry, seen)
+	// Modules only imported dynamically come after, loaded when imported.
+	for i := 0; i < len(c.order); i++ {
+		for _, dep := range c.order[i].dynamic {
+			c.visit(dep, seen)
+		}
+	}
 	for _, m := range c.order {
 		c.declareModule(m)
 	}
@@ -142,15 +151,22 @@ func Compile(ir *IR, opts Options) (*Result, error) {
 	for _, m := range c.order {
 		fmt.Fprintf(&b, "\t%s %s\n", strings.TrimPrefix(m.goVar, "r."), m.goType)
 	}
-	fmt.Fprintf(&b, "\tics     [%d]js.IC\n\tglobals [%d]js.GlobalRef\n}\n\n", c.ics, c.globalRefs)
+	fmt.Fprintf(&b, "\tics     [%d]js.IC\n\tglobals [%d]js.GlobalRef\n\tloaded  [%d]bool\n}\n\n", c.ics, c.globalRefs, len(ir.Modules))
 	fmt.Fprintf(&b, "// %s makes a realm and evaluates the app's modules in it, in the order\n// JavaScript would. setup, if not nil, runs first: it adds host functions.\nfunc %s(setup func(*js.Realm)) *js.Realm {\n\tr := &%s{Realm: js.NewRealm()}\n\tif setup != nil {\n\t\tsetup(r.Realm)\n\t}\n", newFunc, newFunc, realmType)
 	for _, m := range c.order {
 		fmt.Fprintf(&b, "\tr.%s = %s\n", strings.TrimPrefix(m.goVar, "r."), m.zero)
 	}
-	for _, m := range c.order {
-		fmt.Fprintf(&b, "\tr.init%d()\n", m.index)
-	}
+	fmt.Fprintf(&b, "\tr.load%d()\n", entry.index)
 	b.WriteString("\treturn r.Realm\n}\n\n")
+	// Each module loads its imports, then runs, once: the order ES modules
+	// evaluate in, and how import() loads what nothing else did.
+	for _, m := range c.order {
+		fmt.Fprintf(&mods, "func (r *realm) load%d() {\n\tif r.loaded[%d] {\n\t\treturn\n\t}\n\tr.loaded[%d] = true\n", m.index, m.index, m.index)
+		for _, d := range m.deps {
+			fmt.Fprintf(&mods, "\tr.load%d()\n", d.index)
+		}
+		fmt.Fprintf(&mods, "\tr.init%d()\n}\n\n", m.index)
+	}
 	if opts.Register != "" {
 		fmt.Fprintf(&b, "func init() { %s = %s }\n\n", opts.Register, newFunc)
 	}
@@ -191,10 +207,20 @@ func (c *Compiler) visit(m *module, seen map[*module]bool) {
 				continue
 			}
 			if dep := c.resolveModule(m, src.Str("value")); dep != nil {
+				m.deps = append(m.deps, dep)
 				c.visit(dep, seen)
 			}
 		}
 	}
+	walkNodes(m.ast, func(n *Node) {
+		if n.Type == "ImportExpression" {
+			if src := n.Child("source"); src != nil && src.Type == "Literal" {
+				if dep := c.resolveModule(m, src.Str("value")); dep != nil {
+					m.dynamic = append(m.dynamic, dep)
+				}
+			}
+		}
+	})
 	c.order = append(c.order, m)
 }
 

@@ -2,6 +2,7 @@ package js
 
 import (
 	"math"
+	"math/big"
 	"strconv"
 )
 
@@ -31,6 +32,8 @@ func (rt *Realm) Get(v Value, key PropKey) Value {
 			return x.Description
 		}
 		return rt.SymbolPrototype.GetFrom(key, v)
+	case *big.Int:
+		return rt.BigIntPrototype.GetFrom(key, v)
 	case undefinedType, nullType:
 		panic(TypeErrorf("Cannot read properties of %s (reading '%s')", ToString(v), keyName(key)))
 	}
@@ -148,21 +151,51 @@ func (rt *Realm) Add(a, b Value) Value {
 	if sb, ok := pb.(string); ok {
 		return rt.Concat(ToString(pa), sb)
 	}
+	if x, y, ok := bigints(pa, pb); ok {
+		return new(big.Int).Add(x, y)
+	}
 	return Box(ToNumber(pa) + ToNumber(pb))
 }
 
 // Sub is the - operator.
-func Sub(a, b Value) Value { return Box(ToNumber(a) - ToNumber(b)) }
+func Sub(a, b Value) Value {
+	x, y, bx, by, isBig := operands(a, b)
+	if isBig {
+		return new(big.Int).Sub(bx, by)
+	}
+	return Box(x - y)
+}
 
 // Mul is the * operator.
-func Mul(a, b Value) Value { return Box(ToNumber(a) * ToNumber(b)) }
+func Mul(a, b Value) Value {
+	x, y, bx, by, isBig := operands(a, b)
+	if isBig {
+		return new(big.Int).Mul(bx, by)
+	}
+	return Box(x * y)
+}
 
 // Div is the / operator.
-func Div(a, b Value) Value { return Box(ToNumber(a) / ToNumber(b)) }
+func Div(a, b Value) Value {
+	x, y, bx, by, isBig := operands(a, b)
+	if isBig {
+		if by.Sign() == 0 {
+			panic(RangeErrorf("Division by zero"))
+		}
+		return new(big.Int).Quo(bx, by) // truncates toward zero, as JavaScript does
+	}
+	return Box(x / y)
+}
 
 // Mod is the % operator: the result has the dividend's sign.
 func Mod(a, b Value) Value {
-	x, y := ToNumber(a), ToNumber(b)
+	x, y, bx, by, isBig := operands(a, b)
+	if isBig {
+		if by.Sign() == 0 {
+			panic(RangeErrorf("Division by zero"))
+		}
+		return new(big.Int).Rem(bx, by) // the dividend's sign
+	}
 	if math.IsInf(y, 0) && !math.IsInf(x, 0) {
 		return x
 	}
@@ -172,7 +205,13 @@ func Mod(a, b Value) Value {
 // Pow is **, where JavaScript differs from math.Pow: 1 ** NaN and
 // (-1) ** ±Infinity are NaN.
 func Pow(a, b Value) Value {
-	x, y := ToNumber(a), ToNumber(b)
+	x, y, bx, by, isBig := operands(a, b)
+	if isBig {
+		if by.Sign() < 0 {
+			panic(RangeErrorf("Exponent must be non-negative"))
+		}
+		return new(big.Int).Exp(bx, by, nil)
+	}
 	if math.IsNaN(y) {
 		return math.NaN()
 	}
@@ -183,28 +222,63 @@ func Pow(a, b Value) Value {
 }
 
 // Neg is unary -.
-func Neg(a Value) Value { return -ToNumber(a) }
+func Neg(a Value) Value {
+	if b, ok := ToPrimitive(a, "number").(*big.Int); ok {
+		return new(big.Int).Neg(b)
+	}
+	return -ToNumber(a)
+}
 
 // Plus is unary +.
 func Plus(a Value) Value { return Box(ToNumber(a)) }
 
 // BitAnd is &.
-func BitAnd(a, b Value) Value { return Box(float64(ToInt32(a) & ToInt32(b))) }
+func BitAnd(a, b Value) Value {
+	if x, y, ok := bigintOperands(a, b); ok {
+		return new(big.Int).And(x, y)
+	}
+	return Box(float64(ToInt32(a) & ToInt32(b)))
+}
 
 // BitOr is |.
-func BitOr(a, b Value) Value { return Box(float64(ToInt32(a) | ToInt32(b))) }
+func BitOr(a, b Value) Value {
+	if x, y, ok := bigintOperands(a, b); ok {
+		return new(big.Int).Or(x, y)
+	}
+	return Box(float64(ToInt32(a) | ToInt32(b)))
+}
 
 // BitXor is ^.
-func BitXor(a, b Value) Value { return Box(float64(ToInt32(a) ^ ToInt32(b))) }
+func BitXor(a, b Value) Value {
+	if x, y, ok := bigintOperands(a, b); ok {
+		return new(big.Int).Xor(x, y)
+	}
+	return Box(float64(ToInt32(a) ^ ToInt32(b)))
+}
 
 // BitNot is ~.
-func BitNot(a Value) Value { return Box(float64(^ToInt32(a))) }
+func BitNot(a Value) Value {
+	if b, ok := ToPrimitive(a, "number").(*big.Int); ok {
+		return new(big.Int).Not(b)
+	}
+	return Box(float64(^ToInt32(a)))
+}
 
 // Shl is <<.
-func Shl(a, b Value) Value { return Box(float64(ToInt32(a) << (ToUint32(b) & 31))) }
+func Shl(a, b Value) Value {
+	if x, y, ok := bigintOperands(a, b); ok {
+		return shiftBig(x, y)
+	}
+	return Box(float64(ToInt32(a) << (ToUint32(b) & 31)))
+}
 
 // Shr is >>.
-func Shr(a, b Value) Value { return Box(float64(ToInt32(a) >> (ToUint32(b) & 31))) }
+func Shr(a, b Value) Value {
+	if x, y, ok := bigintOperands(a, b); ok {
+		return shiftBig(x, new(big.Int).Neg(y))
+	}
+	return Box(float64(ToInt32(a) >> (ToUint32(b) & 31)))
+}
 
 // UShr is >>>.
 func UShr(a, b Value) Value { return Box(float64(ToUint32(a) >> (ToUint32(b) & 31))) }
@@ -212,6 +286,9 @@ func UShr(a, b Value) Value { return Box(float64(ToUint32(a) >> (ToUint32(b) & 3
 // StrictEquals is ===.
 func StrictEquals(a, b Value) bool {
 	switch x := a.(type) {
+	case *big.Int:
+		y, ok := b.(*big.Int)
+		return ok && x.Cmp(y) == 0
 	case float64:
 		y, ok := b.(float64)
 		return ok && x == y // NaN != NaN, and 0 == -0
@@ -256,6 +333,9 @@ func LooseEquals(a, b Value) bool {
 		return true
 	case IsNullish(a) || IsNullish(b):
 		return false
+	}
+	if eq, ok := looseBigInt(a, b); ok {
+		return eq
 	}
 	switch x := a.(type) {
 	case float64:
@@ -311,6 +391,9 @@ func sameType(a, b Value) bool {
 	case *Symbol:
 		_, ok := b.(*Symbol)
 		return ok
+	case *big.Int:
+		_, ok := b.(*big.Int)
+		return ok
 	}
 	return false
 }
@@ -331,6 +414,9 @@ func (rt *Realm) lessThan(a, b Value, leftFirst bool) int {
 			}
 			return 0
 		}
+	}
+	if r, ok := lessBigInt(pa, pb); ok {
+		return r
 	}
 	x, y := ToNumber(pa), ToNumber(pb)
 	if math.IsNaN(x) || math.IsNaN(y) {
@@ -446,6 +532,9 @@ func Inc(v Value) Value {
 	if x, ok := v.(float64); ok {
 		return Box(x + 1)
 	}
+	if b, ok := ToPrimitive(v, "number").(*big.Int); ok {
+		return new(big.Int).Add(b, big.NewInt(1))
+	}
 	return Box(ToNumber(v) + 1)
 }
 
@@ -453,6 +542,9 @@ func Inc(v Value) Value {
 func Dec(v Value) Value {
 	if x, ok := v.(float64); ok {
 		return Box(x - 1)
+	}
+	if b, ok := ToPrimitive(v, "number").(*big.Int); ok {
+		return new(big.Int).Sub(b, big.NewInt(1))
 	}
 	return Box(ToNumber(v) - 1)
 }

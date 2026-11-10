@@ -12,7 +12,10 @@
 //	*Symbol               a symbol
 package js
 
-import "math"
+import (
+	"math"
+	"math/big"
+)
 
 // Value is a JavaScript value.
 type Value = any
@@ -49,7 +52,9 @@ type Symbol struct{ Description string }
 var (
 	SymbolIterator    = &Symbol{"Symbol.iterator"}
 	SymbolToPrimitive = &Symbol{"Symbol.toPrimitive"}
-	SymbolToStringTag = &Symbol{"Symbol.toStringTag"}
+	// SymbolAsyncIterator is Symbol.asyncIterator.
+	SymbolAsyncIterator = &Symbol{"Symbol.asyncIterator"}
+	SymbolToStringTag   = &Symbol{"Symbol.toStringTag"}
 )
 
 // IsNullish reports whether v is undefined or null.
@@ -70,6 +75,8 @@ func Typeof(v Value) string {
 		return "string"
 	case *Symbol:
 		return "symbol"
+	case *big.Int:
+		return "bigint"
 	case *Object:
 		if x.call != nil {
 			return "function"
@@ -90,6 +97,8 @@ func Truthy(v Value) bool {
 		return x != ""
 	case undefinedType, nullType:
 		return false
+	case *big.Int:
+		return x.Sign() != 0
 	}
 	return true // objects and symbols
 }

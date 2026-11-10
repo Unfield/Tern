@@ -28,6 +28,7 @@ type genIO struct {
 // Gen is a generator object's state.
 type Gen struct {
 	rt      *Realm
+	async   bool // an async generator\'s: its awaits are marked
 	body    func(*Gen) Value
 	io      *genIO
 	next    func() (Value, bool)

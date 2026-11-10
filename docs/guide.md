@@ -319,7 +319,7 @@ var Actions = kit.Actions{
 </Form>
 ```
 
-Without Tern UI, `validate(forms.default, new FormData(form))` from `@ternkit/tern` returns the errors. The server always checks again, so the rules hold without JavaScript too. Typed endpoints check the same tags on their input and answer 400.
+Without Tern UI, `validate(forms.default, new FormData(form))` from `@ternkit/tern` returns the errors. The server always checks again, so the rules hold without JavaScript too. Typed endpoints check the same tags on their input and answer 400. There, a number that is 0 counts as not given, since a missing parameter leaves 0; use a pointer to accept an explicit 0.
 
 ## Endpoints
 

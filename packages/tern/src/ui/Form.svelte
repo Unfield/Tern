@@ -91,7 +91,7 @@
 			summary = '';
 			return true;
 		}
-		summary = names.length === 1 ? errors[names[0]!]! : `${names.length} fields need attention.`;
+		summary = names.length === 1 ? '1 field needs attention.' : `${names.length} fields need attention.`;
 		void tick().then(() => el?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
 		return false;
 	}

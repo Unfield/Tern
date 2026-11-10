@@ -76,7 +76,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 Built alongside a real app, a self-hosted web analytics tool, so every piece is used before it ships.
 
 **Starting a project**
-- [ ] `npm create tern@latest`, and an interactive `tern new`: name, template, Tern UI, git, install
+- [x] `npm create tern@latest`, and an interactive `tern new`: name, template, Tern UI, git, install
 - [x] `ctx.ClientIP()` with trusted proxies, the Intl shim's `signDisplay`, a password sign-in recipe
 
 **Tern UI: the complete set**
@@ -92,7 +92,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] Schemas in Go that validate actions and endpoints, generate matching TypeScript validators so the page checks as you type, and show each error on its `Field`
 
 **The analytics app**
-- [ ] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary
+- [x] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary
 
 ## Next
 

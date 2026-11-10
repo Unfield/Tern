@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `examples/analytics`: a self-hosted, privacy-friendly web analytics app. A cookie-free tracking script, a live dashboard with charts and tables, sign-in, hourly totals and pruning as jobs, a weekly email report, and a stats API, in one binary.
+
 - Form validation from Go struct tags. `kit.FormAction` decodes a post into a struct and checks `validate:"required,min=3,email,…"` before the action runs, failing with a `kit.Invalid` of errors by field. `tern gen` writes the same rules to `./$forms`, `validate()` from `@ternkit/tern` checks them in the browser with the same messages, and Tern UI's new `Form` checks them as the user types and shows each error on its `Field` by `name`. Typed endpoints check the same tags.
 - `tern ui add <Component>` copies Tern UI components, and the helpers they use, into `src/lib/ui` to change them; `tern ui list` lists them. The MCP server has it as `ui_add`.
 - Tern UI blocks: `SignIn` (OAuth providers and a password form), `SignUp` and `ConsentScreen`.
@@ -25,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The guide has a recipe for signing in with a password: sessions, a sign-in action, a hook, guarded pages and signing out.
 
 ### Changed
+
+- Tern UI's charts accept any object rows, including the interfaces `tern gen` generates.
 
 - Tern UI's menus and tooltips open in the top layer and stay on screen, so containers with `overflow` no longer clip them. `Tooltip` takes `left` and `right` too.
 

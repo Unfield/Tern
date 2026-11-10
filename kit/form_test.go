@@ -138,7 +138,7 @@ func TestFormActionBadTagsPanic(t *testing.T) {
 
 type typedIn struct {
 	Name  string `json:"name" validate:"required,max=5"`
-	Count int    `json:"count" validate:"max=10"`
+	Count int    `json:"count" validate:"min=1,max=10"`
 }
 
 func TestCheckTyped(t *testing.T) {
@@ -149,6 +149,9 @@ func TestCheckTyped(t *testing.T) {
 	var he *HTTPError
 	if !errors.As(err, &he) || he.Status != http.StatusBadRequest || he.Message != "Name is required. Count must be at most 10." {
 		t.Errorf("got %v", err)
+	}
+	if err := checkTyped(typedIn{Name: "ok"}); err != nil {
+		t.Errorf("a missing number isn't checked against its rules: %v", err)
 	}
 	if checkTyped(struct{ M map[string]int }{}) != nil {
 		t.Error("inputs without form types have no rules")

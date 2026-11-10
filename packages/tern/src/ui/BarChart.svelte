@@ -1,4 +1,4 @@
-<script lang="ts" generics="Row extends Record<string, unknown>">
+<script lang="ts" generics="Row extends object">
 	import ChartFrame from './ChartFrame.svelte';
 	import { lastIndex, formatNumber, niceTicks, seriesColor, textWidth, type Series } from './chart.js';
 
@@ -23,8 +23,16 @@
 	let width = $state(640);
 	let active = $state<number | null>(null);
 
-	const cats = $derived(data.map((r) => String(r[x] ?? '')));
-	const values = $derived(data.map((r) => series.map((s) => (typeof r[s.key] === 'number' && Number.isFinite(r[s.key]) ? Math.max(0, r[s.key] as number) : 0))));
+	const field = (r: Row, k: string) => (r as Record<string, unknown>)[k];
+	const cats = $derived(data.map((r) => String(field(r, x) ?? '')));
+	const values = $derived(
+		data.map((r) =>
+			series.map((s) => {
+				const v = field(r, s.key);
+				return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : 0;
+			})
+		)
+	);
 	const totals = $derived(values.map((v) => (stacked ? v.reduce((a, b) => a + b, 0) : Math.max(0, ...v))));
 	const h = $derived(height ?? (horizontal ? Math.max(120, data.length * (stacked || series.length === 1 ? 32 : 18 * series.length + 14) + 30) : 240));
 	const ticks = $derived(niceTicks(0, Math.max(0, ...totals), horizontal ? Math.max(2, Math.floor(width / 110)) : Math.max(3, Math.round(h / 60))));

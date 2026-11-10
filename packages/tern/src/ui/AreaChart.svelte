@@ -1,4 +1,4 @@
-<script lang="ts" generics="Row extends Record<string, unknown>">
+<script lang="ts" generics="Row extends object">
 	import type { ComponentProps } from 'svelte';
 	import LineChart from './LineChart.svelte';
 

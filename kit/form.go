@@ -253,6 +253,10 @@ func asText(kind formrules.Kind, v reflect.Value) []string {
 			return nil
 		}
 		v = v.Elem()
+	} else if (kind == formrules.Int || kind == formrules.Float) && v.IsZero() {
+		// A missing query parameter or JSON field leaves 0; use a pointer
+		// to tell an explicit 0 apart.
+		return nil
 	}
 	switch kind {
 	case formrules.Strings:

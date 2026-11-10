@@ -1,4 +1,4 @@
-<script lang="ts" generics="Row extends Record<string, unknown>">
+<script lang="ts" generics="Row extends object">
 	import ChartFrame from './ChartFrame.svelte';
 	import { formatNumber, seriesColor } from './chart.js';
 
@@ -25,7 +25,12 @@
 
 	// Biggest first; the tail folds into Other so colors stay distinct.
 	const parts = $derived.by(() => {
-		const rows = data.map((r) => ({ label: String(r[label] ?? ''), value: Math.max(0, Number(r[value]) || 0) })).sort((a, b) => b.value - a.value);
+		const rows = data
+			.map((r) => {
+				const o = r as Record<string, unknown>;
+				return { label: String(o[label] ?? ''), value: Math.max(0, Number(o[value]) || 0) };
+			})
+			.sort((a, b) => b.value - a.value);
 		if (rows.length <= max) return rows;
 		const keep = rows.slice(0, max - 1);
 		return [...keep, { label: 'Other', value: rows.slice(max - 1).reduce((a, r) => a + r.value, 0) }];

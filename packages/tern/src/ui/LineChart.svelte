@@ -1,4 +1,4 @@
-<script lang="ts" generics="Row extends Record<string, unknown>">
+<script lang="ts" generics="Row extends object">
 	import ChartFrame from './ChartFrame.svelte';
 	import { lastIndex, formatNumber, formatX, isTime, niceTicks, numericX, seriesColor, textWidth, timeTicks, type Series, type XValue } from './chart.js';
 
@@ -25,10 +25,18 @@
 	let width = $state(640);
 	let active = $state<number | null>(null);
 
-	const xs = $derived(data.map((r) => r[x] as XValue));
+	const field = (r: Row, k: string) => (r as Record<string, unknown>)[k];
+	const xs = $derived(data.map((r) => field(r, x) as XValue));
 	const time = $derived(isTime(xs));
 	const nx = $derived(numericX(xs));
-	const values = $derived(series.map((s) => data.map((r) => (typeof r[s.key] === 'number' && Number.isFinite(r[s.key]) ? (r[s.key] as number) : null))));
+	const values = $derived(
+		series.map((s) =>
+			data.map((r) => {
+				const v = field(r, s.key);
+				return typeof v === 'number' && Number.isFinite(v) ? v : null;
+			})
+		)
+	);
 	const all = $derived(values.flat().filter((v): v is number => v !== null));
 	const yTicks = $derived(niceTicks(zero || area ? Math.min(0, ...all) : Math.min(...all), Math.max(zero || area ? 0 : -Infinity, ...all), Math.max(3, Math.round(height / 60))));
 	const yMin = $derived(yTicks[0]!);

@@ -169,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [todos, dashboard, status, goscript, ui]
+        example: [todos, dashboard, status, goscript, ui, analytics]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -187,6 +187,9 @@ jobs:
       - name: Run Playwright
         working-directory: examples/${{ matrix.example }}
         run: pnpm test:e2e
+      - name: Go tests
+        working-directory: examples/${{ matrix.example }}
+        run: go test -count=1 ./...
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

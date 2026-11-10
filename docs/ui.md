@@ -36,6 +36,15 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Field` with `Input`, `Textarea` or `Select` | the label, description and error are wired to the control with `for`, `aria-describedby` and `aria-invalid`. The error is announced |
 | `Checkbox`, `RadioGroup`, `Select` | native inputs, styled: arrow keys and screen readers behave as users expect. `RadioGroup` is a `fieldset` with a `legend` |
 | `Switch` | `role="switch"` with `aria-checked`. It posts `on`/`off` with `name` |
+| `Combobox` | the ARIA combobox with a list: typing filters (or calls `onsearch` for server results), arrow keys move, Enter picks, Escape closes and then clears. Leaving it with other text keeps the chosen option |
+| `SelectMenu` | the ARIA select-only combobox, for options with descriptions and groups: type-ahead open or closed, Home, End and Page keys |
+| `Command` | a filtered list of commands with groups, keywords and shortcuts. With `dialog` and `hotkey="k"`, a modal palette opened with ⌘K or Ctrl+K |
+| `Calendar`, `DatePicker` | the ARIA date grid: arrow keys by day and week, Home and End for the week, Page keys by month and Shift+Page by year. Days are labelled in full and today is `aria-current`. Values are ISO dates (`2026-11-10`) that Go parses with `time.Parse(time.DateOnly, …)`; ranges take a start and an end |
+| `Slider` | `role="slider"` thumbs with values, text and limits. A range has two thumbs that never cross. Arrow, Page, Home and End keys, and the pointer |
+| `ToggleGroup`, `Toggle` | a single-choice group is a radio group with arrow keys; a multiple-choice group and `Toggle` are buttons with `aria-pressed` |
+| `PasswordInput` | a native password input with a "Show password" button (`aria-pressed`) inside it. Password managers and `autocomplete` keep working |
+| `InputOTP` | one real input with `autocomplete="one-time-code"`, drawn as boxes, so pasting and filling the code from a text message work. `oncomplete` runs once it's full |
+| `InputGroup`, `ButtonGroup`, `Label` | an Input with text or buttons inside its border; joined buttons in a labelled `group`; a label for layouts without `Field` |
 | `Dialog` | a native modal `<dialog>`: the page behind is inert, Escape closes it, focus returns to the opener, and Tab cycles inside. It is labelled by its title and described by its description |
 | `Tabs` | the ARIA tabs pattern: arrow keys, Home and End, roving tabindex, and disabled tabs skipped |
 | `Menu` | the ARIA menu button pattern: Enter, Space and the arrow keys open it, type-ahead jumps, Escape returns focus, and Tab and clicks outside close it. Items can have submenus, checkboxes, radio items, shortcuts and labelled groups |

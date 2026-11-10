@@ -81,7 +81,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 
 **Tern UI: the complete set**
 - [x] Overlays: Popover, Hover Card, Alert Dialog, Sheet, Drawer, Context Menu, Menubar
-- [ ] Inputs: Combobox, Command palette, custom Select, Slider, Toggle, Toggle Group, Input OTP, Input Group, Date Picker, Calendar, Label, Button Group
+- [x] Inputs: Combobox, Command palette, custom Select, Slider, Toggle, Toggle Group, Input OTP, Input Group, Date Picker, Calendar, Label, Button Group, Password input
 - [ ] Layout and navigation: Sidebar, Navigation Menu, Breadcrumb, Pagination, Collapsible, Resizable, Scroll Area, Aspect Ratio, Carousel, Empty, Item, Table
 - [ ] Data: a Data Table with sorting, filtering, selection and pagination
 - [ ] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers

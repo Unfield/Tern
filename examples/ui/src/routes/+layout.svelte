@@ -16,6 +16,7 @@
 	<a class="brand" href="/">Tern UI</a>
 	<nav aria-label="Main">
 		<a href="/" aria-current={page.url.pathname === '/' ? 'page' : undefined}>Components</a>
+		<a href="/inputs" aria-current={page.url.pathname === '/inputs' ? 'page' : undefined}>Inputs</a>
 		<a href="/overlays" aria-current={page.url.pathname === '/overlays' ? 'page' : undefined}>Overlays</a>
 		<a href="/form" aria-current={page.url.pathname === '/form' ? 'page' : undefined}>Form</a>
 	</nav>

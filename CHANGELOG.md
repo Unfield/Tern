@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`. The flags `-ui`, `-git` and `-install` do the same without questions, and flags may now follow the directory.
 - `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
 - Tern UI overlays: `Popover`, `HoverCard`, `AlertDialog`, `Sheet`, `Drawer`, `ContextMenu` and `Menubar`. Menus gain submenus, checkbox and radio items, shortcuts and labelled groups.
+- Tern UI inputs: `Combobox` (with server search), `SelectMenu`, `Command` (and a ⌘K palette), `Calendar`, `DatePicker` (with ranges), `Slider` (with ranges), `Toggle`, `ToggleGroup`, `PasswordInput`, `InputOTP`, `InputGroup`, `ButtonGroup` and `Label`.
 
 - `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
 - The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.
@@ -25,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- A `Field` in a stretched grid row no longer grows its label, so controls in a row line up.
 - Two compiled `tern` binaries had been committed to the repository by accident; they are removed and ignored.
 - The guide's hook example called `sessions.User`, which doesn't exist.
 

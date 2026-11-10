@@ -23,14 +23,17 @@
 		trigger: Snippet<[PopoverTrigger]>;
 		children: Snippet;
 		class?: string;
+		/** The trigger's id, when it needs a particular one, such as a Field's. */
+		triggerId?: string;
 		onclose?: () => void;
 	};
-	let { open = $bindable(false), title, label, side = 'bottom', align = 'center', trigger, children, class: klass = '', onclose }: Props = $props();
+	let { open = $bindable(false), title, label, side = 'bottom', align = 'center', trigger, children, class: klass = '', triggerId, onclose }: Props = $props();
 
 	const uid = $props.id();
 	const id = `tern-popover-${uid}`;
 	let panel = $state<HTMLDivElement>();
-	const anchor = () => document.getElementById(`${id}-trigger`);
+	const tid = $derived(triggerId ?? `${id}-trigger`);
+	const anchor = () => document.getElementById(tid);
 
 	function close(returnFocus: boolean) {
 		if (!open) return;
@@ -59,7 +62,7 @@
 </script>
 
 {@render trigger({
-	id: `${id}-trigger`,
+	id: tid,
 	'aria-haspopup': 'dialog',
 	'aria-expanded': open,
 	'aria-controls': id,

@@ -18,9 +18,11 @@
 	let { label, description, error = null, required = false, disabled = false, class: klass = '', children }: Props = $props();
 
 	const uid = $props.id();
+	let custom = $state(false);
 	const id = `tern-field-${uid}`;
 	setField({
 		id,
+		labelId: `${id}-label`,
 		get describedBy() {
 			return [description ? `${id}-description` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined;
 		},
@@ -32,12 +34,16 @@
 		},
 		get disabled() {
 			return disabled;
+		},
+		custom() {
+			custom = true;
 		}
 	});
 </script>
 
 <div class="tern-field {klass}" class:disabled>
-	<label for={id}>
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+	<label for={custom ? undefined : id} id="{id}-label" onclick={custom ? () => document.getElementById(id)?.focus() : undefined}>
 		{label}
 		{#if required}<span class="required" aria-hidden="true">*</span>{/if}
 	</label>
@@ -49,6 +55,7 @@
 <style>
 	.tern-field {
 		display: grid;
+		align-content: start;
 		gap: 0.375rem;
 	}
 	label {

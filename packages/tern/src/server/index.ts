@@ -63,3 +63,6 @@ export function createRenderer(manifest: ServerManifest): (payload: string, href
 		return JSON.stringify({ head: out.head, body: out.body } satisfies RenderResult);
 	};
 }
+
+export { createEmailRenderer } from './email.js';
+export type { EmailModule, EmailResult } from './email.js';

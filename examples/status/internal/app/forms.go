@@ -13,7 +13,7 @@ import (
 
 // MonitorInvalid is returned with a failed monitor form.
 type MonitorInvalid struct {
-	Values store.Monitor      `json:"values"`
+	Values store.Monitor     `json:"values"`
 	Errors map[string]string `json:"errors"`
 }
 

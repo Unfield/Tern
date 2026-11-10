@@ -443,7 +443,36 @@ func (g *generator) serverEntry() {
 		intSlice(g.layoutRefs(rl)), errorList(g.rootErrorPages(), rl), i18nConfig)
 
 	b.WriteString(body.String())
+	if emails := g.emails(); len(emails) > 0 {
+		b.WriteString("\nimport { createEmailRenderer } from '@ternkit/tern/server';\n")
+		var list []string
+		for i, e := range emails {
+			fmt.Fprintf(&b, "import * as M%d from %q;\n", i, "../../"+EmailsDir+"/"+e+".svelte")
+			list = append(list, fmt.Sprintf("\t%q: M%d", e, i))
+		}
+		fmt.Fprintf(&b, "\nexport const renderEmail = createEmailRenderer({\n%s\n});\n\nglobalThis.__tern_email = renderEmail;\n", strings.Join(list, ",\n"))
+	}
 	g.files[ServerEntry] = []byte(b.String())
+}
+
+// EmailsDir holds email templates, one Svelte component per email.
+const EmailsDir = "src/emails"
+
+// emails returns the names of the templates in src/emails, sorted.
+func (g *generator) emails() []string {
+	entries, err := os.ReadDir(filepath.Join(g.root, filepath.FromSlash(EmailsDir)))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		name, ok := strings.CutSuffix(e.Name(), ".svelte")
+		if ok && !e.IsDir() && !strings.HasPrefix(name, "_") && name != "" {
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // layoutsAbove counts the layouts that wrap an error page.

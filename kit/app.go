@@ -57,6 +57,10 @@ type App struct {
 	startOnce       sync.Once
 	startErr        error
 
+	emails    ssr.EmailRenderer
+	emailsErr error
+	emailOnce sync.Once
+
 	// shutdownCtx is canceled when the server begins shutting down, which
 	// ends event streams and WebSockets.
 	shutdownCtx   context.Context
@@ -224,6 +228,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+	}
+	if a.dev != nil && strings.HasPrefix(r.URL.Path, "/__tern/emails") {
+		a.emailPreviews(w, r)
+		return
 	}
 	if a.prerendering && r.URL.Path == "/__tern/prerender" {
 		a.prerenderList(w, r)

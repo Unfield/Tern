@@ -19,16 +19,40 @@ type Dev struct {
 
 // Render implements Renderer.
 func (d *Dev) Render(ctx context.Context, payload []byte, href string) (Result, error) {
-	body, err := json.Marshal(struct {
+	raw, err := d.post(ctx, "/__tern/render", struct {
 		Payload string `json:"payload"`
 		Href    string `json:"href"`
 	}{string(payload), href})
 	if err != nil {
 		return Result{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.URL+"/__tern/render", bytes.NewReader(body))
+	var res Result
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
+	}
+	return res, nil
+}
+
+// Email implements EmailRenderer.
+func (d *Dev) Email(ctx context.Context, name string, props []byte) (EmailResult, []byte, error) {
+	raw, err := d.post(ctx, "/__tern/email", struct {
+		Name  string `json:"name"`
+		Props string `json:"props"`
+	}{name, string(props)})
 	if err != nil {
-		return Result{}, err
+		return EmailResult{}, nil, err
+	}
+	return decodeEmail(name, string(raw))
+}
+
+func (d *Dev) post(ctx context.Context, path string, v any) ([]byte, error) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.URL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := d.Client
@@ -37,19 +61,15 @@ func (d *Dev) Render(ctx context.Context, payload []byte, href string) (Result, 
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return Result{}, fmt.Errorf("ssr: contacting Vite: %w", err)
+		return nil, fmt.Errorf("ssr: contacting Vite: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return Result{}, fmt.Errorf("ssr: %s", bytes.TrimSpace(raw))
+		return nil, fmt.Errorf("ssr: %s", bytes.TrimSpace(raw))
 	}
-	var res Result
-	if err := json.Unmarshal(raw, &res); err != nil {
-		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
-	}
-	return res, nil
+	return raw, nil
 }

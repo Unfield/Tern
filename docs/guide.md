@@ -782,6 +782,58 @@ q.Schedule("ping", "@every 30s", checkMonitors)
 
 Schedules take five-field cron expressions (`*/5 * * * *`, `0 9 * * mon-fri`), `@hourly`, `@daily`, `@weekly`, `@monthly` and `@every <duration>`. They run in UTC unless `Options.Location` says otherwise. Each run is a job, retried like any other. With several instances, each run happens once, and a run doesn't start while the previous one is still going.
 
+## Email
+
+Write emails as Svelte components in `src/emails/`. They render on the server with the same engine as pages. Their styles are included in the HTML, since mail clients can't load your stylesheets. The `<title>` becomes the subject:
+
+```svelte
+<!-- src/emails/Welcome.svelte -->
+<script module lang="ts">
+	export const preview = { name: 'Ada', link: 'https://example.com/confirm?t=demo' };
+</script>
+
+<script lang="ts">
+	let { name, link }: { name: string; link: string } = $props();
+</script>
+
+<svelte:head><title>Welcome, {name}</title></svelte:head>
+
+<h1>Welcome, {name}!</h1>
+<p><a href={link}>Confirm your email address</a> to get started.</p>
+
+<style>
+	h1 { font-family: system-ui, sans-serif; }
+</style>
+```
+
+Render and send it from Go with the `mail` package:
+
+```go
+mailer := mail.New(mail.SMTP{Host: "smtp.example.com", Port: 587, Username: user, Password: pass}, "Acme <hello@acme.com>")
+
+msg, err := mailer.Template(ctx, app, "Welcome", map[string]any{"name": u.Name, "link": link})
+msg.To = []string{u.Email}
+err = mailer.Send(ctx, msg)
+```
+
+**The message:** it carries the HTML and a plain-text version made from it (links appear as `text (url)`). `app.RenderEmail` returns these parts without sending.
+
+**SMTP:**
+- Port 465 uses TLS from the start. Other ports require STARTTLS unless `Insecure` is set, for local servers such as Mailpit.
+- Addresses are validated, `Bcc` recipients never appear in the headers, and line breaks can't inject headers.
+
+**Development:**
+- Use `&mail.Log{}` as the transport to print messages instead of sending them.
+- `/__tern/emails` lists every template, and `/__tern/emails/<Name>` previews one with its `preview` props. Add `?text` for the text version.
+- Previews update as you edit the templates.
+
+**Retries:** send in the background with `mail.Job`:
+
+```go
+sendMail := mail.Job(q, mailer) // a jobs kind, retried up to five times
+_, err := sendMail.Enqueue(ctx, *msg)
+```
+
 ## Realtime
 
 ### Server-sent events

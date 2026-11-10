@@ -204,64 +204,118 @@ func (p *Pool) loadStack() string {
 
 // Render renders payload, waiting for a free VM if all are busy.
 func (p *Pool) Render(ctx context.Context, payload []byte, href string) (Result, error) {
+	out, err := p.call(ctx, "__tern_render", string(payload), href)
+	if err != nil {
+		return Result{}, err
+	}
+	var res Result
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
+	}
+	return res, nil
+}
+
+// EmailResult is a rendered email template.
+type EmailResult struct {
+	Subject string `json:"subject"`
+	HTML    string `json:"html"`
+	Error   string `json:"error,omitempty"`
+}
+
+// EmailRenderer renders the app's email templates (src/emails). An empty
+// name returns the template names with their preview props, as JSON.
+type EmailRenderer interface {
+	Email(ctx context.Context, name string, props []byte) (EmailResult, []byte, error)
+}
+
+// ErrNoEmails is returned when the app has no src/emails.
+var ErrNoEmails = errors.New("ssr: the app has no email templates (src/emails)")
+
+// Email renders an email template with props (JSON).
+func (p *Pool) Email(ctx context.Context, name string, props []byte) (EmailResult, []byte, error) {
+	out, err := p.call(ctx, "__tern_email", name, string(props))
+	if err != nil {
+		return EmailResult{}, nil, err
+	}
+	return decodeEmail(name, out)
+}
+
+func decodeEmail(name, out string) (EmailResult, []byte, error) {
+	if name == "" {
+		return EmailResult{}, []byte(out), nil
+	}
+	var res EmailResult
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		return EmailResult{}, nil, fmt.Errorf("ssr: decoding the email: %w", err)
+	}
+	if res.Error != "" {
+		return EmailResult{}, nil, errors.New("ssr: " + res.Error)
+	}
+	return res, nil, nil
+}
+
+// call runs a global function of the bundle in a free VM.
+func (p *Pool) call(ctx context.Context, fn string, args ...any) (string, error) {
 	var v *vm
 	select {
 	case v = <-p.slots:
 	case <-ctx.Done():
-		return Result{}, ctx.Err()
+		return "", ctx.Err()
 	case <-p.closed:
-		return Result{}, errors.New("ssr: pool closed")
+		return "", errors.New("ssr: pool closed")
 	}
 
 	if v == nil {
 		var err error
 		if v, err = p.newVM(); err != nil {
 			p.slots <- nil
-			return Result{}, err
+			return "", err
+		}
+	}
+	if fn != "__tern_render" {
+		if ok, _ := v.js.Eval("typeof globalThis."+fn+" === 'function'", quickjs.EvalGlobal); ok != true {
+			p.slots <- v
+			return "", ErrNoEmails
 		}
 	}
 
-	res, err := p.renderWith(ctx, v, payload, href)
+	out, err := p.callWith(ctx, v, fn, args...)
 	if err != nil {
 		// The VM may be in an inconsistent state; replace it.
 		_ = v.js.Close()
 		p.slots <- nil
-		return Result{}, err
+		return "", err
 	}
 	v.renders++
 	if p.opts.MaxRenders > 0 && v.renders >= p.opts.MaxRenders {
 		_ = v.js.Close()
 		go p.replace()
-		return res, nil
+		return out, nil
 	}
 	p.slots <- v
-	return res, nil
+	return out, nil
 }
 
-func (p *Pool) renderWith(ctx context.Context, v *vm, payload []byte, href string) (Result, error) {
+func (p *Pool) callWith(ctx context.Context, v *vm, fn string, args ...any) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancel()
 	stop := context.AfterFunc(ctx, v.js.Interrupt)
-	out, err := v.js.Call("__tern_render", string(payload), href)
+	out, err := v.js.Call(fn, args...)
 	interrupted := !stop()
 	if interrupted {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return Result{}, ErrTimeout
+			return "", ErrTimeout
 		}
-		return Result{}, ctx.Err()
+		return "", ctx.Err()
 	}
 	if err != nil {
-		return Result{}, fmt.Errorf("ssr: %w", err)
+		return "", fmt.Errorf("ssr: %w", err)
 	}
 	s, ok := out.(string)
 	if !ok {
-		return Result{}, fmt.Errorf("ssr: __tern_render returned %T, want a string", out)
+		return "", fmt.Errorf("ssr: %s returned %T, want a string", fn, out)
 	}
-	var res Result
-	if err := json.Unmarshal([]byte(s), &res); err != nil {
-		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
-	}
-	return res, nil
+	return s, nil
 }
 
 // replace builds a VM for a retired one's slot, so requests don't wait.

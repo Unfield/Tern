@@ -67,7 +67,7 @@ func Load(ctx *kit.Ctx) (Page, error) {
 }
 
 type Invalid struct {
-	Values store.Channel      `json:"values"`
+	Values store.Channel     `json:"values"`
 	Errors map[string]string `json:"errors"`
 }
 
@@ -131,4 +131,3 @@ var Actions = kit.Actions{
 		return struct{}{}, app.Queue.Retry(ctx, formID(ctx))
 	}),
 }
-

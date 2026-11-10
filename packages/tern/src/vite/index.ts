@@ -29,6 +29,8 @@ const SERVER_OUT = '.tern/output/server';
 
 /** The dev endpoint the Go app calls to server-render a page. */
 const RENDER_PATH = '/__tern/render';
+/** The dev endpoint the Go app calls to render an email. */
+const EMAIL_PATH = '/__tern/email';
 
 /**
  * The Vite plugin for Tern apps. It includes the Svelte plugin, so it is
@@ -149,6 +151,20 @@ export function tern(options: TernOptions = {}): Plugin[] {
 			return serviceWorkerModule(root, readBasePath(root));
 		},
 		configureServer(server) {
+			server.middlewares.use(EMAIL_PATH, (req, res) => {
+				void emailInDev(server, req).then(
+					(body) => {
+						res.setHeader('Content-Type', 'application/json');
+						res.end(body);
+					},
+					(err: unknown) => {
+						const e = err instanceof Error ? err : new Error(String(err));
+						server.ssrFixStacktrace(e);
+						res.statusCode = 500;
+						res.end(e.stack ?? e.message);
+					}
+				);
+			});
 			server.middlewares.use(RENDER_PATH, (req, res) => {
 				void renderInDev(server, req).then(
 					(body) => {
@@ -178,6 +194,18 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		return mod.render(payload, href);
 	}
 
+	async function emailInDev(server: ViteDevServer, req: IncomingMessage): Promise<string> {
+		if (req.method !== 'POST') throw new Error('POST required');
+		const chunks: Buffer[] = [];
+		for await (const chunk of req) chunks.push(chunk as Buffer);
+		const { name, props } = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { name: string; props: string };
+		const mod = (await server.ssrLoadModule(path.join(root, SERVER_ENTRY))) as {
+			renderEmail?: (name: string, props: string) => string;
+		};
+		if (!mod.renderEmail) return JSON.stringify(name === '' ? {} : { subject: '', html: '', error: 'the app has no src/emails' });
+		return mod.renderEmail(name, props);
+	}
+
 	// Runs before Vite's own resolver, which would pick the default build.
 	const browserBuildsPlugin: Plugin = {
 		name: 'tern:ssr-browser-builds',
@@ -188,7 +216,21 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		}
 	};
 
-	return [browserBuildsPlugin, imagePlugin(), ...svelte(options.svelte), plugin];
+	// Email templates carry their styles in the HTML, since mail clients
+	// can't load the app's stylesheets.
+	const userDynamic = options.svelte?.dynamicCompileOptions;
+	const svelteOptions: Partial<SvelteOptions> = {
+		...options.svelte,
+		dynamicCompileOptions: async (args) => {
+			const user = (await userDynamic?.(args)) ?? undefined;
+			if (args.filename.includes(`${path.sep}src${path.sep}emails${path.sep}`) || args.filename.includes('/src/emails/')) {
+				return { ...user, css: 'injected' };
+			}
+			return user;
+		}
+	};
+
+	return [browserBuildsPlugin, imagePlugin(), ...svelte(svelteOptions), plugin];
 }
 
 /** The $service-worker module: what this build produced, for caching. */

@@ -96,6 +96,9 @@ func (c *Cache) add(key [32]byte, res Result) {
 	}
 }
 
+// Next returns the renderer the cache wraps.
+func (c *Cache) Next() Renderer { return c.next }
+
 // Stats reports cache hits, misses, and the bytes cached.
 func (c *Cache) Stats() (hits, misses uint64, bytes int) {
 	c.mu.Lock()

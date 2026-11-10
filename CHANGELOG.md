@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Email: Svelte components in `src/emails` render on the server into a subject, HTML with the component's styles, and a plain-text version (`app.RenderEmail`). The `mail` package sends them over SMTP (STARTTLS or implicit TLS), with a `Log` transport for development and `mail.Job` for retries. Under `tern dev`, `/__tern/emails` previews every template with its `preview` props.
 - `plugins/oauth`: sign in with GitHub, Google or any OpenID Connect provider, with PKCE, state and nonce in an encrypted cookie and verified ID tokens.
 - `plugins/oidc`: an OAuth 2.0 authorization server and OpenID Connect provider with discovery, JWKS, consent, the authorization code flow with PKCE, refresh token rotation with reuse detection, client credentials, userinfo, revocation and introspection, RS256 JWT access tokens and `provider.Bearer` for APIs. Its state lives in a `MemoryStore` or a `SQLStore` (SQLite, PostgreSQL).
 - `rbac`: roles, permissions with wildcards and included roles, `Require`, `Can` and a hook for whole sections.

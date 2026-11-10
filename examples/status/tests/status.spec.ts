@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { smtpSink } from './smtp.js';
 
 // The tests run in order against one fresh database (see playwright.config.ts).
 test.describe.configure({ mode: 'serial' });
@@ -167,6 +168,42 @@ test('notification channels can be tested, and outages notify them', async ({ pa
 	await expect.poll(async () => (await received()).some((m) => m.title === '🟢 API is back up'), { timeout: 20_000 }).toBe(true);
 	await page.reload();
 	await expect(page.getByText('API is up').first()).toBeVisible();
+});
+
+test('email notifications are rendered from a Svelte template', async ({ page }) => {
+	const smtp = await smtpSink();
+	try {
+		await signIn(page);
+		await page.getByRole('link', { name: 'Notifications' }).click();
+		await page.getByLabel('Type').selectOption('email');
+		await page.getByLabel('Name', { exact: true }).fill('Ops email');
+		await page.getByLabel('SMTP host').fill('127.0.0.1');
+		await page.getByLabel('Port').fill(String(smtp.port));
+		await page.getByLabel('From').fill('Status <status@example.test>');
+		await page.getByLabel('To (comma-separated)').fill('ops@example.test');
+		await page.getByRole('button', { name: 'Add channel' }).click();
+		const channel = page.getByTestId('channel').filter({ hasText: 'Ops email' });
+		await channel.getByRole('button', { name: 'Test' }).click();
+		await expect(page.getByText('Sent a test notification to Ops email.')).toBeVisible();
+
+		expect(smtp.messages).toHaveLength(1);
+		const raw = smtp.messages[0]!;
+		expect(raw).toContain('To: <ops@example.test>');
+		expect(raw).toMatch(/Subject: =\?utf-8\?q\?.*Test_monitor_is_down/i);
+		expect(raw).toContain('multipart/alternative');
+		// The HTML part comes from src/emails/MonitorAlert.svelte, with its styles.
+		const decoded = raw.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+		expect(decoded).toContain('Open the status page');
+		expect(decoded).toContain('<style');
+		expect(decoded).toContain('this is a test notification');
+		// The plain-text part is made from the HTML.
+		expect(decoded).toMatch(/text\/plain[\s\S]*Test monitor is down/);
+
+		await channel.getByRole('button', { name: 'Delete Ops email' }).click();
+		await expect(channel).toHaveCount(0);
+	} finally {
+		await smtp.close();
+	}
 });
 
 test('incidents are posted with Markdown and resolved', async ({ page, browser }) => {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/Unfield/Tern/jobs"
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/mail"
 	"github.com/Unfield/Tern/migrate"
 	"github.com/Unfield/Tern/plugins/compress"
 	"github.com/Unfield/Tern/plugins/health"
@@ -89,6 +90,23 @@ func main() {
 	)
 	if err != nil {
 		log.Fatal(err)
+	}
+	// Email notifications render src/emails/MonitorAlert.svelte.
+	notify.Mailer = func(ctx context.Context, smtp mail.SMTP, from string, to []string, c monitor.Change) error {
+		props := map[string]any{
+			"name": c.Name, "target": c.Target, "status": c.Status, "message": c.Message,
+			"at": c.At.UTC().Format(time.RFC1123), "downtime": "", "statusPage": env("PUBLIC_URL", "http://localhost:"+env("PORT", "3000")),
+		}
+		if c.Downtime > 0 {
+			props["downtime"] = c.Downtime.Round(time.Second).String()
+		}
+		m := mail.New(smtp, from)
+		msg, err := m.Template(ctx, application, "MonitorAlert", props)
+		if err != nil {
+			return err
+		}
+		msg.To = to
+		return m.Send(ctx, msg)
 	}
 	if err := application.ListenAndServe(); err != nil {
 		log.Fatal(err)

@@ -9,13 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
-	"net/smtp"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Unfield/Tern/mail"
 
 	"status/internal/monitor"
 	"status/internal/store"
@@ -93,7 +93,7 @@ func Send(ctx context.Context, ch store.Channel, c monitor.Change) error {
 	case "discord":
 		return postJSON(ctx, get("url"), map[string]string{"content": text})
 	case "email":
-		return sendEmail(ctx, get, title, text)
+		return sendEmail(ctx, get, c)
 	}
 	return fmt.Errorf("unknown channel type %q", ch.Type)
 }
@@ -120,27 +120,21 @@ func postJSON(ctx context.Context, target string, body any) error {
 	return nil
 }
 
-func sendEmail(ctx context.Context, get func(string) string, subject, text string) error {
-	host, port := get("host"), get("port")
-	addr := net.JoinHostPort(host, port)
+// Mailer renders and sends email notifications; main sets it, because
+// rendering the src/emails template needs the app.
+var Mailer func(ctx context.Context, smtp mail.SMTP, from string, to []string, c monitor.Change) error
+
+func sendEmail(ctx context.Context, get func(string) string, c monitor.Change) error {
+	port, _ := strconv.Atoi(get("port"))
+	host := get("host")
 	to := strings.FieldsFunc(get("to"), func(r rune) bool { return r == ',' || r == ' ' })
 	if len(to) == 0 {
 		return errors.New("no recipients")
 	}
-	msg := "From: " + get("from") + "\r\n" +
-		"To: " + strings.Join(to, ", ") + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + text + "\r\n"
-	var auth smtp.Auth
-	if u := get("username"); u != "" {
-		auth = smtp.PlainAuth("", u, get("password"), host)
+	if Mailer == nil {
+		return errors.New("email is not set up")
 	}
-	done := make(chan error, 1)
-	go func() { done <- smtp.SendMail(addr, auth, get("from"), to, []byte(msg)) }()
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	// Local test servers such as Mailpit don't offer TLS.
+	insecure := host == "localhost" || host == "127.0.0.1" || host == "::1"
+	return Mailer(ctx, mail.SMTP{Host: host, Port: port, Username: get("username"), Password: get("password"), Insecure: insecure}, get("from"), to, c)
 }

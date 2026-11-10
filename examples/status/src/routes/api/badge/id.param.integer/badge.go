@@ -63,4 +63,3 @@ func svg(label, value, color string) string {
 		`<text x="%[7]d" y="14" text-anchor="middle">%[3]s</text><text x="%[8]d" y="14" text-anchor="middle">%[4]s</text></g></svg>`,
 		lw+vw, lw, label, value, vw, color, lw/2, lw+vw/2)
 }
-

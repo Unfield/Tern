@@ -17,6 +17,9 @@ type IR struct {
 	Version int    `json:"version"`
 	Svelte  string `json:"svelte"`
 	Entry   string `json:"entry"`
+	// Bundled holds the modules the bundle has; the rest were tree-shaken.
+	// Nil means all of them.
+	Bundled map[string]bool `json:"bundled"`
 	// Env is import.meta.env in the server build.
 	Env map[string]any `json:"env"`
 	// FileURLs maps import.meta's asset URL placeholders to the URLs

@@ -71,7 +71,7 @@ func (c *Compiler) cond(s *scope, n *Node) string {
 	switch n.Type {
 	case "BinaryExpression":
 		op := n.Str("operator")
-		l, r := c.expr(s, n.Child("left")), c.expr(s, n.Child("right"))
+		l, r := c.pinned(s, n.Child("left"), []*Node{n.Child("right")}), c.expr(s, n.Child("right"))
 		switch op {
 		case "!=":
 			return fmt.Sprintf("!js.LooseEquals(%s, %s)", l, r)
@@ -180,7 +180,8 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 	case "BinaryExpression":
 		op := n.Str("operator")
 		if f, ok := binaryOps[op]; ok {
-			return fmt.Sprintf("%s(%s, %s)", f, c.expr(s, n.Child("left")), c.expr(s, n.Child("right")))
+			right := n.Child("right")
+			return fmt.Sprintf("%s(%s, %s)", f, c.pinned(s, n.Child("left"), []*Node{right}), c.expr(s, right))
 		}
 		if n.Child("left").Type == "PrivateIdentifier" {
 			return fmt.Sprintf("js.PrivateIn(%s, %s)", c.privateKey(s, n.Child("left")), c.expr(s, n.Child("right")))
@@ -232,6 +233,9 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 				}
 			}
 		}
+		if !trivial(p) {
+			obj = pin(obj)
+		}
 		return fmt.Sprintf("js.GetV(%s, %s)", obj, c.expr(s, p))
 	case "ChainExpression":
 		w := &writer{}
@@ -241,7 +245,7 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		return c.call(s, n)
 	case "NewExpression":
 		args := c.args(s, n.List("arguments"))
-		return fmt.Sprintf("js.Construct(%s%s)", c.expr(s, n.Child("callee")), args)
+		return fmt.Sprintf("js.Construct(%s%s)", c.pinned(s, n.Child("callee"), n.List("arguments")), args)
 	case "YieldExpression":
 		g := s.fn.generator
 		if g == "" {
@@ -400,6 +404,14 @@ func (c *Compiler) array(s *scope, elems []*Node) string {
 			parts = append(parts, c.expr(s, e))
 		}
 	}
+	for i := range parts {
+		for _, later := range elems[i+1:] {
+			if later != nil && !trivial(later) {
+				parts[i] = pin(parts[i])
+				break
+			}
+		}
+	}
 	newArray := "js.NewArray"
 	if holes {
 		newArray = "js.NewArrayWithHoles"
@@ -451,9 +463,16 @@ func (c *Compiler) object(s *scope, n *Node) string {
 	}
 	if simple {
 		var kv []string
-		for _, p := range props {
+		for i, p := range props {
 			key, name := propKey(c, s, p)
-			kv = append(kv, key, c.namedExpr(s, p.Child("value"), name))
+			v := c.namedExpr(s, p.Child("value"), name)
+			for _, later := range props[i+1:] {
+				if !trivial(later.Child("value")) {
+					v = pin(v)
+					break
+				}
+			}
+			kv = append(kv, key, v)
 		}
 		return "js.Value(js.Obj(" + join(kv) + "))"
 	}

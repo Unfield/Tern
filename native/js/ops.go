@@ -456,3 +456,7 @@ func Dec(v Value) Value {
 	}
 	return Box(ToNumber(v) - 1)
 }
+
+// V is v. Compiled code wraps a variable read in it to keep the read in
+// order with the calls around it (see internal/native).
+func V(v Value) Value { return v }

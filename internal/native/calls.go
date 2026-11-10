@@ -2,6 +2,7 @@ package native
 
 import (
 	"fmt"
+	"regexp"
 )
 
 // args is a call's argument list, as Go call arguments after a leading comma.
@@ -14,8 +15,12 @@ func (c *Compiler) args(s *scope, list []*Node) string {
 	}
 	if !spread {
 		out := ""
-		for _, a := range list {
-			out += ", " + c.expr(s, a)
+		for i, a := range list {
+			e := c.expr(s, a)
+			if !allTrivial(list[i+1:]) {
+				e = pin(e)
+			}
+			out += ", " + e
 		}
 		return out
 	}
@@ -28,6 +33,54 @@ func (c *Compiler) args(s *scope, list []*Node) string {
 		}
 	}
 	return ", " + expr + "..."
+}
+
+// Evaluation order. JavaScript evaluates operands left to right; Go
+// leaves a plain variable read's order against a call in the same
+// expression unspecified, so in f(g()) Go may read f after g has changed
+// it. A read followed by operands that may run code is pinned: wrapped
+// in js.V, a call, which Go must evaluate in order. js.V is inlined away.
+
+// trivial reports whether evaluating n can't run code.
+func trivial(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	switch n.Type {
+	case "Identifier", "Literal", "ThisExpression", "FunctionExpression", "ArrowFunctionExpression":
+		return true
+	case "TemplateLiteral":
+		return len(n.List("expressions")) == 0
+	}
+	return false
+}
+
+func allTrivial(ns []*Node) bool {
+	for _, n := range ns {
+		if !trivial(n) {
+			return false
+		}
+	}
+	return true
+}
+
+var plainRead = regexp.MustCompile(`^(?:r\.M\d+\.)?v_[A-Za-z0-9_]+$`)
+
+// pin makes a variable read keep its place among calls.
+func pin(code string) string {
+	if plainRead.MatchString(code) {
+		return "js.V(" + code + ")"
+	}
+	return code
+}
+
+// pinned compiles n, pinned if any of later may run code.
+func (c *Compiler) pinned(s *scope, n *Node, later []*Node) string {
+	e := c.expr(s, n)
+	if !allTrivial(later) {
+		return pin(e)
+	}
+	return e
 }
 
 func (c *Compiler) call(s *scope, n *Node) string {
@@ -61,12 +114,20 @@ func (c *Compiler) callWith(s *scope, callee *Node, compiled []string, useNodes 
 		if e, ns, ok := c.namespaceMember(s, callee); ok {
 			return fmt.Sprintf("js.Call(%s, %s%s)", e, ns, args)
 		}
-		if !callee.Bool("computed") {
-			return fmt.Sprintf("js.CallIC(%s, %s, %s%s)", c.ic(), c.expr(s, obj), quote(prop.Str("name")), args)
+		later := nodes
+		if !useNodes && len(compiled) > 0 {
+			later = []*Node{nil} // compiled arguments: assume they run code
 		}
-		return fmt.Sprintf("js.CallMethodV(%s, %s%s)", c.expr(s, obj), c.expr(s, prop), args)
+		if !callee.Bool("computed") {
+			return fmt.Sprintf("js.CallIC(%s, %s, %s%s)", c.ic(), c.pinned(s, obj, later), quote(prop.Str("name")), args)
+		}
+		return fmt.Sprintf("js.CallMethodV(%s, %s%s)", c.pinned(s, obj, append([]*Node{prop}, later...)), c.pinned(s, prop, later), args)
 	}
-	return fmt.Sprintf("js.Call(%s, js.Undefined%s)", c.expr(s, callee), args)
+	later := nodes
+	if !useNodes && len(compiled) > 0 {
+		later = []*Node{nil}
+	}
+	return fmt.Sprintf("js.Call(%s, js.Undefined%s)", c.pinned(s, callee, later), args)
 }
 
 // namespaceMember resolves ns.name, where ns is a module namespace import

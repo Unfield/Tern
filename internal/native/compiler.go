@@ -205,7 +205,42 @@ func (c *Compiler) resolveModule(m *module, spec string) *module {
 	if !ok || id == nil {
 		return nil
 	}
+	if !c.kept(*id) {
+		return nil // tree-shaken: see isShaken
+	}
 	return c.mods[*id]
+}
+
+// kept reports whether a module is compiled: the bundle has it, or it is
+// a barrel, only imports and exports, which the bundler removes while
+// keeping what it re-exports.
+func (c *Compiler) kept(id string) bool {
+	if c.ir.Bundled == nil || c.ir.Bundled[id] {
+		return true
+	}
+	m := c.mods[id]
+	if m == nil {
+		return false
+	}
+	for _, n := range m.ast.List("body") {
+		switch n.Type {
+		case "ImportDeclaration", "ExportAllDeclaration":
+		case "ExportNamedDeclaration":
+			if n.Child("declaration") != nil {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isShaken reports whether an import is of a module the bundler left out:
+// nothing the bundle runs uses it, so it isn't compiled.
+func (c *Compiler) isShaken(m *module, spec string) bool {
+	id, ok := m.imports[spec]
+	return ok && id != nil && c.mods[*id] != nil && !c.kept(*id)
 }
 
 func (c *Compiler) problem(n *Node, format string, args ...any) {

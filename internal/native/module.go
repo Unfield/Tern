@@ -14,7 +14,8 @@ type binding struct {
 }
 
 type importRef struct {
-	from *module
+	from   *module
+	shaken bool // the module was left out of the bundle
 	name string // export name, or "*" for the namespace
 	spec string
 }
@@ -122,7 +123,7 @@ func (c *Compiler) declareModule(m *module) {
 			dep := c.resolveModule(m, spec)
 			for _, s := range n.List("specifiers") {
 				local := s.Child("local").Str("name")
-				ref := &importRef{from: dep, spec: spec}
+				ref := &importRef{from: dep, spec: spec, shaken: c.isShaken(m, spec)}
 				switch s.Type {
 				case "ImportDefaultSpecifier":
 					ref.name = "default"
@@ -160,6 +161,9 @@ func moduleExportName(n *Node) string {
 
 // importExpr is the Go expression of an import binding.
 func (c *Compiler) importExpr(ref *importRef) string {
+	if ref.from == nil && ref.shaken {
+		return fmt.Sprintf("r.TreeShaken(%s, %s)", quote(ref.spec), quote(ref.name))
+	}
 	if ref.from == nil {
 		ns, ok := nativeModules[ref.spec]
 		if !ok {
@@ -208,13 +212,13 @@ func (c *Compiler) resolveExports(m *module, seen map[*module]bool) {
 				}
 				spec := src.Str("value")
 				dep := c.resolveModule(m, spec)
-				m.exports[exported] = c.importExpr(&importRef{from: dep, name: local, spec: spec})
+				m.exports[exported] = c.importExpr(&importRef{from: dep, name: local, spec: spec, shaken: c.isShaken(m, spec)})
 			}
 		case "ExportAllDeclaration":
 			spec := n.Child("source").Str("value")
 			dep := c.resolveModule(m, spec)
 			if ex := n.Child("exported"); ex != nil {
-				m.exports[moduleExportName(ex)] = c.importExpr(&importRef{from: dep, name: "*", spec: spec})
+				m.exports[moduleExportName(ex)] = c.importExpr(&importRef{from: dep, name: "*", spec: spec, shaken: c.isShaken(m, spec)})
 				continue
 			}
 			if dep == nil {

@@ -49,6 +49,7 @@ export function nativePlugin(getRoot: () => string, entry: string): Plugin {
 	// until the bundle is written: their final URLs go in the IR.
 	const fileRefs = new Set<string>();
 	const fileUrls: Record<string, string> = {};
+	const bundled: Record<string, boolean> = {};
 	const rel = (file: string) => path.relative(getRoot(), file).split(path.sep).join('/');
 	// Every module is recorded, Svelte's own runtime included: compiling its
 	// code, rather than rewriting it, keeps the output exactly Svelte's.
@@ -90,8 +91,14 @@ export function nativePlugin(getRoot: () => string, entry: string): Plugin {
 			}
 			return null;
 		},
-		generateBundle() {
+		generateBundle(_opts, bundle) {
 			if (!active) return;
+			// What the bundler kept code of: modules it tree-shook away aren't
+			// compiled.
+			for (const out of Object.values(bundle)) {
+				if (out.type !== 'chunk') continue;
+				for (const [id, m] of Object.entries(out.modules)) if (m.renderedLength > 0) bundled[rel(id)] = true;
+			}
 			for (const ref of fileRefs) {
 				try {
 					fileUrls[ref] = path.posix.join(base, this.getFileName(ref.replace(/^(?:ROLLDOWN|ROLLUP|VITE)_FILE_URL_/, '')));
@@ -105,7 +112,7 @@ export function nativePlugin(getRoot: () => string, entry: string): Plugin {
 			const root = getRoot();
 			const out = path.join(root, NATIVE_IR);
 			fs.mkdirSync(path.dirname(out), { recursive: true });
-			const ir = { version: 1, svelte: svelteVersion(root), entry, env, fileUrls, modules: [...modules.values()] };
+			const ir = { version: 1, svelte: svelteVersion(root), entry, env, fileUrls, bundled, modules: [...modules.values()] };
 			try {
 				// BigInt literals keep their digits in the node's bigint field;
 				// their value, which JSON can't hold, is left out.

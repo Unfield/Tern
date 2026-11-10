@@ -562,3 +562,19 @@ func MissingImport(spec, name string) Value {
 func MissingExport(module, name string) Value {
 	panic(NotSupported("%s has no export %s", module, name))
 }
+
+// TreeShaken stands for a binding imported from a module the bundler left
+// out, as nothing the bundle runs uses it: it can be passed around, but
+// using it raises Unsupported, so the page falls back to the engine.
+func (rt *Realm) TreeShaken(spec, name string) Value {
+	fail := rt.NewFunction("", 0, func(Value, []Value) Value {
+		panic(NotSupported("%s from %s, which the bundle left out", name, spec))
+	})
+	h := rt.NewPlainObject()
+	for _, trap := range []string{"get", "set", "has", "deleteProperty", "ownKeys", "getOwnPropertyDescriptor", "defineProperty", "apply", "construct"} {
+		h.Define(trap, fail)
+	}
+	target := rt.NewFunction(name, 0, func(Value, []Value) Value { return Undefined })
+	target.SetConstruct(func([]Value, *Object) Value { return Undefined })
+	return rt.NewProxy(target, h)
+}

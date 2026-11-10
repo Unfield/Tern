@@ -94,16 +94,18 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 **The analytics app**
 - [x] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary
 
-## v1.5: Native rendering
+## v1.5: Native rendering (released)
 
-[benchmarks/vs-sveltekit](../benchmarks/vs-sveltekit) shows renders are 1.8× to 8.5× slower than SvelteKit on Node. Profiling found the time is Svelte's code running in QuickJS, not Tern's own. [The native spike](../benchmarks/native-spike) renders the same page as Go in 22 µs, 130× faster, with Svelte's exact HTML. [ADR 0011](adr/0011-native-rendering.md) has the design.
+[benchmarks/vs-sveltekit](../benchmarks/vs-sveltekit) showed renders 1.8× to 8.5× slower than SvelteKit on Node, from Svelte's code running in QuickJS. [ADR 0011](adr/0011-native-rendering.md) has the design and how it turned out.
 
 - [x] Profile a render, and a hand-written spike with the same HTML as Svelte
-- [ ] A translator from Svelte's server output to Go, in the Vite plugin, for a well-defined subset of JavaScript, typed by the loads' Go structs
-- [ ] A runtime of Svelte's server helpers and JavaScript's number and string semantics, tested against Node
-- [ ] Native and JavaScript components mixed in one page, with `tern build` reporting which are native and why
-- [ ] A differential test that renders every example's components both ways and requires identical HTML
-- [ ] The vs-sveltekit benchmark tracked in CI
+- [x] A compiler from the server build's modules (components, Tern's and Svelte's runtimes, libraries) to Go, with what it can't compile left to the JavaScript engine
+- [x] A Go model of JavaScript values with QuickJS's semantics: shapes and inline caches, realms that render in parallel, generators, typed arrays, Proxy; conformance tests against Node
+- [x] Intrinsics for Svelte's hottest helpers, used only while their source is unchanged
+- [x] `tern build` compiling it and reporting what isn't native; fallback to the engine for anything that fails
+- [x] Every example rendering natively with the engine's HTML, checked with `TERN_NATIVE_VERIFY=1`
+- [ ] Typed fast paths from the loads' Go structs (phase 2)
+- [ ] Smaller binaries for large apps, and the vs-sveltekit benchmark tracked in CI
 
 ## v1.6: Every app's next questions
 

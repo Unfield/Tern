@@ -104,6 +104,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.2** | Markdown and content, realtime, jobs and migrations, OAuth/OIDC, email, storage, typed endpoints with OpenAPI, starter templates, experimental Go components | Done |
 | **v1.3** | Live components (Go component logic on the server, typed markup with `tern check`, several processes through a broker), the MCP server, Tern UI | Done |
 | **v1.4** | Form validation from Go struct tags, checked in the browser too; the complete Tern UI with charts, data tables and auth screens; `tern ui add`; `npm create tern`; an analytics example app | Done |
+| **v1.5** | Native rendering: `tern build` compiles the server renderer to Go, 12× faster than QuickJS on a 100-row table and faster than SvelteKit on a Node cluster | Done |
 
 ## Documentation
 

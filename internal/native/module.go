@@ -15,9 +15,9 @@ type binding struct {
 
 type importRef struct {
 	from   *module
-	shaken bool // the module was left out of the bundle
-	name string // export name, or "*" for the namespace
-	spec string
+	shaken bool   // the module was left out of the bundle
+	name   string // export name, or "*" for the namespace
+	spec   string
 }
 
 type scope struct {

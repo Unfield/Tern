@@ -65,6 +65,9 @@ What shipped differs from the plan above in a few ways, all toward compiling mor
 - **The object model has shapes and inline caches:** objects built the same way share their layout, and each property access in compiled code remembers where it found the property.
 - **Realms:** each SSR worker has its own realm, with its own built-ins, globals and module state, so native renders run in parallel on every core.
 - **Failures fall back at run time,** whatever the cause: an unsupported construct, an exception, or a bug in the compiled code. The path then renders with QuickJS from the start.
+- **Only what the bundle keeps is compiled:** the plugin records which modules the bundler kept code of, and the compiler skips the rest (barrels excepted, which pass imports through). A skipped module's imports can be read but not used; using one makes the page fall back.
+- **Nothing native can break an app:** if the generated Go doesn't compile, `tern build` builds without it; if the compiled modules fail to evaluate, every page renders with QuickJS.
+- **Proof:** `internal/native`'s conformance test compiles small programs, runs them and checks them against Node. Every example renders with QuickJS's HTML under `TERN_NATIVE_VERIFY=1`, except one expected difference: `fn.toString()` gives the original source natively and the minified bundle's text in QuickJS.
 
 The benchmark app's 100-row table renders in about 0.3 ms instead of 2.9 ms, with byte-identical HTML, and the page serves 7,800 uncached requests a second from one process, against 5,450 for SvelteKit on ten Node processes. Typed fast paths (phase 2) are still to come.
 

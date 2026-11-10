@@ -55,7 +55,6 @@ func cmdCheck(args []string, stdout, stderr io.Writer) int {
 	}
 	cmd := exec.Command(bin, argv...)
 	cmd.Dir = root
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = &pathFixer{w: stdout}
 	cmd.Stderr = &pathFixer{w: stderr}
 	if err := cmd.Run(); err != nil {

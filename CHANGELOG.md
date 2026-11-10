@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Testing:** `goscript/livetest` tests components in Go without a browser.
 - `tern check` generates code and runs `svelte-check`, with the markup of Go components checked against types generated from their Go code. Starter templates' `npm run check` uses it.
 - The status example's admin dashboard is a live component.
+- `tern mcp` serves the Model Context Protocol for AI coding tools. Its tools cover project information, routes and their types, live components, code generation, checks, tests, builds, scaffolding routes, live components and migrations, and Tern's docs for the version in use. New projects include a `.mcp.json`. See [docs/mcp.md](docs/mcp.md).
 
 ### Changed
 

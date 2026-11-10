@@ -1263,6 +1263,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern build [-o build/app]` | production binary with the client, server renderer and prerendered pages embedded |
 | `tern gen` | regenerate `tern.gen.go`, the client manifest and types |
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
+| `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
 | `tern routes [dir]` | list routes |
 | `tern new [-module path] <dir>` | create a project |
 | `tern version` | print the version |

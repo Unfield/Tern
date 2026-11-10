@@ -61,7 +61,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [ ] OAuth2 and OpenID Connect: sign-in with providers, and a provider of your own
 - [ ] Email with Svelte templates; file uploads and storage
 - [ ] OpenAPI from endpoints, with a typed client
-- [ ] A status page example
+- [x] A status page example
 - [ ] Experimental: `<script lang="go">`
 
 ## Next

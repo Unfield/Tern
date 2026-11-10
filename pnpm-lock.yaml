@@ -68,6 +68,66 @@ importers:
         specifier: ^8.3.7
         version: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)
 
+  examples/status:
+    devDependencies:
+      '@fontsource-variable/inter':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@lucide/svelte':
+        specifier: ^1.70.0
+        version: 1.70.0(svelte@5.57.3)
+      '@playwright/test':
+        specifier: ^1.65.0
+        version: 1.65.0
+      '@tailwindcss/vite':
+        specifier: ^4.3.5
+        version: 4.3.5(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0))
+      '@ternkit/tern':
+        specifier: workspace:*
+        version: link:../../packages/tern
+      bits-ui:
+        specifier: ^2.20.6
+        version: 2.20.6(@internationalized/date@3.12.4)(svelte@5.57.3)
+      cn:
+        specifier: ^0.5.2
+        version: 0.5.2
+      layerchart:
+        specifier: ^2.9.2
+        version: 2.9.2(svelte@5.57.3)(zod@4.6.7)
+      mode-watcher:
+        specifier: ^1.1.0
+        version: 1.1.0(svelte@5.57.3)
+      shadcn-svelte:
+        specifier: ^1.8.0
+        version: 1.8.0(svelte@5.57.3)
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@24.19.2)
+      svelte:
+        specifier: ^5.57.3
+        version: 5.57.3
+      svelte-check:
+        specifier: ^4.7.8
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+      svelte-sonner:
+        specifier: ^1.2.3
+        version: 1.2.3(svelte@5.57.3)
+      tailwind-variants:
+        specifier: ^4.0.1
+        version: 4.0.1
+      tailwindcss:
+        specifier: ^4.3.5
+        version: 4.3.5
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vite:
+        specifier: ^8.3.7
+        version: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)
+
   examples/todos:
     devDependencies:
       '@playwright/test':

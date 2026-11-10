@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- [examples/status](examples/status): a self-hosted status page and uptime monitor (HTTP, TCP, DNS and certificate checks, a live dashboard, a public page with 90-day uptime, incidents, webhook, Slack, Discord and email notifications, and badges) built on migrations, jobs, realtime and sessions.
 - Background jobs: the `jobs` package stores jobs in SQLite or PostgreSQL, runs them with retries, backoff, timeouts, delays, unique keys and transactional enqueueing, and runs cron and `@every` schedules once across instances. `q.Stats`, `q.List` and `q.Retry` support admin pages.
 - Database migrations: the `migrate` package applies `<version>_<name>.sql` files in transactions on startup (`migrate.Plugin`), detects edited migrations, and supports `-- +down` sections. `tern migrate new <name>` creates a file.
 - `Setup.OnStart` for plugins that start work with the server, and `App.Start` for custom servers. Start functions don't run while prerendering.

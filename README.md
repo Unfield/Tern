@@ -85,7 +85,7 @@ func Load(ctx *kit.Ctx) (Data, error) {
 <article>{data.body}</article>
 ```
 
-Dynamic directories use Go-safe names, because Go import paths cannot contain brackets: `slug.param` for `[slug]`, `lang.optional` for `[[lang]]`, `path.rest` for `[...path]`, and `app.group` for `(app)`. See [examples/todos](examples/todos) for a complete app with sessions, form actions, a protected route group and an API endpoint.
+Dynamic directories use Go-safe names, because Go import paths cannot contain brackets: `slug.param` for `[slug]`, `lang.optional` for `[[lang]]`, `path.rest` for `[...path]`, and `app.group` for `(app)`. See [examples/todos](examples/todos) for a complete app with sessions, form actions, a protected route group and an API endpoint, [examples/dashboard](examples/dashboard) for a shadcn-svelte dashboard, and [examples/status](examples/status) for a self-hosted status page with live updates, background jobs and notifications.
 
 ## Status
 

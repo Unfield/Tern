@@ -24,6 +24,20 @@ The dashboard example built with `tern build`, 32 concurrent connections, on the
 
 Memory levels off at about 240 MB with the render cache full, and stays flat over hundreds of thousands of renders.
 
+## Compared with SvelteKit
+
+[benchmarks/vs-sveltekit](../benchmarks/vs-sveltekit) serves the same Svelte components with Tern and with SvelteKit on Node. Summary, in requests per second:
+
+| | Tern | SvelteKit, 1 process | SvelteKit, 10 processes |
+|---|---|---|---|
+| A cacheable page | 25,665 to 60,252 | 2,611 to 17,459 | 5,464 to 19,458 |
+| Client-side navigation | 37,640 | 3,478 | 8,031 |
+| A page rendered for every request, small | 9,586 | 17,146 | 22,571 |
+| A page rendered for every request, a 100-row table | 640 | 2,525 | 5,451 |
+| Memory | about 200 MB | about 500 MB | about 3 GB |
+
+Tern is faster wherever its Go side or the render cache answers. It is slower for every request that must be rendered, by 1.8× to 8.5×, because QuickJS interprets JavaScript and its VMs stop scaling at four. Speeding that up is the plan for v1.6.
+
 ## Running them
 
 ```sh

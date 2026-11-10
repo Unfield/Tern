@@ -1,0 +1,13 @@
+{
+  "name": "ternbench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "go tool tern build -o build/ternbench"
+  },
+  "devDependencies": {
+    "@ternkit/tern": "file:../../../packages/tern",
+    "svelte": "5.57.3",
+    "vite": "^8.3.7"
+  }
+}

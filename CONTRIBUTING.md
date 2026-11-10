@@ -89,7 +89,7 @@ To release:
 
 The [release workflow](.github/workflows/release.yml) then tests, builds `tern` binaries for Linux, macOS and Windows with GoReleaser, and publishes a GitHub release. The Go module is available from the module proxy as soon as the tag exists.
 
-Publishing `@ternkit/tern` to npm is part of the same workflow and is enabled by the repository variable `NPM_PUBLISH=true`. The first publish needs an npm automation token in the `NPM_TOKEN` secret; after that, configure [trusted publishing](https://docs.npmjs.com/trusted-publishers) for the package on npmjs.com and the token can be removed.
+Publishing `@ternkit/tern` to npm is part of the same workflow and is enabled by the repository variable `NPM_PUBLISH=true`. It uses npm [trusted publishing](https://docs.npmjs.com/trusted-publishers): npmjs.com trusts the `release.yml` workflow of `Unfield/Tern`, so no npm token is stored in the repository.
 
 ## License
 

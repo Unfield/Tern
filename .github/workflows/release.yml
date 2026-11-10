@@ -31,8 +31,8 @@ jobs:
 
   npm:
     name: Publish @ternkit/tern to npm
-    # Enable with the repository variable NPM_PUBLISH=true once npm
-    # credentials are set up (see CONTRIBUTING.md).
+    # Enabled by the repository variable NPM_PUBLISH=true; npm trusts this
+    # workflow (Unfield/Tern, release.yml) as a trusted publisher.
     if: vars.NPM_PUBLISH == 'true'
     runs-on: ubuntu-latest
     needs: cli
@@ -57,10 +57,8 @@ jobs:
           pnpm build
       - name: Publish
         working-directory: packages/tern
-        env:
-          # Set NPM_TOKEN for the first publish; afterwards npm trusted
-          # publishing (configured on npmjs.com) works without a token.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # npm trusted publishing: the workflow's OIDC token authenticates,
+        # so no npm token is stored in the repository.
         run: |
           tag=latest
           case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac

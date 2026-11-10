@@ -32,7 +32,7 @@ type Renderer interface {
 // Options configure a Pool.
 type Options struct {
 	// Workers is the number of VMs, and so the number of concurrent
-	// renders. The default is GOMAXPROCS.
+	// renders. The default is GOMAXPROCS, at most DefaultMaxWorkers.
 	Workers int
 	// Timeout bounds a single render. The default is 5 seconds.
 	Timeout time.Duration
@@ -40,7 +40,18 @@ type Options struct {
 	MemoryLimit uintptr
 	// Logger receives console output from server-side code.
 	Logger *slog.Logger
+	// MaxRenders retires a VM after this many renders and replaces it with
+	// a fresh one, built in the background. It bounds memory that libraries
+	// keep across renders. The default is 10,000; a negative value never
+	// retires VMs.
+	MaxRenders int
 }
+
+// DefaultMaxWorkers caps the default number of VMs. The VMs share the C
+// runtime's allocator, which takes a global lock on every JavaScript
+// function call, so throughput peaks around four concurrent renders and
+// falls with more (see docs/benchmarks.md).
+const DefaultMaxWorkers = 4
 
 // Pool renders with a fixed number of reusable VMs. VMs are created on
 // demand; a VM that times out or fails is discarded and replaced.
@@ -54,7 +65,8 @@ type Pool struct {
 }
 
 type vm struct {
-	js *quickjs.VM
+	js      *quickjs.VM
+	renders int
 }
 
 // ErrTimeout is returned when a render exceeds the pool's timeout.
@@ -65,7 +77,7 @@ var ErrTimeout = errors.New("ssr: render timed out")
 // broken bundle fails at startup rather than on the first request.
 func NewPool(bundle string, opts Options) (*Pool, error) {
 	if opts.Workers <= 0 {
-		opts.Workers = runtime.GOMAXPROCS(0)
+		opts.Workers = min(runtime.GOMAXPROCS(0), DefaultMaxWorkers)
 	}
 	if opts.Timeout <= 0 {
 		opts.Timeout = 5 * time.Second
@@ -75,6 +87,9 @@ func NewPool(bundle string, opts Options) (*Pool, error) {
 	}
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
+	}
+	if opts.MaxRenders == 0 {
+		opts.MaxRenders = 10_000
 	}
 
 	compiler, err := quickjs.NewVM()
@@ -187,6 +202,12 @@ func (p *Pool) Render(ctx context.Context, payload []byte, href string) (Result,
 		p.slots <- nil
 		return Result{}, err
 	}
+	v.renders++
+	if p.opts.MaxRenders > 0 && v.renders >= p.opts.MaxRenders {
+		_ = v.js.Close()
+		go p.replace()
+		return res, nil
+	}
 	p.slots <- v
 	return res, nil
 }
@@ -215,6 +236,23 @@ func (p *Pool) renderWith(ctx context.Context, v *vm, payload []byte, href strin
 		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
 	}
 	return res, nil
+}
+
+// replace builds a VM for a retired one's slot, so requests don't wait.
+func (p *Pool) replace() {
+	select {
+	case <-p.closed:
+		p.slots <- nil
+		return
+	default:
+	}
+	v, err := p.newVM()
+	if err != nil {
+		p.opts.Logger.Error("ssr: replacing a renderer", "err", err)
+		p.slots <- nil // the next render tries again
+		return
+	}
+	p.slots <- v
 }
 
 // Close releases the pool's VMs. Renders in progress finish first.

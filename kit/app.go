@@ -64,6 +64,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		},
 		csrf:            true,
 		ssr:             true,
+		ssrCache:        32 << 20,
 		bodyLimit:       1 << 20,
 		multipartMemory: 8 << 20,
 	}
@@ -142,6 +143,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 				return nil, fmt.Errorf("kit: %w", err)
 			}
 			a.ssr = pool
+			if o.ssrCache > 0 {
+				a.ssr = ssr.NewCache(pool, o.ssrCache)
+			}
 			a.closers = append(a.closers, pool)
 		}
 	}

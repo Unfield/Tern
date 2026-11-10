@@ -10,6 +10,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0004](0004-ssr-with-embedded-quickjs.md) | Server-side rendering with embedded QuickJS | Accepted |
 | [0005](0005-selective-reloading.md) | Selective reloading of layout data | Accepted |
 | [0006](0006-plugins.md) | A small plugin interface on top of net/http | Accepted |
+| [0007](0007-ssr-throughput-and-memory.md) | Server-rendering throughput and memory | Accepted |
 
 ## Template
 

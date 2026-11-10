@@ -2,9 +2,8 @@
 // JavaScript engine (QuickJS) that only implements the language itself.
 // Each polyfill is skipped where the API already exists, such as in Node
 // during development.
-import 'core-js/actual/url';
-import 'core-js/actual/url-search-params';
 import { IntlShim } from './intl.js';
+import { URL, URLSearchParams } from './url.js';
 
 declare const __tern_log: ((level: string, message: string) => void) | undefined;
 
@@ -14,6 +13,11 @@ const g = globalThis as Record<string, unknown>;
 // environment instead of a ReferenceError.
 if (typeof g.process === 'undefined') {
 	g.process = { env: { NODE_ENV: 'production' }, browser: false, version: '', versions: {} };
+}
+
+if (typeof g.URL === 'undefined') {
+	g.URL = URL;
+	g.URLSearchParams = URLSearchParams;
 }
 
 if (typeof g.Intl === 'undefined') {

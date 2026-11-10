@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A render cache: server-rendered HTML is cached by the page's data and URL (32 MiB by default, `kit.WithSSRCache`), and concurrent renders of the same page are coalesced.
+- Rendering VMs are replaced after 10,000 renders, which bounds memory held by libraries across renders.
+
+### Changed
+
+- Server rendering defaults to at most 4 workers (`kit.WithSSRWorkers` still overrides it). The VMs share a lock in the C runtime, so more workers rendered slower; uncached throughput is up by half.
+
+### Fixed
+
+- Server rendering no longer leaks memory. The `URL` polyfill stored its state in a way QuickJS never frees, losing about 5 KB per render; Tern now ships its own `URL` and `URLSearchParams` and no longer depends on core-js.
+
 ## [1.1.0] - 2026-11-10
 
 ### Added

@@ -134,6 +134,7 @@ type options struct {
 	cspReportOnly   bool
 	ssr             bool
 	ssrWorkers      int
+	ssrCache        int
 	ssrTimeout      time.Duration
 }
 
@@ -198,9 +199,19 @@ func WithoutSSR() Option {
 
 // WithSSRWorkers sets how many pages can render on the server at once.
 // Each worker is a JavaScript VM using roughly 5 to 20 MB of memory. The
-// default is GOMAXPROCS.
+// default is GOMAXPROCS, at most 4: the VMs share a lock in the C runtime,
+// so more workers rarely render faster.
 func WithSSRWorkers(n int) Option {
 	return func(o *options) { o.ssrWorkers = n }
+}
+
+// WithSSRCache sets how much server-rendered HTML is kept in memory, in
+// bytes. A render depends only on the page's data and URL, so a page that
+// looks the same for many visitors renders once; pages with per-user data
+// get their own entries, evicted least recently used first. The default is
+// 32 MiB; 0 turns the cache off.
+func WithSSRCache(bytes int) Option {
+	return func(o *options) { o.ssrCache = bytes }
 }
 
 // WithSSRTimeout bounds how long a server render may take before the page

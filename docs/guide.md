@@ -419,6 +419,8 @@ Pages render on the server and hydrate in the browser. Users see content before 
 
 Server rendering runs your Svelte components in an embedded JavaScript engine inside the Go binary (QuickJS, pure Go, no cgo). Code that runs during rendering can use the JavaScript language, `URL`, `URLSearchParams`, `console`, `process.env` and an `Intl` that formats like `en-US` (the browser re-renders with the user's real locale), but not browser APIs like `window` or `document`; use those in `onMount` or `$effect`, which only run in the browser. This matches the rules for SvelteKit.
 
+Rendered HTML is cached by the page's data and URL (32 MiB by default, `kit.WithSSRCache`), so a page that looks the same for many visitors renders once. Keep what a component renders on the server a function of its data: output that depends on the clock or `Math.random()` does not hydrate cleanly, and it could be served from the cache.
+
 If a server render fails or exceeds 5 seconds, Tern logs the error and sends the page for client rendering instead, so a rendering bug does not take the page down.
 
 To render a page only on the client, add `const SSR = false` to its route package. `kit.WithoutSSR()` does this for the whole app.

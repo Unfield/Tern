@@ -137,3 +137,16 @@ func TestLoadErrorIncludesStack(t *testing.T) {
 		t.Fatalf("err = %v, want a JavaScript stack trace", err)
 	}
 }
+
+func TestRetiresVMs(t *testing.T) {
+	p := newTestPool(t, Options{Workers: 1, MaxRenders: 3})
+	for i := range 10 {
+		res, err := p.Render(context.Background(), []byte(`{"title":"x"}`), fmt.Sprintf("https://x/%d", i))
+		if err != nil {
+			t.Fatalf("render %d: %v", i, err)
+		}
+		if !strings.Contains(res.Body, fmt.Sprintf("/%d", i)) {
+			t.Fatalf("render %d: %q", i, res.Body)
+		}
+	}
+}

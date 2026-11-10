@@ -4,12 +4,13 @@
 # and runs it. Used by CI to keep the starter template working.
 set -euo pipefail
 
+template="${1:-minimal}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'kill "${server:-0}" 2>/dev/null || true; rm -rf "$work"' EXIT
 
-echo "==> tern new"
-(cd "$repo" && go run ./cmd/tern new -skip-go-get "$work/app")
+echo "==> tern new -template $template"
+(cd "$repo" && go run ./cmd/tern new -skip-go-get -template "$template" "$work/app")
 cd "$work/app"
 
 echo "==> use this checkout"
@@ -39,9 +40,26 @@ for _ in $(seq 1 50); do curl -fs "http://localhost:$port/" >/dev/null && break;
 
 html="$(curl -fs "http://localhost:$port/")"
 grep -q 'data-tern-ssr' <<<"$html" || { echo "page was not server-rendered"; exit 1; }
-grep -q 'Hello from Go!' <<<"$html" || { echo "load data missing"; exit 1; }
-curl -fs -X POST -d name=CI "http://localhost:$port/" | grep -q 'Nice to meet you, CI!' || { echo "form action failed"; exit 1; }
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d name= "http://localhost:$port/")" = 400 ] || { echo "validation failed"; exit 1; }
-curl -fsI "http://localhost:$port/" | grep -qi '^x-frame-options: DENY' || { echo "hook header missing"; exit 1; }
+
+case "$template" in
+minimal)
+	grep -q 'Hello from Go!' <<<"$html" || { echo "load data missing"; exit 1; }
+	curl -fs -X POST -d name=CI "http://localhost:$port/" | grep -q 'Nice to meet you, CI!' || { echo "form action failed"; exit 1; }
+	[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d name= "http://localhost:$port/")" = 400 ] || { echo "validation failed"; exit 1; }
+	curl -fsI "http://localhost:$port/" | grep -qi '^x-frame-options: DENY' || { echo "hook header missing"; exit 1; }
+	;;
+blog)
+	grep -q 'Writing posts' <<<"$html" || { echo "the post list is missing"; exit 1; }
+	curl -fs "http://localhost:$port/posts/hello-world" | grep -q '<h2 id="what-you-get">' || { echo "the post was not rendered"; exit 1; }
+	curl -fs "http://localhost:$port/rss.xml" | grep -q '<title>Hello, world</title>' || { echo "the feed is missing"; exit 1; }
+	[ -f .tern/output/client/posts/hello-world/index.html ] || { echo "the post was not prerendered"; exit 1; }
+	;;
+api)
+	curl -fs -X POST -H 'Content-Type: application/json' -d '{"title":"From CI"}' "http://localhost:$port/api/todos" | grep -q '"title":"From CI"' || { echo "POST failed"; exit 1; }
+	curl -fs "http://localhost:$port/api/todos?done=false" | grep -q 'From CI' || { echo "GET failed"; exit 1; }
+	[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":" "}' "http://localhost:$port/api/todos")" = 400 ] || { echo "validation failed"; exit 1; }
+	curl -fs "http://localhost:$port/api/openapi.json" | grep -q '"/api/todos/{id}"' || { echo "the OpenAPI document is missing"; exit 1; }
+	;;
+esac
 
 echo "==> template OK"

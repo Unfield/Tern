@@ -1,0 +1,57 @@
+// Package rss serves the blog's feed at /rss.xml, prerendered by tern build.
+package rss
+
+import (
+	"encoding/xml"
+	"net/http"
+	"time"
+
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/blog"
+)
+
+const Prerender = true
+
+// SiteURL is the blog's public address, for links in the feed.
+const SiteURL = "https://example.com"
+
+type item struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	GUID        string `xml:"guid"`
+	PubDate     string `xml:"pubDate"`
+	Description string `xml:"description"`
+}
+
+type feed struct {
+	XMLName xml.Name `xml:"rss"`
+	Version string   `xml:"version,attr"`
+	Channel struct {
+		Title string `xml:"title"`
+		Link  string `xml:"link"`
+		Items []item `xml:"item"`
+	} `xml:"channel"`
+}
+
+func GET(ctx *kit.Ctx) error {
+	posts, err := blog.Posts.Summaries(ctx)
+	if err != nil {
+		return err
+	}
+	f := feed{Version: "2.0"}
+	f.Channel.Title, f.Channel.Link = "{{.Name}}", SiteURL
+	for _, p := range posts {
+		link := SiteURL + "/posts/" + p.Slug
+		f.Channel.Items = append(f.Channel.Items, item{Title: p.Data.Title, Link: link, GUID: link, PubDate: p.Data.Date.Format(time.RFC1123Z), Description: p.Excerpt})
+	}
+	out, err := xml.MarshalIndent(f, "", "  ")
+	if err != nil {
+		return err
+	}
+	w := ctx.Writer()
+	w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(append([]byte(xml.Header), out...))
+	return err
+}

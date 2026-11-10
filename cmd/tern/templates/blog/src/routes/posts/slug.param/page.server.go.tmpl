@@ -1,0 +1,25 @@
+// Package post shows one post.
+package post
+
+import (
+	"github.com/Unfield/Tern/content"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/blog"
+)
+
+const Prerender = true
+
+// Entries lists every post, so tern build prerenders them all.
+func Entries(ctx *kit.Ctx) ([]map[string]string, error) {
+	slugs, err := blog.Posts.Slugs(ctx)
+	out := make([]map[string]string, len(slugs))
+	for i, s := range slugs {
+		out[i] = map[string]string{"slug": s}
+	}
+	return out, err
+}
+
+func Load(ctx *kit.Ctx) (content.Entry[blog.Post], error) {
+	return blog.Posts.Get(ctx, ctx.Param("slug"))
+}

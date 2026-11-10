@@ -938,7 +938,7 @@ url := signer.URL("/files/", key, time.Hour) // a link that expires
 - **S3:** files are redirected to short-lived presigned URLs, so downloads don't pass through your app.
 - **Direct uploads:** `bucket.PresignPut(key, ttl)` lets browsers upload large files straight to S3.
 
-S3 requests are signed with AWS Signature Version 4. The signing is tested against AWS's published examples, and in CI against MinIO.
+S3 requests are signed with AWS Signature Version 4. The signing is tested against AWS's published examples, and in CI against an S3-compatible server (SeaweedFS).
 
 ## Realtime
 
@@ -1207,6 +1207,8 @@ Tern works without configuration. An optional `tern.json` at the project root ho
 Write links with `route()` from `$routes` and `href="%tern.assets%/favicon.svg"` in `app.html`, so the app works with or without a base path.
 
 ## Commands
+
+`tern new <dir>` starts a project; `-template blog` adds Markdown posts with an RSS feed, and `-template api` typed JSON endpoints with OpenAPI.
 
 Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 

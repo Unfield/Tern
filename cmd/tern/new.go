@@ -20,8 +20,16 @@ import (
 	"github.com/Unfield/Tern/internal/version"
 )
 
-//go:embed all:template
+//go:embed all:template all:templates
 var templateFS embed.FS
+
+// templates are the starter templates; each but minimal adds to and
+// replaces files of the base template in template/.
+var templates = map[string]string{
+	"minimal": "A page with a Go load and a form action",
+	"blog":    "Markdown posts from src/content, prerendered, with an RSS feed",
+	"api":     "Typed JSON endpoints with OpenAPI and a typed client",
+}
 
 var nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
@@ -37,11 +45,16 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 	fl.SetOutput(stderr)
 	module := fl.String("module", "", "Go module path (default: the directory name)")
 	skipInstall := fl.Bool("skip-go-get", false, "do not run go get for the Tern module")
+	tmpl := fl.String("template", "minimal", "starter template: minimal, blog or api")
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
 	if fl.NArg() != 1 {
-		fmt.Fprintln(stderr, "usage: tern new [-module path] <directory>")
+		fmt.Fprintln(stderr, "usage: tern new [-module path] [-template minimal|blog|api] <directory>")
+		return 2
+	}
+	if _, ok := templates[*tmpl]; !ok {
+		fmt.Fprintf(stderr, "tern new: unknown template %q; choose minimal, blog or api\n", *tmpl)
 		return 2
 	}
 	dir := fl.Arg(0)
@@ -62,7 +75,7 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 
 	data := templateData{Name: name, Module: *module, ClientVersion: clientVersion()}
 	s := p.Spin("Creating " + dir)
-	if err := writeTemplate(dir, data); err != nil {
+	if err := writeTemplate(dir, data, *tmpl); err != nil {
 		s.Fail()
 		ui.New(stderr).Error(err)
 		return 1
@@ -110,7 +123,7 @@ func checkEmpty(dir string) error {
 	return nil
 }
 
-func writeTemplate(dir string, data templateData) error {
+func writeTemplate(dir string, data templateData, name string) error {
 	gomod := fmt.Sprintf("module %s\n\ngo 1.26\n", data.Module)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -118,11 +131,33 @@ func writeTemplate(dir string, data templateData) error {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		return err
 	}
-	return fs.WalkDir(templateFS, "template", func(p string, d fs.DirEntry, err error) error {
+	skip := map[string]bool{}
+	overlay := "templates/" + name
+	if raw, err := templateFS.ReadFile(overlay + "/_remove"); err == nil {
+		for _, l := range strings.Fields(string(raw)) {
+			skip[l] = true
+		}
+	}
+	if err := writeTree(dir, data, "template", skip); err != nil {
+		return err
+	}
+	if name == "minimal" {
+		return nil // the base template alone
+	}
+	return writeTree(dir, data, overlay, map[string]bool{"_remove": true})
+}
+
+// writeTree writes the files under root in templateFS, rendering .tmpl
+// files, except the relative paths in skip.
+func writeTree(dir string, data templateData, root string, skip map[string]bool) error {
+	return fs.WalkDir(templateFS, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		rel := strings.TrimPrefix(p, "template/")
+		rel := strings.TrimPrefix(p, root+"/")
+		if skip[rel] {
+			return nil
+		}
 		content, err := templateFS.ReadFile(p)
 		if err != nil {
 			return err

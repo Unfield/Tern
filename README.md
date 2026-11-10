@@ -101,6 +101,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 ## Documentation
 
 - [Guide](docs/guide.md): everything you need to build an app
+- [Coming from SvelteKit](docs/migrating-from-sveltekit.md): what maps to what
 - [Architecture](docs/ARCHITECTURE.md): how Tern works internally
 - [Deployment](docs/deployment.md): running Tern in production
 - [Benchmarks](docs/benchmarks.md): how fast the pieces are

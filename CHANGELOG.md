@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `tern new -template blog|api`: a Markdown blog with prerendered posts and an RSS feed, or typed JSON endpoints with OpenAPI and a typed client. CI builds and runs every template.
+- [Coming from SvelteKit](docs/migrating-from-sveltekit.md): a guide that maps SvelteKit's files, APIs and modules to Tern's.
 - Experimental `<script lang="go">` (`"experimental": {"goScript": true}` in `tern.json`): component logic in Go with runes (`goscript.State`, `Derived`, `Effect`, `Func`), compiled to one WebAssembly module per app, with build-time initial state for server rendering. See [docs/experimental-go-script.md](docs/experimental-go-script.md) for measurements and limits.
 - Server rendering formats `Number.prototype.toLocaleString` and the `Date` locale methods like browsers (en-US), so their output hydrates.
 - Typed endpoints: `func GET(ctx *kit.Ctx, in Query) (Out, error)` decodes the query, path parameters (`path:"id"`) or JSON body, runs an optional `Validate()`, and writes the output as JSON. `tern gen` writes an OpenAPI 3.1 document of them (served with `kit.WithOpenAPI`) and a typed client, `api('POST /api/projects', { body })` from `$api`, which throws `ApiError` on failure.

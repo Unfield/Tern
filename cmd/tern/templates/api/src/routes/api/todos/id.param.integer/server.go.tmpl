@@ -1,0 +1,42 @@
+// Package todo is one todo: GET reads it, PATCH changes it, DELETE removes it.
+package todo
+
+import (
+	"errors"
+
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/store"
+)
+
+// Path holds the route parameter.
+type Path struct {
+	ID int64 `path:"id" json:"-"`
+}
+
+func notFound(err error) error {
+	if errors.Is(err, store.ErrNotFound) {
+		return kit.NotFound()
+	}
+	return err
+}
+
+func GET(ctx *kit.Ctx, in Path) (store.Todo, error) {
+	t, err := store.Get(in.ID)
+	return t, notFound(err)
+}
+
+// Change is the body of PATCH.
+type Change struct {
+	ID   int64 `path:"id" json:"-"`
+	Done bool  `json:"done"`
+}
+
+func PATCH(ctx *kit.Ctx, in Change) (store.Todo, error) {
+	t, err := store.Update(in.ID, func(t *store.Todo) { t.Done = in.Done })
+	return t, notFound(err)
+}
+
+func DELETE(ctx *kit.Ctx, in Path) (struct{}, error) {
+	return struct{}{}, notFound(store.Delete(in.ID))
+}

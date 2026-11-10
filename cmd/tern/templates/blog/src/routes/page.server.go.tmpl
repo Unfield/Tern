@@ -1,0 +1,19 @@
+package routes
+
+import (
+	"github.com/Unfield/Tern/content"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/blog"
+)
+
+const Prerender = true
+
+type Home struct {
+	Posts []content.Summary[blog.Post] `json:"posts"`
+}
+
+func Load(ctx *kit.Ctx) (Home, error) {
+	posts, err := blog.Posts.Summaries(ctx)
+	return Home{Posts: posts}, err
+}

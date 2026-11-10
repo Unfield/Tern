@@ -1,0 +1,20 @@
+package main
+
+import (
+	"log"
+
+	"github.com/Unfield/Tern/kit"
+)
+
+func main() {
+	app, err := ternApp(
+		// The typed endpoints under src/routes/api, as OpenAPI 3.1.
+		kit.WithOpenAPI("/api/openapi.json", "{{.Name}} API", "1.0.0"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := app.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
+}

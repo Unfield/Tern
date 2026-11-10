@@ -1,0 +1,39 @@
+// Package todos is the todo list API. Its typed functions are described in
+// /api/openapi.json and callable from components with $api.
+package todos
+
+import (
+	"errors"
+	"strings"
+
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/store"
+)
+
+// ListQuery filters the list: ?done=true or ?done=false.
+type ListQuery struct {
+	Done *bool `json:"done,omitempty"`
+}
+
+func GET(ctx *kit.Ctx, in ListQuery) ([]store.Todo, error) {
+	return store.List(in.Done), nil
+}
+
+// NewTodo is the body of POST /api/todos.
+type NewTodo struct {
+	Title string `json:"title"`
+}
+
+// Validate runs before POST; its error is answered with 400.
+func (t *NewTodo) Validate() error {
+	t.Title = strings.TrimSpace(t.Title)
+	if t.Title == "" || len(t.Title) > 200 {
+		return errors.New("title must be 1 to 200 characters")
+	}
+	return nil
+}
+
+func POST(ctx *kit.Ctx, in NewTodo) (store.Todo, error) {
+	return store.Add(in.Title), nil
+}

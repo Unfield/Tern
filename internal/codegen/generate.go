@@ -450,8 +450,8 @@ func (g *generator) serverEntry() {
 	}
 	body.WriteString("\t},\n")
 	rl := g.rootLayouts()
-	fmt.Fprintf(&body, "\tfallback: { layouts: %s, errors: %s },\n\ti18n: %s\n});\n\nglobalThis.__tern_render = render;\n",
-		intSlice(g.layoutRefs(rl)), errorList(g.rootErrorPages(), rl), i18nConfig)
+	fmt.Fprintf(&body, "\tfallback: { layouts: %s, errors: %s },\n\ti18n: %s,\n\tbase: %q\n});\n\nglobalThis.__tern_render = render;\n",
+		intSlice(g.layoutRefs(rl)), errorList(g.rootErrorPages(), rl), i18nConfig, g.cfg.BasePath)
 
 	b.WriteString(body.String())
 	if emails := g.emails(); len(emails) > 0 {

@@ -3,6 +3,7 @@ import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
 import { DeferredScope, readStreamed, revive, type Chunk } from './deferred.js';
+import { setBase } from './base.js';
 import { configureI18n, useLocale } from './i18n.svelte.js';
 import { runAfter, runBefore, runOn } from './navigation.js';
 import { plan } from './select.js';
@@ -57,6 +58,7 @@ type NavigateOptions = GotoOptions & { [RELOAD]?: boolean };
 /** Starts the client. Called by the generated entry module. */
 export async function start(m: ClientManifest): Promise<void> {
 	manifest = m;
+	setBase(m.base ?? '');
 	configureI18n(m.i18n ?? null);
 	const el = document.getElementById('__tern_data');
 	const target = document.getElementById('tern-root');

@@ -63,10 +63,10 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] OpenAPI from endpoints, with a typed client
 - [x] A status page example
 - [x] Experimental: `<script lang="go">` ([notes](experimental-go-script.md))
+- [x] Remote images for `<Image>`, starter templates, a SvelteKit migration guide
 
 ## Next
 
 - Live Go components: the `goscript` API running on the server over WebSockets
 
-- Remote images for `<Image>`
 - Translated URL paths

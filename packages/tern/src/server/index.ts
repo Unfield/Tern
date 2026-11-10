@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import DefaultError from '../runtime/DefaultError.svelte';
 import Passthrough from '../runtime/Passthrough.svelte';
 import Root from '../runtime/Root.svelte';
+import { setBase } from '../runtime/base.js';
 import { revive } from '../runtime/deferred.js';
 import { configureI18n, useLocaleSync, type I18nConfig } from '../runtime/i18n.svelte.js';
 import { plan } from '../runtime/select.js';
@@ -15,6 +16,7 @@ export interface ServerManifest {
 	routes: Record<string, { layouts: number[]; page: Component<any>; errors: { layouts: number; component: Component<any> }[] }>;
 	fallback: { layouts: number[]; errors: { layouts: number; component: Component<any> }[] };
 	i18n?: I18nConfig | null;
+	base?: string;
 }
 
 /** The result of a server render, as JSON for the Go side. */
@@ -33,6 +35,7 @@ export interface RenderResult {
 export function createRenderer(manifest: ServerManifest): (payload: string, href: string) => string {
 	const layout = (i: number) => manifest.layouts[i]?.component ?? Passthrough;
 	configureI18n(manifest.i18n ?? null);
+	setBase(manifest.base ?? '');
 
 	return (payloadJSON, href) => {
 		const p = JSON.parse(payloadJSON) as Payload;

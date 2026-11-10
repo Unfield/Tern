@@ -1107,6 +1107,22 @@ Add `?image` to an image import and Tern resizes it to several widths in AVIF, W
 - `priority` loads the image at once with high priority; use it for the main image above the fold. Other images load lazily.
 - Images with transparency keep PNG as the fallback format; others use JPEG.
 
+**Remote images.** `<Image>` also takes the URL of an image on another site, with the width and height it is shown at:
+
+```svelte
+<Image src="https://images.unsplash.com/photo-123" width={800} height={533} alt="A lake" />
+```
+
+The `plugins/images` plugin resizes them on the fly for the srcset, and caches the results:
+
+```go
+kit.WithPlugins(images.New(images.Options{Hosts: []string{"images.unsplash.com"}}))
+```
+
+- **What it fetches:** only HTTPS images on the listed hosts (`*.example.com` matches subdomains), up to 20 MB and 50 megapixels.
+- **Sizes:** images are never enlarged.
+- **Formats:** remote images are re-encoded as JPEG, or PNG when they have transparency, because Go has no pure-Go AVIF or WebP encoder.
+
 Images are encoded with [sharp](https://sharp.pixelplumbing.com/), which you install in your app: `npm install -D sharp`. In development each size is encoded the first time the browser asks for it. Encoded files are cached in `node_modules/.cache/tern-images`, so builds only encode new or changed images. Their names come from the image's contents, and they are served with the other hashed assets, cached for a year.
 
 ## Translations

@@ -1439,6 +1439,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
 | `tern routes [dir]` | list routes |
 | `tern new [-template name] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |
+| `tern ui add <Component>...` | copy Tern UI components into `src/lib/ui` to change them; `tern ui list` lists them |
 | `tern version` | print the version |
 
 For deployment, see [deployment.md](deployment.md).

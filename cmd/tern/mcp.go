@@ -124,6 +124,10 @@ func mcpServer(root string) *mcp.Server {
 			Description: "Creates a SQL migration in migrations/, named with a timestamp, with an up part and a -- +down part.",
 			Schema:      obj(map[string]any{"name": str("What it does, such as add users table")}, "name"),
 			Handler:     t.newMigration},
+		{Name: "ui_add", Title: "Copy Tern UI components",
+			Description: "Copies Tern UI components (and the helpers they use) from the installed @ternkit/tern into src/lib/ui, to change them. Without names, lists the components. Usually importing them from @ternkit/tern/ui is enough; copy only to change one.",
+			Schema:      obj(map[string]any{"components": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Components such as Button or DataTable"}}),
+			Handler:     t.uiAdd},
 		{Name: "search_docs", Title: "Search the docs", ReadOnly: true,
 			Description: "Searches Tern's documentation for this version (the guide, live components, deployment, the SvelteKit migration guide and the decision records) and returns the best matching sections.",
 			Schema:      obj(map[string]any{"query": str("What to look for, such as \"form actions validation\" or \"WithLiveBroker\"")}, "query"),
@@ -720,6 +724,24 @@ func (t *mcpTools) newMigration(_ context.Context, raw json.RawMessage) (string,
 	var out bytes.Buffer
 	code := t.inRoot(func() int { return cmdMigrate([]string{"new", a.Name}, &out, &out) })
 	if code != 0 {
+		return "", errors.New(strings.TrimSpace(out.String()))
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+func (t *mcpTools) uiAdd(_ context.Context, raw json.RawMessage) (string, error) {
+	a, err := mcp.Args[struct {
+		Components []string `json:"components"`
+	}](raw)
+	if err != nil {
+		return "", err
+	}
+	args := []string{"list"}
+	if len(a.Components) > 0 {
+		args = append([]string{"add"}, a.Components...)
+	}
+	var out bytes.Buffer
+	if code := t.inRoot(func() int { return cmdUI(args, &out, &out) }); code != 0 {
 		return "", errors.New(strings.TrimSpace(out.String()))
 	}
 	return strings.TrimSpace(out.String()), nil

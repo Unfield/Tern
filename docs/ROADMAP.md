@@ -86,7 +86,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] Data: a Data Table with sorting, filtering, selection and pagination
 - [x] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers
 - [x] Blocks wired to Tern's plugins: sign-in and sign-up (passwords, `plugins/oauth`), the consent screen for `plugins/oidc`, and an app shell (`Sidebar`)
-- [ ] `tern ui add <component>`: copy a component into the project, to own and change it
+- [x] `tern ui add <component>`: copy a component into the project, to own and change it
 
 **Validation**
 - [x] Schemas in Go that validate actions and endpoints, generate matching TypeScript validators so the page checks as you type, and show each error on its `Field`

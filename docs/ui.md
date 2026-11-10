@@ -157,6 +157,21 @@ func Load(ctx *kit.Ctx) (oidc.Consent, error) { return provider.ConsentRequest(c
 
 `ConsentRequest` checks the client and its redirect address, sends signed-out users to sign in, and stops other sites from framing the page.
 
+## Owning a component
+
+Most apps import the components and theme them with CSS variables. To change one beyond that, copy it into the project:
+
+```
+$ go tool tern ui add DataTable
+  ✓ src/lib/ui/Checkbox.svelte
+  ✓ src/lib/ui/DataTable.svelte
+  ...
+```
+
+- **What it copies:** the component and the components and helpers it uses, from the installed `@ternkit/tern`, into `src/lib/ui` (`-dir` changes it). Imports of Tern's runtime point at `@ternkit/tern`.
+- **Importing:** import from `$lib/ui/DataTable.svelte` instead. The copy is yours: updating Tern doesn't change it.
+- **Running it again:** files already there are kept; `-force` replaces them. `tern ui list` lists the components.
+
 ## Theming
 
 Every color, radius and shadow is a CSS custom property, so a theme is a few overrides:

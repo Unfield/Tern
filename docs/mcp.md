@@ -33,6 +33,7 @@ Run it from the app's root, with the CLI version pinned in `go.mod`:
 | `new_route` | creates a route from a SvelteKit-style path, such as `/blog/[slug]` or `/(app)/settings`, with a page, a `Load`, a form action, endpoint methods or a live page; existing files are kept |
 | `new_live_component` | creates a `.svelte` file with `<script lang="go" live>` to start from |
 | `new_migration` | `tern migrate new` |
+| `ui_add` | `tern ui add`: copies Tern UI components into `src/lib/ui` to change them |
 | `search_docs`, `read_doc` | the guide, live components, deployment, the SvelteKit migration guide and the decision records, embedded in the CLI |
 
 The docs are also resources, at `tern://docs/guide.md` and so on. The server's instructions tell the model Tern's conventions, such as the Go-safe directory names.

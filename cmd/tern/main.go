@@ -23,6 +23,7 @@ var commands = []command{
 	{"check", "", "Generate code and type-check the app"},
 	{"routes", "[dir]", "List the app's routes"},
 	{"migrate", "new <name>", "Create a database migration"},
+	{"ui", "add <Component>", "Copy Tern UI components into the project"},
 	{"mcp", "", "Serve the Model Context Protocol for AI coding tools"},
 	{"version", "", "Print the Tern version"},
 }
@@ -84,6 +85,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdMCP(args[1:], stdout, stderr)
 	case "migrate":
 		return cmdMigrate(args[1:], stdout, stderr)
+	case "ui":
+		return cmdUI(args[1:], stdout, stderr)
 	default:
 		ui.New(stderr).Error(fmt.Errorf("unknown command %q", cmd))
 		printUsage(stderr)

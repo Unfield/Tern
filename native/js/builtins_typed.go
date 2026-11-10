@@ -18,6 +18,7 @@ type arrayBuffer struct{ data []byte }
 
 // typedKind is one typed array type, such as Uint8Array.
 type typedKind struct {
+	rt    *Realm
 	name  string
 	size  int
 	get   func(b []byte) float64
@@ -67,7 +68,9 @@ func clampUint8(v float64) byte {
 	return byte(math.RoundToEven(v))
 }
 
-var typedKinds = []*typedKind{
+// typedKindTemplates are the typed array types; each realm copies them
+// for its own prototypes and constructors.
+var typedKindTemplates = []*typedKind{
 	{name: "Int8Array", size: 1, get: func(b []byte) float64 { return float64(int8(b[0])) }, put: func(b []byte, v float64) { b[0] = byte(toIntN(v, 8)) }},
 	{name: "Uint8Array", size: 1, get: func(b []byte) float64 { return float64(b[0]) }, put: func(b []byte, v float64) { b[0] = byte(toIntN(v, 8)) }},
 	{name: "Uint8ClampedArray", size: 1, get: func(b []byte) float64 { return float64(b[0]) }, put: func(b []byte, v float64) { b[0] = clampUint8(v) }},
@@ -79,15 +82,9 @@ var typedKinds = []*typedKind{
 	{name: "Float64Array", size: 8, get: func(b []byte) float64 { return math.Float64frombits(le.Uint64(b)) }, put: func(b []byte, v float64) { le.PutUint64(b, math.Float64bits(v)) }},
 }
 
-// ArrayBufferPrototype is ArrayBuffer.prototype.
-var ArrayBufferPrototype = &Object{proto: ObjectPrototype}
-
-// TypedArrayPrototype is %TypedArray%.prototype, shared by every kind.
-var TypedArrayPrototype = &Object{proto: ObjectPrototype}
-
 // NewArrayBuffer makes an ArrayBuffer holding data.
-func NewArrayBuffer(data []byte) *Object {
-	o := NewObject(ArrayBufferPrototype)
+func (rt *Realm) NewArrayBuffer(data []byte) *Object {
+	o := NewObject(rt.ArrayBufferPrototype)
 	o.Class, o.Internal = "ArrayBuffer", &arrayBuffer{data: data}
 	return o
 }
@@ -127,13 +124,13 @@ func newTyped(k *typedKind, proto *Object, buffer *Object, offset, length int) *
 	return o
 }
 
-func allocTyped(k *typedKind, length int) *Object {
-	return newTyped(k, k.proto, NewArrayBuffer(make([]byte, length*k.size)), 0, length)
+func (rt *Realm) allocTyped(k *typedKind, length int) *Object {
+	return newTyped(k, k.proto, rt.NewArrayBuffer(make([]byte, length*k.size)), 0, length)
 }
 
 // typedFrom builds a typed array of kind k from values.
-func typedFrom(k *typedKind, proto *Object, vals []Value) *Object {
-	o := newTyped(k, proto, NewArrayBuffer(make([]byte, len(vals)*k.size)), 0, len(vals))
+func (rt *Realm) typedFrom(k *typedKind, proto *Object, vals []Value) *Object {
+	o := newTyped(k, proto, rt.NewArrayBuffer(make([]byte, len(vals)*k.size)), 0, len(vals))
 	for i, v := range vals {
 		o.typed.put(i, v)
 	}
@@ -150,39 +147,39 @@ func (t *typedArray) values() []Value {
 
 // speciesCreate makes a typed array of the same kind as t, as the
 // prototype methods that return a new array do.
-func (t *typedArray) create(length int) *Object { return allocTyped(t.kind, length) }
+func (t *typedArray) create(length int) *Object { return t.kind.rt.allocTyped(t.kind, length) }
 
-func setupTypedArrays() {
-	setupArrayBuffer()
+func (rt *Realm) setupTypedArrays() {
+	rt.setupArrayBuffer()
 
-	ta := NewConstructor("TypedArray", 0, func(Value, []Value) Value {
+	ta := rt.NewConstructor("TypedArray", 0, func(Value, []Value) Value {
 		panic(TypeErrorf("cannot be called"))
-	}, func([]Value, *Object) Value { panic(TypeErrorf("cannot be called")) }, TypedArrayPrototype)
-	setupTypedPrototype(ta)
+	}, func([]Value, *Object) Value { panic(TypeErrorf("cannot be called")) }, rt.TypedArrayPrototype)
+	rt.setupTypedPrototype(ta)
 
-	for _, k := range typedKinds {
-		k.proto = &Object{proto: TypedArrayPrototype}
-		k.ctor = NewConstructor(k.name, 3, func(Value, []Value) Value {
+	for _, k := range rt.typedKinds {
+		k.proto = &Object{proto: rt.TypedArrayPrototype}
+		k.ctor = rt.NewConstructor(k.name, 3, func(Value, []Value) Value {
 			panic(TypeErrorf("constructor requires 'new'"))
 		}, func(args []Value, nt *Object) Value {
 			proto := OrdinaryCreateFromConstructor(nt, k.proto).proto
-			return constructTyped(k, proto, args)
+			return rt.constructTyped(k, proto, args)
 		}, k.proto)
 		k.ctor.SetProto(ta)
 		k.ctor.add(prop{key: "BYTES_PER_ELEMENT", value: float64(k.size)})
 		k.proto.add(prop{key: "BYTES_PER_ELEMENT", value: float64(k.size)})
-		Global.DefineHidden(k.name, k.ctor)
+		rt.Global.DefineHidden(k.name, k.ctor)
 	}
-	setupUint8Base64(typedKinds[1])
-	setupDataView()
+	rt.setupUint8Base64(rt.typedKinds[1])
+	rt.setupDataView()
 }
 
-func constructTyped(k *typedKind, proto *Object, args []Value) *Object {
+func (rt *Realm) constructTyped(k *typedKind, proto *Object, args []Value) *Object {
 	first := Arg(args, 0)
 	src, ok := first.(*Object)
 	if !ok {
 		n := toIndex(first, "length")
-		return newTyped(k, proto, NewArrayBuffer(make([]byte, n*k.size)), 0, n)
+		return newTyped(k, proto, rt.NewArrayBuffer(make([]byte, n*k.size)), 0, n)
 	}
 	if src.Class == "ArrayBuffer" {
 		data := src.Internal.(*arrayBuffer).data
@@ -205,68 +202,68 @@ func constructTyped(k *typedKind, proto *Object, args []Value) *Object {
 		return newTyped(k, proto, src, off, n)
 	}
 	if src.typed != nil {
-		return typedFrom(k, proto, src.typed.values())
+		return rt.typedFrom(k, proto, src.typed.values())
 	}
 	if it, ok := src.Get(SymbolIterator).(*Object); ok && it.call != nil {
-		return typedFrom(k, proto, Spread(src))
+		return rt.typedFrom(k, proto, rt.Spread(src))
 	}
-	return typedFrom(k, proto, ListFromArrayLike(src))
+	return rt.typedFrom(k, proto, ListFromArrayLike(src))
 }
 
-func setupArrayBuffer() {
-	ctor := NewConstructor("ArrayBuffer", 1, func(Value, []Value) Value {
+func (rt *Realm) setupArrayBuffer() {
+	ctor := rt.NewConstructor("ArrayBuffer", 1, func(Value, []Value) Value {
 		panic(TypeErrorf("constructor requires 'new'"))
 	}, func(args []Value, nt *Object) Value {
-		o := OrdinaryCreateFromConstructor(nt, ArrayBufferPrototype)
+		o := OrdinaryCreateFromConstructor(nt, rt.ArrayBufferPrototype)
 		o.Class, o.Internal = "ArrayBuffer", &arrayBuffer{data: make([]byte, toIndex(Arg(args, 0), "array buffer length"))}
 		return o
-	}, ArrayBufferPrototype)
-	Global.DefineHidden("ArrayBuffer", ctor)
-	method(ctor, "isView", 1, func(_ Value, args []Value) Value {
+	}, rt.ArrayBufferPrototype)
+	rt.Global.DefineHidden("ArrayBuffer", ctor)
+	rt.method(ctor, "isView", 1, func(_ Value, args []Value) Value {
 		o, ok := Arg(args, 0).(*Object)
 		return ok && (o.typed != nil || o.Class == "DataView")
 	})
-	p := ArrayBufferPrototype
+	p := rt.ArrayBufferPrototype
 	p.DefineHidden(SymbolToStringTag, "ArrayBuffer")
-	p.DefineAccessor("byteLength", NewFunction("get byteLength", 0, func(t Value, _ []Value) Value {
+	p.DefineAccessor("byteLength", rt.NewFunction("get byteLength", 0, func(t Value, _ []Value) Value {
 		return float64(len(thisBuffer(t, "ArrayBuffer.prototype.byteLength").data))
 	}), nil, false)
-	method(p, "slice", 2, func(t Value, args []Value) Value {
+	rt.method(p, "slice", 2, func(t Value, args []Value) Value {
 		d := thisBuffer(t, "ArrayBuffer.prototype.slice").data
 		start := relIndex(Arg(args, 0), len(d), 0)
 		end := relIndex(Arg(args, 1), len(d), len(d))
-		return NewArrayBuffer(append([]byte(nil), d[start:max(start, end)]...))
+		return rt.NewArrayBuffer(append([]byte(nil), d[start:max(start, end)]...))
 	})
 }
 
-func setupTypedPrototype(ctor *Object) {
-	p := TypedArrayPrototype
+func (rt *Realm) setupTypedPrototype(ctor *Object) {
+	p := rt.TypedArrayPrototype
 	getter := func(name string, fn func(t *typedArray) Value) {
-		p.DefineAccessor(name, NewFunction("get "+name, 0, func(this Value, _ []Value) Value { return fn(thisTyped(this)) }), nil, false)
+		p.DefineAccessor(name, rt.NewFunction("get "+name, 0, func(this Value, _ []Value) Value { return fn(thisTyped(this)) }), nil, false)
 	}
 	getter("buffer", func(t *typedArray) Value { return t.buffer })
 	getter("byteLength", func(t *typedArray) Value { return float64(t.length * t.kind.size) })
 	getter("byteOffset", func(t *typedArray) Value { return float64(t.offset) })
 	getter("length", func(t *typedArray) Value { return float64(t.length) })
-	p.DefineAccessor(SymbolToStringTag, NewFunction("get [Symbol.toStringTag]", 0, func(this Value, _ []Value) Value {
+	p.DefineAccessor(SymbolToStringTag, rt.NewFunction("get [Symbol.toStringTag]", 0, func(this Value, _ []Value) Value {
 		if o, ok := this.(*Object); ok && o.typed != nil {
 			return o.typed.kind.name
 		}
 		return Undefined
 	}), nil, false)
 
-	method(ctor, "from", 1, func(this Value, args []Value) Value {
-		k := kindOfCtor(this)
+	rt.method(ctor, "from", 1, func(this Value, args []Value) Value {
+		k := rt.kindOfCtor(this)
 		src := Arg(args, 0)
 		var vals []Value
 		if o, ok := src.(*Object); ok {
 			if it, ok := o.Get(SymbolIterator).(*Object); ok && it.call != nil {
-				vals = Spread(o)
+				vals = rt.Spread(o)
 			} else {
 				vals = ListFromArrayLike(o)
 			}
 		} else {
-			vals = ListFromArrayLike(ToObject(src))
+			vals = ListFromArrayLike(rt.ToObject(src))
 		}
 		if f := Arg(args, 1); f != Undefined {
 			fn := callback(args[1:], k.name+".from")
@@ -274,14 +271,14 @@ func setupTypedPrototype(ctor *Object) {
 				vals[i] = fn.invoke(Arg(args, 2), v, float64(i))
 			}
 		}
-		return typedFrom(k, k.proto, vals)
+		return rt.typedFrom(k, k.proto, vals)
 	})
-	method(ctor, "of", 0, func(this Value, args []Value) Value {
-		k := kindOfCtor(this)
-		return typedFrom(k, k.proto, args)
+	rt.method(ctor, "of", 0, func(this Value, args []Value) Value {
+		k := rt.kindOfCtor(this)
+		return rt.typedFrom(k, k.proto, args)
 	})
 
-	method(p, "at", 1, func(this Value, args []Value) Value {
+	rt.method(p, "at", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		n := ToIntegerOrInfinity(Arg(args, 0))
 		if n < 0 {
@@ -292,7 +289,7 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return t.at(int(n))
 	})
-	method(p, "fill", 1, func(this Value, args []Value) Value {
+	rt.method(p, "fill", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		v := ToNumber(Arg(args, 0))
 		start := relIndex(Arg(args, 1), t.length, 0)
@@ -302,7 +299,7 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return this
 	})
-	method(p, "set", 1, func(this Value, args []Value) Value {
+	rt.method(p, "set", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		off := ToIntegerOrInfinity(Arg(args, 1))
 		if off < 0 {
@@ -312,7 +309,7 @@ func setupTypedPrototype(ctor *Object) {
 		if o, ok := Arg(args, 0).(*Object); ok && o.typed != nil {
 			vals = o.typed.values()
 		} else {
-			vals = ListFromArrayLike(ToObject(Arg(args, 0)))
+			vals = ListFromArrayLike(rt.ToObject(Arg(args, 0)))
 		}
 		if off+float64(len(vals)) > float64(t.length) {
 			panic(RangeErrorf("offset is out of bounds"))
@@ -322,13 +319,13 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return Undefined
 	})
-	method(p, "subarray", 2, func(this Value, args []Value) Value {
+	rt.method(p, "subarray", 2, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		start := relIndex(Arg(args, 0), t.length, 0)
 		end := max(start, relIndex(Arg(args, 1), t.length, t.length))
 		return newTyped(t.kind, t.kind.proto, t.buffer, t.offset+start*t.kind.size, end-start)
 	})
-	method(p, "slice", 2, func(this Value, args []Value) Value {
+	rt.method(p, "slice", 2, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		start := relIndex(Arg(args, 0), t.length, 0)
 		end := max(start, relIndex(Arg(args, 1), t.length, t.length))
@@ -336,7 +333,7 @@ func setupTypedPrototype(ctor *Object) {
 		copy(o.typed.bytes(), t.bytes()[t.offset+start*t.kind.size:t.offset+end*t.kind.size])
 		return o
 	})
-	method(p, "copyWithin", 2, func(this Value, args []Value) Value {
+	rt.method(p, "copyWithin", 2, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		to := relIndex(Arg(args, 0), t.length, 0)
 		from := relIndex(Arg(args, 1), t.length, 0)
@@ -348,7 +345,7 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return this
 	})
-	method(p, "reverse", 0, func(this Value, _ []Value) Value {
+	rt.method(p, "reverse", 0, func(this Value, _ []Value) Value {
 		t := thisTyped(this)
 		vals := t.values()
 		for i, v := range vals {
@@ -356,18 +353,18 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return this
 	})
-	method(p, "toReversed", 0, func(this Value, _ []Value) Value {
+	rt.method(p, "toReversed", 0, func(this Value, _ []Value) Value {
 		t := thisTyped(this)
 		vals := t.values()
 		slices.Reverse(vals)
-		return typedFrom(t.kind, t.kind.proto, vals)
+		return rt.typedFrom(t.kind, t.kind.proto, vals)
 	})
 	sortTyped := func(vals []Value, cmp Value) {
 		if cmp != Undefined {
 			if f, ok := cmp.(*Object); !ok || f.call == nil {
 				panic(TypeErrorf("not a function"))
 			}
-			sortValues(vals, cmp)
+			rt.sortValues(vals, cmp)
 			return
 		}
 		slices.SortStableFunc(vals, func(a, b Value) int {
@@ -394,7 +391,7 @@ func setupTypedPrototype(ctor *Object) {
 			return 0
 		})
 	}
-	method(p, "sort", 1, func(this Value, args []Value) Value {
+	rt.method(p, "sort", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		vals := t.values()
 		sortTyped(vals, Arg(args, 0))
@@ -403,13 +400,13 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return this
 	})
-	method(p, "toSorted", 1, func(this Value, args []Value) Value {
+	rt.method(p, "toSorted", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		vals := t.values()
 		sortTyped(vals, Arg(args, 0))
-		return typedFrom(t.kind, t.kind.proto, vals)
+		return rt.typedFrom(t.kind, t.kind.proto, vals)
 	})
-	method(p, "with", 2, func(this Value, args []Value) Value {
+	rt.method(p, "with", 2, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		n := ToIntegerOrInfinity(Arg(args, 0))
 		if n < 0 {
@@ -421,9 +418,9 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		vals := t.values()
 		vals[int(n)] = v
-		return typedFrom(t.kind, t.kind.proto, vals)
+		return rt.typedFrom(t.kind, t.kind.proto, vals)
 	})
-	method(p, "join", 1, func(this Value, args []Value) Value {
+	rt.method(p, "join", 1, func(this Value, args []Value) Value {
 		t := thisTyped(this)
 		sep := ","
 		if s := Arg(args, 0); s != Undefined {
@@ -431,11 +428,11 @@ func setupTypedPrototype(ctor *Object) {
 		}
 		return Join(t.values(), sep)
 	})
-	method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return Join(thisTyped(this).values(), ",") })
-	p.DefineHidden("toString", ArrayPrototype.Get("toString"))
+	rt.method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return Join(thisTyped(this).values(), ",") })
+	p.DefineHidden("toString", rt.ArrayPrototype.Get("toString"))
 
 	search := func(name string, last, includes bool) {
-		method(p, name, 1, func(this Value, args []Value) Value {
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			t := thisTyped(this)
 			x := Arg(args, 0)
 			n := t.length
@@ -487,7 +484,7 @@ func setupTypedPrototype(ctor *Object) {
 
 	// The callback methods.
 	each := func(name string, fn func(t *typedArray, cb *Object, thisArg Value, this Value) Value) {
-		method(p, name, 1, func(this Value, args []Value) Value {
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			t := thisTyped(this)
 			cb := callback(args, "TypedArray.prototype."+name)
 			return fn(t, cb, Arg(args, 1), this)
@@ -517,7 +514,7 @@ func setupTypedPrototype(ctor *Object) {
 				kept = append(kept, v)
 			}
 		}
-		return typedFrom(t.kind, t.kind.proto, kept)
+		return rt.typedFrom(t.kind, t.kind.proto, kept)
 	})
 	each("every", func(t *typedArray, cb *Object, ta Value, this Value) Value {
 		for i := 0; i < t.length; i++ {
@@ -560,7 +557,7 @@ func setupTypedPrototype(ctor *Object) {
 	find("findLast", true, false)
 	find("findLastIndex", true, true)
 	reduce := func(name string, right bool) {
-		method(p, name, 1, func(this Value, args []Value) Value {
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			t := thisTyped(this)
 			cb := callback(args, "TypedArray.prototype."+name)
 			idx := func(j int) int {
@@ -591,10 +588,10 @@ func setupTypedPrototype(ctor *Object) {
 	reduce("reduceRight", true)
 
 	iter := func(name string, item func(t *typedArray, i int) Value) *Object {
-		return method(p, name, 0, func(this Value, _ []Value) Value {
+		return rt.method(p, name, 0, func(this Value, _ []Value) Value {
 			t := thisTyped(this)
 			i := 0
-			return NewIterator(func() (Value, bool) {
+			return rt.NewIterator(func() (Value, bool) {
 				if i >= t.length {
 					return Undefined, false
 				}
@@ -604,13 +601,13 @@ func setupTypedPrototype(ctor *Object) {
 		})
 	}
 	iter("keys", func(_ *typedArray, i int) Value { return float64(i) })
-	iter("entries", func(t *typedArray, i int) Value { return NewArray([]Value{float64(i), t.at(i)}) })
+	iter("entries", func(t *typedArray, i int) Value { return rt.NewArray([]Value{float64(i), t.at(i)}) })
 	values := iter("values", func(t *typedArray, i int) Value { return t.at(i) })
 	p.DefineHidden(SymbolIterator, values)
 }
 
-func kindOfCtor(v Value) *typedKind {
-	for _, k := range typedKinds {
+func (rt *Realm) kindOfCtor(v Value) *typedKind {
+	for _, k := range rt.typedKinds {
 		if v == Value(k.ctor) {
 			return k
 		}
@@ -619,7 +616,7 @@ func kindOfCtor(v Value) *typedKind {
 }
 
 // Uint8Array's base64 and hex methods (ES2026), which QuickJS has.
-func setupUint8Base64(k *typedKind) {
+func (rt *Realm) setupUint8Base64(k *typedKind) {
 	encoding := func(opts Value) *base64.Encoding {
 		url := false
 		if o, ok := opts.(*Object); ok {
@@ -638,7 +635,7 @@ func setupUint8Base64(k *typedKind) {
 		}
 		return base64.StdEncoding
 	}
-	method(k.ctor, "fromBase64", 1, func(_ Value, args []Value) Value {
+	rt.method(k.ctor, "fromBase64", 1, func(_ Value, args []Value) Value {
 		s, ok := Arg(args, 0).(string)
 		if !ok {
 			panic(TypeErrorf("expected string"))
@@ -659,26 +656,26 @@ func setupUint8Base64(k *typedKind) {
 		}, s)
 		data, err := decodeBase64(clean, enc, handling)
 		if err != "" {
-			panic(newError(SyntaxError, err))
+			panic(SyntaxErrorf("%s", err))
 		}
-		o := allocTyped(k, len(data))
+		o := rt.allocTyped(k, len(data))
 		copy(o.typed.bytes(), data)
 		return o
 	})
-	method(k.ctor, "fromHex", 1, func(_ Value, args []Value) Value {
+	rt.method(k.ctor, "fromHex", 1, func(_ Value, args []Value) Value {
 		s, ok := Arg(args, 0).(string)
 		if !ok {
 			panic(TypeErrorf("expected string"))
 		}
 		data, err := hex.DecodeString(s)
 		if err != nil {
-			panic(newError(SyntaxError, "invalid hex string"))
+			panic(SyntaxErrorf("invalid hex string"))
 		}
-		o := allocTyped(k, len(data))
+		o := rt.allocTyped(k, len(data))
 		copy(o.typed.bytes(), data)
 		return o
 	})
-	method(k.proto, "toBase64", 0, func(this Value, args []Value) Value {
+	rt.method(k.proto, "toBase64", 0, func(this Value, args []Value) Value {
 		t := thisUint8(this, k)
 		enc := encoding(Arg(args, 0))
 		if o, ok := Arg(args, 0).(*Object); ok && Truthy(o.Get("omitPadding")) {
@@ -686,7 +683,7 @@ func setupUint8Base64(k *typedKind) {
 		}
 		return enc.EncodeToString(t.bytes()[t.offset : t.offset+t.length])
 	})
-	method(k.proto, "toHex", 0, func(this Value, _ []Value) Value {
+	rt.method(k.proto, "toHex", 0, func(this Value, _ []Value) Value {
 		t := thisUint8(this, k)
 		return hex.EncodeToString(t.bytes()[t.offset : t.offset+t.length])
 	})
@@ -735,17 +732,14 @@ func decodeBase64(s string, enc *base64.Encoding, handling string) ([]byte, stri
 	return data, ""
 }
 
-// DataViewPrototype is DataView.prototype.
-var DataViewPrototype = &Object{proto: ObjectPrototype}
-
 type dataView struct {
 	buffer *Object
 	offset int
 	length int
 }
 
-func setupDataView() {
-	ctor := NewConstructor("DataView", 1, func(Value, []Value) Value {
+func (rt *Realm) setupDataView() {
+	ctor := rt.NewConstructor("DataView", 1, func(Value, []Value) Value {
 		panic(TypeErrorf("constructor requires 'new'"))
 	}, func(args []Value, nt *Object) Value {
 		b, ok := Arg(args, 0).(*Object)
@@ -764,12 +758,12 @@ func setupDataView() {
 				panic(RangeErrorf("invalid byteLength"))
 			}
 		}
-		o := OrdinaryCreateFromConstructor(nt, DataViewPrototype)
+		o := OrdinaryCreateFromConstructor(nt, rt.DataViewPrototype)
 		o.Class, o.Internal = "DataView", &dataView{buffer: b, offset: off, length: n}
 		return o
-	}, DataViewPrototype)
-	Global.DefineHidden("DataView", ctor)
-	p := DataViewPrototype
+	}, rt.DataViewPrototype)
+	rt.Global.DefineHidden("DataView", ctor)
+	p := rt.DataViewPrototype
 	p.DefineHidden(SymbolToStringTag, "DataView")
 	this := func(v Value) *dataView {
 		if o, ok := v.(*Object); ok && o.Class == "DataView" {
@@ -777,10 +771,10 @@ func setupDataView() {
 		}
 		panic(TypeErrorf("not a DataView"))
 	}
-	p.DefineAccessor("buffer", NewFunction("get buffer", 0, func(t Value, _ []Value) Value { return this(t).buffer }), nil, false)
-	p.DefineAccessor("byteLength", NewFunction("get byteLength", 0, func(t Value, _ []Value) Value { return float64(this(t).length) }), nil, false)
-	p.DefineAccessor("byteOffset", NewFunction("get byteOffset", 0, func(t Value, _ []Value) Value { return float64(this(t).offset) }), nil, false)
-	for _, k := range typedKinds {
+	p.DefineAccessor("buffer", rt.NewFunction("get buffer", 0, func(t Value, _ []Value) Value { return this(t).buffer }), nil, false)
+	p.DefineAccessor("byteLength", rt.NewFunction("get byteLength", 0, func(t Value, _ []Value) Value { return float64(this(t).length) }), nil, false)
+	p.DefineAccessor("byteOffset", rt.NewFunction("get byteOffset", 0, func(t Value, _ []Value) Value { return float64(this(t).offset) }), nil, false)
+	for _, k := range rt.typedKinds {
 		if k.name == "Uint8ClampedArray" {
 			continue
 		}
@@ -794,7 +788,7 @@ func setupDataView() {
 			b := d.buffer.Internal.(*arrayBuffer).data[d.offset+i : d.offset+i+k.size]
 			return d, b, false
 		}
-		method(p, "get"+name, 1, func(t Value, args []Value) Value {
+		rt.method(p, "get"+name, 1, func(t Value, args []Value) Value {
 			_, b, _ := at(t, args)
 			buf := append([]byte(nil), b...)
 			if !Truthy(Arg(args, 1)) {
@@ -802,7 +796,7 @@ func setupDataView() {
 			}
 			return k.get(buf)
 		})
-		method(p, "set"+name, 2, func(t Value, args []Value) Value {
+		rt.method(p, "set"+name, 2, func(t Value, args []Value) Value {
 			v := ToNumber(Arg(args, 1))
 			_, b, _ := at(t, args)
 			buf := make([]byte, k.size)

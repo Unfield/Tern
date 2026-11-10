@@ -5,15 +5,15 @@ import (
 	"math/rand/v2"
 )
 
-func setupMath() {
-	m := NewPlainObject()
-	Global.DefineHidden("Math", m)
+func (rt *Realm) setupMath() {
+	m := rt.NewPlainObject()
+	rt.Global.DefineHidden("Math", m)
 	m.DefineHidden(SymbolToStringTag, "Math")
 	for name, v := range map[string]float64{"PI": math.Pi, "E": math.E, "LN2": math.Ln2, "LN10": math.Ln10, "LOG2E": math.Log2E, "LOG10E": math.Log10E, "SQRT2": math.Sqrt2, "SQRT1_2": math.Sqrt2 / 2} {
 		m.add(prop{key: name, value: v})
 	}
 	one := func(name string, fn func(float64) float64) {
-		method(m, name, 1, func(_ Value, args []Value) Value { return fn(ToNumber(Arg(args, 0))) })
+		rt.method(m, name, 1, func(_ Value, args []Value) Value { return fn(ToNumber(Arg(args, 0))) })
 	}
 	one("abs", math.Abs)
 	one("acos", math.Acos)
@@ -65,10 +65,10 @@ func setupMath() {
 		}
 		return r
 	})
-	method(m, "atan2", 2, func(_ Value, args []Value) Value { return math.Atan2(ToNumber(Arg(args, 0)), ToNumber(Arg(args, 1))) })
-	method(m, "pow", 2, func(_ Value, args []Value) Value { return Pow(Arg(args, 0), Arg(args, 1)) })
-	method(m, "imul", 2, func(_ Value, args []Value) Value { return float64(ToInt32(Arg(args, 0)) * ToInt32(Arg(args, 1))) })
-	method(m, "clz32", 1, func(_ Value, args []Value) Value {
+	rt.method(m, "atan2", 2, func(_ Value, args []Value) Value { return math.Atan2(ToNumber(Arg(args, 0)), ToNumber(Arg(args, 1))) })
+	rt.method(m, "pow", 2, func(_ Value, args []Value) Value { return Pow(Arg(args, 0), Arg(args, 1)) })
+	rt.method(m, "imul", 2, func(_ Value, args []Value) Value { return float64(ToInt32(Arg(args, 0)) * ToInt32(Arg(args, 1))) })
+	rt.method(m, "clz32", 1, func(_ Value, args []Value) Value {
 		n := ToUint32(Arg(args, 0))
 		c := 0
 		for i := 31; i >= 0 && n&(1<<uint(i)) == 0; i-- {
@@ -76,7 +76,7 @@ func setupMath() {
 		}
 		return float64(c)
 	})
-	method(m, "hypot", 2, func(_ Value, args []Value) Value {
+	rt.method(m, "hypot", 2, func(_ Value, args []Value) Value {
 		s := 0.0
 		for _, a := range args {
 			n := ToNumber(a)
@@ -87,7 +87,7 @@ func setupMath() {
 		}
 		return math.Sqrt(s)
 	})
-	method(m, "max", 2, func(_ Value, args []Value) Value {
+	rt.method(m, "max", 2, func(_ Value, args []Value) Value {
 		r := math.Inf(-1)
 		for _, a := range args {
 			n := ToNumber(a)
@@ -101,7 +101,7 @@ func setupMath() {
 		}
 		return r
 	})
-	method(m, "min", 2, func(_ Value, args []Value) Value {
+	rt.method(m, "min", 2, func(_ Value, args []Value) Value {
 		r := math.Inf(1)
 		for _, a := range args {
 			n := ToNumber(a)
@@ -117,5 +117,5 @@ func setupMath() {
 	})
 	// Rendering output that depends on Math.random can't hydrate; it still
 	// works as it does in the engine.
-	method(m, "random", 0, func(Value, []Value) Value { return rand.Float64() })
+	rt.method(m, "random", 0, func(Value, []Value) Value { return rand.Float64() })
 }

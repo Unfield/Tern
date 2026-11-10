@@ -313,26 +313,26 @@ func ToStringValue(v Value) Value {
 }
 
 // ToObject boxes primitives, for property access and Object(...).
-func ToObject(v Value) *Object {
+func (rt *Realm) ToObject(v Value) *Object {
 	switch x := v.(type) {
 	case *Object:
 		return x
 	case undefinedType, nullType:
 		panic(TypeErrorf("Cannot convert undefined or null to object"))
 	case string:
-		o := NewObject(StringPrototype)
+		o := NewObject(rt.StringPrototype)
 		o.Class, o.Internal = "String", x
 		return o
 	case float64:
-		o := NewObject(NumberPrototype)
+		o := NewObject(rt.NumberPrototype)
 		o.Class, o.Internal = "Number", x
 		return o
 	case bool:
-		o := NewObject(BooleanPrototype)
+		o := NewObject(rt.BooleanPrototype)
 		o.Class, o.Internal = "Boolean", x
 		return o
 	case *Symbol:
-		o := NewObject(SymbolPrototype)
+		o := NewObject(rt.SymbolPrototype)
 		o.Class, o.Internal = "Symbol", x
 		return o
 	}
@@ -340,9 +340,9 @@ func ToObject(v Value) *Object {
 }
 
 // isASCII reports whether s has only ASCII, where UTF-16 and UTF-8 indexes agree.
-func isASCII(s string) bool {
+func (rt *Realm) isASCII(s string) bool {
 	if len(s) >= 32 {
-		return strInfo(s).ascii
+		return rt.strInfo(s).ascii
 	}
 	return scanASCII(s)
 }

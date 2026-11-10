@@ -31,14 +31,6 @@ type IC struct {
 	index int32
 }
 
-// Primitives have no shapes; these stand for them as receivers, whose
-// properties come from their prototype.
-var (
-	stringShape  = &Shape{proto: StringPrototype}
-	numberShape  = &Shape{proto: NumberPrototype}
-	booleanShape = &Shape{proto: BooleanPrototype}
-)
-
 // lazyFnShape stands for functions whose name, length and prototype
 // haven't been made yet, for any other key: they have no other own
 // properties.
@@ -51,7 +43,7 @@ func lazyFnShape(proto *Object) *Shape {
 }
 
 // receiverShape is what a cache compares for a receiver; nil if nothing.
-func receiverShape(v Value) *Shape {
+func (rt *Realm) receiverShape(v Value) *Shape {
 	switch x := v.(type) {
 	case *Object:
 		if x.shape == nil && x.fnLazy != 0 {
@@ -59,20 +51,20 @@ func receiverShape(v Value) *Shape {
 		}
 		return x.shape
 	case string:
-		return stringShape
+		return rt.stringShape
 	case float64:
-		return numberShape
+		return rt.numberShape
 	case bool:
-		return booleanShape
+		return rt.booleanShape
 	}
 	return nil
 }
 
 // GetIC is obj.key with a cache.
-func GetIC(c *IC, v Value, key string) Value {
-	s := receiverShape(v)
+func (rt *Realm) GetIC(c *IC, v Value, key string) Value {
+	s := rt.receiverShape(v)
 	if s != c.shape || s == nil || c.add {
-		return getMiss(c, v, key)
+		return rt.getMiss(c, v, key)
 	}
 	var holder *Object
 	if c.depth == 0 {
@@ -84,7 +76,7 @@ func GetIC(c *IC, v Value, key string) Value {
 		p := s.proto
 		for d := uint8(0); ; d++ {
 			if p.shape != c.protos[d] {
-				return getMiss(c, v, key)
+				return rt.getMiss(c, v, key)
 			}
 			if d+1 == c.depth {
 				break
@@ -107,31 +99,31 @@ func GetIC(c *IC, v Value, key string) Value {
 }
 
 // getMiss looks key up and fills the cache.
-func getMiss(c *IC, v Value, key string) Value {
+func (rt *Realm) getMiss(c *IC, v Value, key string) Value {
 	c.shape = nil
 	if !cacheable(key) {
-		return Get(v, key)
+		return rt.Get(v, key)
 	}
 	var s *Shape
 	if x, ok := v.(*Object); ok {
 		if x.fnLazy != 0 && (key == "name" || key == "prototype") {
 			x.sh() // those are the lazy properties: make them
 		}
-		s = receiverShape(x)
+		s = rt.receiverShape(x)
 		if s == nil {
 			s = x.sh()
 		}
-	} else if s = receiverShape(v); s == nil {
-		return Get(v, key)
+	} else if s = rt.receiverShape(v); s == nil {
+		return rt.Get(v, key)
 	}
-	fill(c, v, s, key)
-	return Get(v, key)
+	rt.fill(c, v, s, key)
+	return rt.Get(v, key)
 }
 
 // fill caches where key is for receivers of shape s: on the receiver
 // itself, on a prototype, or nowhere.
-func fill(c *IC, v Value, s *Shape, key string) {
-	if s.dict || v == Value(Global) {
+func (rt *Realm) fill(c *IC, v Value, s *Shape, key string) {
+	if s.dict || v == Value(rt.Global) {
 		return
 	}
 	if o, ok := v.(*Object); ok && o.shape == s {
@@ -171,8 +163,8 @@ func cacheable(key string) bool {
 }
 
 // CallIC is obj.key(…args) with a cache.
-func CallIC(c *IC, obj Value, key string, args ...Value) Value {
-	f := GetIC(c, obj, key)
+func (rt *Realm) CallIC(c *IC, obj Value, key string, args ...Value) Value {
+	f := rt.GetIC(c, obj, key)
 	o, ok := f.(*Object)
 	if !ok || o.call == nil {
 		panic(TypeErrorf("%s.%s is not a function", describeForError(obj), key))
@@ -182,7 +174,7 @@ func CallIC(c *IC, obj Value, key string, args ...Value) Value {
 
 // SetIC is obj.key = v with a cache, for a writable own property or for
 // adding one.
-func SetIC(c *IC, obj Value, key string, v Value) {
+func (rt *Realm) SetIC(c *IC, obj Value, key string, v Value) {
 	if o, ok := obj.(*Object); ok && o.shape == c.shape && o.shape != nil {
 		if !c.add {
 			if c.depth == 0 && !c.accessor {
@@ -195,7 +187,7 @@ func SetIC(c *IC, obj Value, key string, v Value) {
 			return
 		}
 	}
-	setMiss(c, obj, key, v)
+	rt.setMiss(c, obj, key, v)
 }
 
 // protosValid reports whether the prototype chain still has the cached
@@ -210,9 +202,9 @@ func protosValid(c *IC, p *Object) bool {
 	return p == nil
 }
 
-func setMiss(c *IC, obj Value, key string, v Value) {
+func (rt *Realm) setMiss(c *IC, obj Value, key string, v Value) {
 	o, ok := obj.(*Object)
-	if !ok || !cacheable(key) || o.frozen || o == Global {
+	if !ok || !cacheable(key) || o.frozen || o == rt.Global {
 		Set(obj, key, v)
 		return
 	}

@@ -11,13 +11,6 @@ import (
 // generator, like Svelte's walk of its renderer tree, costs one coroutine
 // in all.
 
-// GeneratorPrototype is %GeneratorPrototype%, the prototype of generator
-// functions' prototype objects.
-var GeneratorPrototype = &Object{proto: IteratorPrototype}
-
-// GeneratorFunctionPrototype is %GeneratorFunction.prototype%.
-var GeneratorFunctionPrototype = &Object{proto: FunctionPrototype}
-
 const (
 	resumeNext = iota
 	resumeThrow
@@ -34,6 +27,7 @@ type genIO struct {
 
 // Gen is a generator object's state.
 type Gen struct {
+	rt      *Realm
 	body    func(*Gen) Value
 	io      *genIO
 	next    func() (Value, bool)
@@ -58,20 +52,20 @@ func isAbort(r any) bool { _, ok := r.(genAbort); return ok }
 
 // NewGeneratorFunction makes a generator function. call runs when it's
 // called: it binds the parameters and returns the body.
-func NewGeneratorFunction(name string, length int, call func(this Value, args []Value) func(*Gen) Value) *Object {
+func (rt *Realm) NewGeneratorFunction(name string, length int, call func(this Value, args []Value) func(*Gen) Value) *Object {
 	var f *Object
-	f = NewFunction(name, length, func(this Value, args []Value) Value {
+	f = rt.NewFunction(name, length, func(this Value, args []Value) Value {
 		body := call(this, args)
 		proto, ok := f.Get("prototype").(*Object)
 		if !ok {
-			proto = GeneratorPrototype
+			proto = rt.GeneratorPrototype
 		}
 		o := NewObject(proto)
-		o.Class, o.Internal = "Generator", &Gen{body: body}
+		o.Class, o.Internal = "Generator", &Gen{rt: rt, body: body}
 		return o
 	})
-	f.SetProto(GeneratorFunctionPrototype)
-	f.add(prop{key: "prototype", value: NewObject(GeneratorPrototype), writable: true})
+	f.SetProto(rt.GeneratorFunctionPrototype)
+	f.add(prop{key: "prototype", value: NewObject(rt.GeneratorPrototype), writable: true})
 	return f
 }
 
@@ -103,15 +97,15 @@ func (g *Gen) Yield(v Value) Value {
 // YieldStar is yield* v.
 func (g *Gen) YieldStar(v Value) Value {
 	if o, ok := v.(*Object); ok {
-		if inner, ok := o.Internal.(*Gen); ok && !inner.started && o.Get("next") == genNext {
+		if inner, ok := o.Internal.(*Gen); ok && !inner.started && o.Get("next") == g.rt.genNext {
 			// Run the delegate's body right here, with our consumer.
 			inner.started, inner.running, inner.io = true, true, g.io
 			defer func() { inner.running, inner.done = false, true }()
 			return inner.body(inner)
 		}
 	}
-	it := getIterator(v)
-	next := Get(it, "next")
+	it := g.rt.getIterator(v)
+	next := g.rt.Get(it, "next")
 	io := g.io
 	mode, sent := resumeNext, Undefined
 	for {
@@ -120,14 +114,14 @@ func (g *Gen) YieldStar(v Value) Value {
 		case resumeNext:
 			r = Call(next, it, sent)
 		case resumeThrow:
-			th := Get(it, "throw")
+			th := g.rt.Get(it, "throw")
 			if IsNullish(th) {
-				closeIterator(it)
+				g.rt.closeIterator(it)
 				panic(TypeErrorf("The iterator does not provide a 'throw' method"))
 			}
 			r = Call(th, it, sent)
 		case resumeReturn:
-			ret := Get(it, "return")
+			ret := g.rt.Get(it, "return")
 			if IsNullish(ret) {
 				panic(genReturn{sent})
 			}
@@ -136,21 +130,21 @@ func (g *Gen) YieldStar(v Value) Value {
 		if _, ok := r.(*Object); !ok {
 			panic(TypeErrorf("iterator result %s is not an object", ToDisplay(r)))
 		}
-		if Truthy(Get(r, "done")) {
+		if Truthy(g.rt.Get(r, "done")) {
 			if mode == resumeReturn {
-				panic(genReturn{Get(r, "value")})
+				panic(genReturn{g.rt.Get(r, "value")})
 			}
-			return Get(r, "value")
+			return g.rt.Get(r, "value")
 		}
-		if !io.yield(Get(r, "value")) {
+		if !io.yield(g.rt.Get(r, "value")) {
 			panic(genAbort{})
 		}
 		mode, sent = io.mode, io.sent
 	}
 }
 
-func getIterator(v Value) Value {
-	m, ok := Get(v, SymbolIterator).(*Object)
+func (rt *Realm) getIterator(v Value) Value {
+	m, ok := rt.Get(v, SymbolIterator).(*Object)
 	if !ok || m.call == nil {
 		panic(TypeErrorf("%s is not iterable", describeForError(v)))
 	}
@@ -161,8 +155,8 @@ func getIterator(v Value) Value {
 	return it
 }
 
-func closeIterator(it Value) {
-	if ret := Get(it, "return"); !IsNullish(ret) {
+func (rt *Realm) closeIterator(it Value) {
+	if ret := rt.Get(it, "return"); !IsNullish(ret) {
 		Call(ret, it)
 	}
 }
@@ -234,30 +228,28 @@ func (g *Gen) resume(mode int, v Value, owner *Object) (Value, bool) {
 	return g.result, true
 }
 
-func iterResult(v Value, done bool) *Object {
-	r := NewPlainObject()
+func (rt *Realm) iterResult(v Value, done bool) *Object {
+	r := rt.NewPlainObject()
 	r.add(prop{key: "value", value: v, enumerable: true, writable: true, configurable: true})
 	r.add(prop{key: "done", value: done, enumerable: true, writable: true, configurable: true})
 	return r
 }
 
-var genNext *Object
-
-func setupGenerators() {
-	p := GeneratorPrototype
-	genNext = method(p, "next", 1, func(this Value, args []Value) Value {
-		return iterResult(thisGen(this).resume(resumeNext, Arg(args, 0), this.(*Object)))
+func (rt *Realm) setupGenerators() {
+	p := rt.GeneratorPrototype
+	rt.genNext = rt.method(p, "next", 1, func(this Value, args []Value) Value {
+		return rt.iterResult(thisGen(this).resume(resumeNext, Arg(args, 0), this.(*Object)))
 	})
-	method(p, "return", 1, func(this Value, args []Value) Value {
-		return iterResult(thisGen(this).resume(resumeReturn, Arg(args, 0), this.(*Object)))
+	rt.method(p, "return", 1, func(this Value, args []Value) Value {
+		return rt.iterResult(thisGen(this).resume(resumeReturn, Arg(args, 0), this.(*Object)))
 	})
-	method(p, "throw", 1, func(this Value, args []Value) Value {
-		return iterResult(thisGen(this).resume(resumeThrow, Arg(args, 0), this.(*Object)))
+	rt.method(p, "throw", 1, func(this Value, args []Value) Value {
+		return rt.iterResult(thisGen(this).resume(resumeThrow, Arg(args, 0), this.(*Object)))
 	})
 	p.DefineHidden(SymbolToStringTag, "Generator")
-	GeneratorFunctionPrototype.DefineHidden("prototype", GeneratorPrototype)
-	GeneratorFunctionPrototype.DefineHidden(SymbolToStringTag, "GeneratorFunction")
-	GeneratorPrototype.DefineHidden("constructor", GeneratorFunctionPrototype)
+	rt.GeneratorFunctionPrototype.DefineHidden("prototype", rt.GeneratorPrototype)
+	rt.GeneratorFunctionPrototype.DefineHidden(SymbolToStringTag, "GeneratorFunction")
+	rt.GeneratorPrototype.DefineHidden("constructor", rt.GeneratorFunctionPrototype)
 }
 
 // genIterator is the Go iterator of a for…of over a generator that still

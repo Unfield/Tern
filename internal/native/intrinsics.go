@@ -20,7 +20,7 @@ type intrinsic struct {
 }
 
 var intrinsics = []intrinsic{
-	{module: "/svelte/src/escaping.js", function: "escape_html", fingerprint: "6dac8776e10d8e8d", goExpr: "svelte.EscapeHTML"},
+	{module: "/svelte/src/escaping.js", function: "escape_html", fingerprint: "6dac8776e10d8e8d", goExpr: "svelte.EscapeHTML(r.Realm)"},
 }
 
 // intrinsicFor returns the Go expression replacing a module's function, if

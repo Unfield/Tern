@@ -28,6 +28,10 @@ type Object struct {
 	proto *Object
 	// childRoot is the root shape of objects whose prototype this is.
 	childRoot *Shape
+	// realm is a function's realm (and globalThis's), whose argument
+	// stack its calls use.
+	realm  *Realm
+	global bool
 
 	// Functions.
 	call      func(this Value, args []Value) Value
@@ -77,7 +81,7 @@ func (o *Object) materialize() {
 	o.add(prop{key: "length", value: float64(o.fnLen), configurable: true})
 	o.add(prop{key: "name", value: o.fnName, configurable: true})
 	if lazy == lazyPrototype {
-		proto := NewPlainObject()
+		proto := o.realm.NewPlainObject()
 		proto.DefineHidden("constructor", o)
 		o.add(prop{key: "prototype", value: proto, writable: true})
 	}
@@ -87,7 +91,7 @@ func (o *Object) materialize() {
 func NewObject(proto *Object) *Object { return &Object{proto: proto, shape: rootShape(proto)} }
 
 // NewPlainObject makes an object like an object literal does.
-func NewPlainObject() *Object { return NewObject(ObjectPrototype) }
+func (rt *Realm) NewPlainObject() *Object { return NewObject(rt.ObjectPrototype) }
 
 // Proto is the object's prototype, or nil.
 func (o *Object) Proto() *Object { return o.proto }
@@ -119,14 +123,10 @@ func (o *Object) SetProto(p *Object) {
 	o.touched()
 }
 
-// globalVersion counts changes to globalThis's own properties, so reads of
-// globals can be cached.
-var globalVersion uint64 = 1
-
 // touched records a change to o's own properties.
 func (o *Object) touched() {
-	if o == Global {
-		globalVersion++
+	if o.global {
+		o.realm.globalVersion++
 	}
 }
 

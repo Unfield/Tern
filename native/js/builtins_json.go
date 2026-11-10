@@ -7,24 +7,24 @@ import (
 	"unicode/utf8"
 )
 
-func setupJSON() {
-	j := NewPlainObject()
-	Global.DefineHidden("JSON", j)
+func (rt *Realm) setupJSON() {
+	j := rt.NewPlainObject()
+	rt.Global.DefineHidden("JSON", j)
 	j.DefineHidden(SymbolToStringTag, "JSON")
-	method(j, "stringify", 3, func(_ Value, args []Value) Value {
-		s, ok := Stringify(Arg(args, 0), Arg(args, 1), Arg(args, 2))
+	rt.method(j, "stringify", 3, func(_ Value, args []Value) Value {
+		s, ok := rt.Stringify(Arg(args, 0), Arg(args, 1), Arg(args, 2))
 		if !ok {
 			return Undefined
 		}
 		return s
 	})
-	method(j, "parse", 2, func(_ Value, args []Value) Value {
-		v, err := ParseJSON(ToString(Arg(args, 0)))
+	rt.method(j, "parse", 2, func(_ Value, args []Value) Value {
+		v, err := rt.ParseJSON(ToString(Arg(args, 0)))
 		if err != nil {
-			panic(newError(SyntaxError, err.Error()))
+			panic(SyntaxErrorf("%s", err.Error()))
 		}
 		if r, ok := Arg(args, 1).(*Object); ok && r.call != nil {
-			root := NewPlainObject()
+			root := rt.NewPlainObject()
 			root.Define("", v)
 			return internalize(r, root, "")
 		}
@@ -60,7 +60,7 @@ func internalize(reviver *Object, holder *Object, key string) Value {
 }
 
 // Stringify is JSON.stringify; ok is false when the result is undefined.
-func Stringify(v, replacer, space Value) (string, bool) {
+func (rt *Realm) Stringify(v, replacer, space Value) (string, bool) {
 	st := &stringifier{indent: "", stack: nil}
 	if r, ok := replacer.(*Object); ok {
 		if r.call != nil {
@@ -107,7 +107,7 @@ func Stringify(v, replacer, space Value) (string, bool) {
 		}
 		st.gap = FromUnits(u)
 	}
-	holder := NewPlainObject()
+	holder := rt.NewPlainObject()
 	holder.Define("", v)
 	var b strings.Builder
 	if !st.property(&b, holder, "", v) {
@@ -296,8 +296,8 @@ type jsonError struct{ msg string }
 func (e jsonError) Error() string { return e.msg }
 
 // ParseJSON is JSON.parse without a reviver.
-func ParseJSON(s string) (Value, error) {
-	p := &jsonParser{s: s}
+func (rt *Realm) ParseJSON(s string) (Value, error) {
+	p := &jsonParser{rt: rt, s: s}
 	p.space()
 	v, err := p.value()
 	if err != nil {
@@ -311,8 +311,9 @@ func ParseJSON(s string) (Value, error) {
 }
 
 type jsonParser struct {
-	s string
-	i int
+	rt *Realm
+	s  string
+	i  int
 	// keys holds each object key once, as a Value: the objects of a list
 	// repeat their keys, and boxing each would allocate.
 	keys map[string]PropKey
@@ -355,7 +356,7 @@ func (p *jsonParser) value() (Value, error) {
 	switch c := p.s[p.i]; {
 	case c == '{':
 		p.i++
-		o := NewPlainObject()
+		o := p.rt.NewPlainObject()
 		p.space()
 		if p.i < len(p.s) && p.s[p.i] == '}' {
 			p.i++
@@ -398,7 +399,7 @@ func (p *jsonParser) value() (Value, error) {
 		p.space()
 		if p.i < len(p.s) && p.s[p.i] == ']' {
 			p.i++
-			return NewArray(out), nil
+			return p.rt.NewArray(out), nil
 		}
 		for {
 			p.space()
@@ -414,7 +415,7 @@ func (p *jsonParser) value() (Value, error) {
 			}
 			if p.i < len(p.s) && p.s[p.i] == ']' {
 				p.i++
-				return NewArray(out), nil
+				return p.rt.NewArray(out), nil
 			}
 			return nil, p.fail()
 		}

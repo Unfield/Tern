@@ -12,11 +12,8 @@ import "unsafe"
 // concatMin is the length below which a plain Go concatenation is cheaper.
 const concatMin = 128
 
-// lastConcat holds the bytes of the last long concatenation's result.
-var lastConcat []byte
-
 // Concat is a + b for strings.
-func Concat(a, b string) string {
+func (rt *Realm) Concat(a, b string) string {
 	switch {
 	case b == "":
 		return a
@@ -27,15 +24,15 @@ func Concat(a, b string) string {
 	if n < concatMin {
 		return a + b
 	}
-	buf := lastConcat
+	buf := rt.lastConcat
 	if len(a) == len(buf) && unsafe.StringData(a) == unsafe.SliceData(buf) && cap(buf)-len(buf) >= len(b) {
 		buf = append(buf, b...)
-		lastConcat = buf
+		rt.lastConcat = buf
 		return unsafe.String(unsafe.SliceData(buf), n)
 	}
 	buf = make([]byte, n, n*2)
 	copy(buf, a)
 	copy(buf[len(a):], b)
-	lastConcat = buf
+	rt.lastConcat = buf
 	return unsafe.String(unsafe.SliceData(buf), n)
 }

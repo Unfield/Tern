@@ -2,23 +2,23 @@ package js
 
 // NewFunction makes a function object. length is the number of declared
 // parameters, as fn.length reports it.
-func NewFunction(name string, length int, fn func(this Value, args []Value) Value) *Object {
-	return &Object{proto: FunctionPrototype, call: fn, Class: "Function", fnLazy: lazyNameLength, fnLen: int32(length), fnName: name}
+func (rt *Realm) NewFunction(name string, length int, fn func(this Value, args []Value) Value) *Object {
+	return &Object{proto: rt.FunctionPrototype, call: fn, Class: "Function", realm: rt, fnLazy: lazyNameLength, fnLen: int32(length), fnName: name}
 }
 
 // NewConstructor makes a function that new can call, with a prototype
 // object whose constructor is the function. construct receives the new
 // target, for subclasses.
-func NewConstructor(name string, length int, call func(this Value, args []Value) Value, construct func(args []Value, newTarget *Object) Value, proto *Object) *Object {
+func (rt *Realm) NewConstructor(name string, length int, call func(this Value, args []Value) Value, construct func(args []Value, newTarget *Object) Value, proto *Object) *Object {
 	if call == nil {
 		call = func(Value, []Value) Value {
 			panic(TypeErrorf("Class constructor %s cannot be invoked without 'new'", name))
 		}
 	}
-	f := NewFunction(name, length, call)
+	f := rt.NewFunction(name, length, call)
 	f.construct = construct
 	if proto == nil {
-		proto = NewPlainObject()
+		proto = rt.NewPlainObject()
 	}
 	f.add(prop{key: "prototype", value: proto, writable: true})
 	proto.DefineHidden("constructor", f)
@@ -46,29 +46,36 @@ func Arg(args []Value, i int) Value {
 // its arguments here and pops them when it returns, so argument lists
 // don't each need an allocation: callees that keep their arguments past
 // the call (rest parameters, arguments objects, Array.of…) copy them.
-var argStack = make([]Value, 0, 1024)
 
-// invoke calls a function object with arguments from the stack.
+// invoke calls a function object with arguments from its realm's stack.
 func (o *Object) invoke(this Value, args ...Value) Value {
-	base := len(argStack)
-	argStack = append(argStack, args...)
-	top := len(argStack)
-	defer popArgs(base)
-	return o.call(this, argStack[base:top:top])
+	rt := o.realm
+	if rt == nil {
+		return o.call(this, append([]Value(nil), args...))
+	}
+	base := len(rt.argStack)
+	rt.argStack = append(rt.argStack, args...)
+	top := len(rt.argStack)
+	defer rt.popArgs(base)
+	return o.call(this, rt.argStack[base:top:top])
 }
 
-// construct calls a constructor with arguments from the stack.
+// constructArgs calls a constructor with arguments from its realm's stack.
 func (o *Object) constructArgs(args []Value, newTarget *Object) Value {
-	base := len(argStack)
-	argStack = append(argStack, args...)
-	top := len(argStack)
-	defer popArgs(base)
-	return o.construct(argStack[base:top:top], newTarget)
+	rt := o.realm
+	if rt == nil {
+		return o.construct(append([]Value(nil), args...), newTarget)
+	}
+	base := len(rt.argStack)
+	rt.argStack = append(rt.argStack, args...)
+	top := len(rt.argStack)
+	defer rt.popArgs(base)
+	return o.construct(rt.argStack[base:top:top], newTarget)
 }
 
-func popArgs(base int) {
-	clear(argStack[base:])
-	argStack = argStack[:base]
+func (rt *Realm) popArgs(base int) {
+	clear(rt.argStack[base:])
+	rt.argStack = rt.argStack[:base]
 }
 
 // Call calls f with a this value.
@@ -81,8 +88,8 @@ func Call(f Value, this Value, args ...Value) Value {
 }
 
 // CallMethod is obj[key](...args), with obj as this.
-func CallMethod(obj Value, key PropKey, args ...Value) Value {
-	f := Get(obj, key)
+func (rt *Realm) CallMethod(obj Value, key PropKey, args ...Value) Value {
+	f := rt.Get(obj, key)
 	o, ok := f.(*Object)
 	if !ok || o.call == nil {
 		panic(TypeErrorf("%s.%s is not a function", describeForError(obj), keyName(key)))

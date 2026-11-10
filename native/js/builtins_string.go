@@ -21,8 +21,8 @@ func thisString(this Value, name string) string {
 	return ToString(this)
 }
 
-func setupString() {
-	StringCtor = NewConstructor("String", 1, func(_ Value, args []Value) Value {
+func (rt *Realm) setupString() {
+	rt.StringCtor = rt.NewConstructor("String", 1, func(_ Value, args []Value) Value {
 		if len(args) == 0 {
 			return ""
 		}
@@ -31,23 +31,23 @@ func setupString() {
 		}
 		return ToStringValue(args[0])
 	}, func(args []Value, nt *Object) Value {
-		o := OrdinaryCreateFromConstructor(nt, StringPrototype)
+		o := OrdinaryCreateFromConstructor(nt, rt.StringPrototype)
 		s := ""
 		if len(args) > 0 {
 			s = ToString(args[0])
 		}
 		o.Class, o.Internal = "String", s
 		return o
-	}, StringPrototype)
-	StringPrototype.Internal = ""
-	method(StringCtor, "fromCharCode", 1, func(_ Value, args []Value) Value {
+	}, rt.StringPrototype)
+	rt.StringPrototype.Internal = ""
+	rt.method(rt.StringCtor, "fromCharCode", 1, func(_ Value, args []Value) Value {
 		u := make([]uint16, len(args))
 		for i, a := range args {
 			u[i] = uint16(ToUint32(a))
 		}
 		return FromUnits(u)
 	})
-	method(StringCtor, "fromCodePoint", 1, func(_ Value, args []Value) Value {
+	rt.method(rt.StringCtor, "fromCodePoint", 1, func(_ Value, args []Value) Value {
 		var b strings.Builder
 		for _, a := range args {
 			n := ToNumber(a)
@@ -58,8 +58,8 @@ func setupString() {
 		}
 		return b.String()
 	})
-	method(StringCtor, "raw", 1, func(_ Value, args []Value) Value {
-		strs := ListFromArrayLike(Get(Arg(args, 0), "raw"))
+	rt.method(rt.StringCtor, "raw", 1, func(_ Value, args []Value) Value {
+		strs := ListFromArrayLike(rt.Get(Arg(args, 0), "raw"))
 		var b strings.Builder
 		for i, s := range strs {
 			b.WriteString(ToString(s))
@@ -70,14 +70,14 @@ func setupString() {
 		return b.String()
 	})
 
-	p := StringPrototype
+	p := rt.StringPrototype
 	str := func(name string, length int, fn func(s string, args []Value) Value) {
-		method(p, name, length, func(this Value, args []Value) Value { return fn(thisString(this, name), args) })
+		rt.method(p, name, length, func(this Value, args []Value) Value { return fn(thisString(this, name), args) })
 	}
 	str("toString", 0, func(s string, _ []Value) Value { return s })
 	str("valueOf", 0, func(s string, _ []Value) Value { return s })
 	str("at", 1, func(s string, args []Value) Value {
-		n := Len16(s)
+		n := rt.Len16(s)
 		i := int(ToIntegerOrInfinity(Arg(args, 0)))
 		if i < 0 {
 			i += n
@@ -85,17 +85,17 @@ func setupString() {
 		if i < 0 || i >= n {
 			return Undefined
 		}
-		return charAt(s, i)
+		return rt.charAt(s, i)
 	})
 	str("charAt", 1, func(s string, args []Value) Value {
 		i := ToIntegerOrInfinity(Arg(args, 0))
-		if i < 0 || int(i) >= Len16(s) {
+		if i < 0 || int(i) >= rt.Len16(s) {
 			return ""
 		}
-		return charAt(s, int(i))
+		return rt.charAt(s, int(i))
 	})
 	str("charCodeAt", 1, func(s string, args []Value) Value {
-		u := UnitAt(s, int(ToIntegerOrInfinity(Arg(args, 0))))
+		u := rt.UnitAt(s, int(ToIntegerOrInfinity(Arg(args, 0))))
 		if u < 0 {
 			return nan
 		}
@@ -121,27 +121,27 @@ func setupString() {
 	})
 	str("endsWith", 1, func(s string, args []Value) Value {
 		sub := searchString(Arg(args, 0), "endsWith")
-		n := Len16(s)
+		n := rt.Len16(s)
 		end := n
 		if e := Arg(args, 1); e != Undefined {
 			end = int(max(0, min(ToIntegerOrInfinity(e), float64(n))))
 		}
-		start := end - Len16(sub)
-		return start >= 0 && Slice16(s, start, end) == sub
+		start := end - rt.Len16(sub)
+		return start >= 0 && rt.Slice16(s, start, end) == sub
 	})
 	str("startsWith", 1, func(s string, args []Value) Value {
 		sub := searchString(Arg(args, 0), "startsWith")
-		n := Len16(s)
+		n := rt.Len16(s)
 		start := int(max(0, min(ToIntegerOrInfinity(Arg(args, 1)), float64(n))))
-		end := start + Len16(sub)
-		return end <= n && Slice16(s, start, end) == sub
+		end := start + rt.Len16(sub)
+		return end <= n && rt.Slice16(s, start, end) == sub
 	})
 	str("includes", 1, func(s string, args []Value) Value {
 		sub := searchString(Arg(args, 0), "includes")
-		return Index16(s, sub, int(max(0, ToIntegerOrInfinity(Arg(args, 1))))) >= 0
+		return rt.Index16(s, sub, int(max(0, ToIntegerOrInfinity(Arg(args, 1))))) >= 0
 	})
 	str("indexOf", 1, func(s string, args []Value) Value {
-		return float64(Index16(s, ToString(Arg(args, 0)), int(max(0, ToIntegerOrInfinity(Arg(args, 1))))))
+		return float64(rt.Index16(s, ToString(Arg(args, 0)), int(max(0, ToIntegerOrInfinity(Arg(args, 1))))))
 	})
 	str("lastIndexOf", 1, func(s string, args []Value) Value {
 		u, v := Units(s), Units(ToString(Arg(args, 0)))
@@ -164,13 +164,13 @@ func setupString() {
 		return -1.0
 	})
 	str("slice", 2, func(s string, args []Value) Value {
-		n := Len16(s)
+		n := rt.Len16(s)
 		start := relIndex(Arg(args, 0), n, 0)
 		end := relIndex(Arg(args, 1), n, n)
-		return Slice16(s, start, end)
+		return rt.Slice16(s, start, end)
 	})
 	str("substring", 2, func(s string, args []Value) Value {
-		n := Len16(s)
+		n := rt.Len16(s)
 		clamp := func(v Value, def int) int {
 			if v == Undefined {
 				return def
@@ -181,26 +181,26 @@ func setupString() {
 		if a > b {
 			a, b = b, a
 		}
-		return Slice16(s, a, b)
+		return rt.Slice16(s, a, b)
 	})
 	str("substr", 2, func(s string, args []Value) Value {
-		n := Len16(s)
+		n := rt.Len16(s)
 		start := relIndex(Arg(args, 0), n, 0)
 		l := n - start
 		if v := Arg(args, 1); v != Undefined {
 			l = int(max(0, min(ToIntegerOrInfinity(v), float64(n-start))))
 		}
-		return Slice16(s, start, start+l)
+		return rt.Slice16(s, start, start+l)
 	})
-	str("toUpperCase", 0, func(s string, _ []Value) Value { return jsUpper(s) })
-	str("toLowerCase", 0, func(s string, _ []Value) Value { return jsLower(s) })
-	str("toLocaleUpperCase", 0, func(s string, _ []Value) Value { return jsUpper(s) })
-	str("toLocaleLowerCase", 0, func(s string, _ []Value) Value { return jsLower(s) })
+	str("toUpperCase", 0, func(s string, _ []Value) Value { return rt.jsUpper(s) })
+	str("toLowerCase", 0, func(s string, _ []Value) Value { return rt.jsLower(s) })
+	str("toLocaleUpperCase", 0, func(s string, _ []Value) Value { return rt.jsUpper(s) })
+	str("toLocaleLowerCase", 0, func(s string, _ []Value) Value { return rt.jsLower(s) })
 	str("trim", 0, func(s string, _ []Value) Value { return TrimJSSpace(s) })
 	str("trimStart", 0, func(s string, _ []Value) Value { return strings.TrimLeftFunc(s, isJSSpace) })
 	str("trimEnd", 0, func(s string, _ []Value) Value { return strings.TrimRightFunc(s, isJSSpace) })
-	str("padStart", 2, func(s string, args []Value) Value { return pad(s, args, true) })
-	str("padEnd", 2, func(s string, args []Value) Value { return pad(s, args, false) })
+	str("padStart", 2, func(s string, args []Value) Value { return rt.pad(s, args, true) })
+	str("padEnd", 2, func(s string, args []Value) Value { return rt.pad(s, args, false) })
 	str("repeat", 1, func(s string, args []Value) Value {
 		n := ToIntegerOrInfinity(Arg(args, 0))
 		if n < 0 || n > 1<<28 {
@@ -226,19 +226,19 @@ func setupString() {
 		panic(RangeErrorf("The normalization form should be one of NFC, NFD, NFKC, NFKD."))
 	})
 	str("localeCompare", 1, func(s string, args []Value) Value {
-		return float64(localeCompare(s, ToString(Arg(args, 0))))
+		return float64(rt.localeCompare(s, ToString(Arg(args, 0))))
 	})
 	str("split", 2, func(s string, args []Value) Value {
 		sep := Arg(args, 0)
 		if r, ok := sep.(*Object); ok && r.Class == "RegExp" {
-			return regexpSplit(r, s, Arg(args, 1))
+			return rt.regexpSplit(r, s, Arg(args, 1))
 		}
 		limit := 1<<32 - 1
 		if l := Arg(args, 1); l != Undefined {
 			limit = int(ToUint32(l))
 		}
 		if sep == Undefined {
-			return NewArray([]Value{s})
+			return rt.NewArray([]Value{s})
 		}
 		ss := ToString(sep)
 		var parts []string
@@ -257,22 +257,22 @@ func setupString() {
 			}
 			out = append(out, part)
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
-	str("replace", 2, func(s string, args []Value) Value { return replace(s, Arg(args, 0), Arg(args, 1), false) })
-	str("replaceAll", 2, func(s string, args []Value) Value { return replace(s, Arg(args, 0), Arg(args, 1), true) })
-	str("match", 1, func(s string, args []Value) Value { return regexpMatch(toRegExp(Arg(args, 0), ""), s) })
+	str("replace", 2, func(s string, args []Value) Value { return rt.replace(s, Arg(args, 0), Arg(args, 1), false) })
+	str("replaceAll", 2, func(s string, args []Value) Value { return rt.replace(s, Arg(args, 0), Arg(args, 1), true) })
+	str("match", 1, func(s string, args []Value) Value { return rt.regexpMatch(rt.toRegExp(Arg(args, 0), ""), s) })
 	str("matchAll", 1, func(s string, args []Value) Value {
-		r := toRegExp(Arg(args, 0), "g")
+		r := rt.toRegExp(Arg(args, 0), "g")
 		if !strings.Contains(r.regexpFlags(), "g") {
 			panic(TypeErrorf("String.prototype.matchAll called with a non-global RegExp argument"))
 		}
-		return regexpMatchAll(r, s)
+		return rt.regexpMatchAll(r, s)
 	})
-	str("search", 1, func(s string, args []Value) Value { return regexpSearch(toRegExp(Arg(args, 0), ""), s) })
-	si := method(p, "[Symbol.iterator]", 0, func(this Value, _ []Value) Value {
-		next, _ := iteratorFor(thisString(this, "[Symbol.iterator]"))
-		return NewIterator(next)
+	str("search", 1, func(s string, args []Value) Value { return rt.regexpSearch(rt.toRegExp(Arg(args, 0), ""), s) })
+	si := rt.method(p, "[Symbol.iterator]", 0, func(this Value, _ []Value) Value {
+		next, _ := rt.iteratorFor(thisString(this, "[Symbol.iterator]"))
+		return rt.NewIterator(next)
 	})
 	p.Delete("[Symbol.iterator]")
 	p.DefineHidden(SymbolIterator, si)
@@ -285,13 +285,13 @@ func searchString(v Value, name string) string {
 	return ToString(v)
 }
 
-func pad(s string, args []Value, start bool) string {
+func (rt *Realm) pad(s string, args []Value, start bool) string {
 	n := int(ToIntegerOrInfinity(Arg(args, 0)))
 	fill := " "
 	if f := Arg(args, 1); f != Undefined {
 		fill = ToString(f)
 	}
-	l := Len16(s)
+	l := rt.Len16(s)
 	if n <= l || fill == "" {
 		return s
 	}
@@ -310,8 +310,8 @@ func pad(s string, args []Value, start bool) string {
 
 // jsUpper and jsLower follow Unicode's full case mappings, as JavaScript
 // does: "ß".toUpperCase() is "SS".
-func jsUpper(s string) string {
-	if isASCII(s) {
+func (rt *Realm) jsUpper(s string) string {
+	if rt.isASCII(s) {
 		return strings.ToUpper(s)
 	}
 	var b strings.Builder
@@ -328,8 +328,8 @@ func jsUpper(s string) string {
 	return b.String()
 }
 
-func jsLower(s string) string {
-	if isASCII(s) {
+func (rt *Realm) jsLower(s string) string {
+	if rt.isASCII(s) {
 		return strings.ToLower(s)
 	}
 	var b strings.Builder
@@ -355,6 +355,6 @@ func jsLower(s string) string {
 // localeCompare is QuickJS's String.prototype.localeCompare, which the
 // server renderer uses: both strings normalized to NFC, then compared by
 // UTF-16 code units.
-func localeCompare(a, b string) int {
-	return CompareStrings(norm.NFC.String(a), norm.NFC.String(b))
+func (rt *Realm) localeCompare(a, b string) int {
+	return rt.CompareStrings(norm.NFC.String(a), norm.NFC.String(b))
 }

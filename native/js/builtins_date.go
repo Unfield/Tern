@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-// DatePrototype is Date.prototype.
-var DatePrototype = &Object{proto: ObjectPrototype}
-
 const maxTime = 8.64e15
 
 func timeClip(t float64) float64 {
@@ -22,8 +19,8 @@ func timeClip(t float64) float64 {
 }
 
 // NewDate makes a Date for a time value in milliseconds.
-func NewDate(ms float64) *Object {
-	o := NewObject(DatePrototype)
+func (rt *Realm) NewDate(ms float64) *Object {
+	o := NewObject(rt.DatePrototype)
 	o.Class, o.Internal = "Date", timeClip(ms)
 	return o
 }
@@ -156,8 +153,8 @@ func tzString(t time.Time) string {
 	return fmt.Sprintf("GMT%c%02d%02d", sign, off/3600, off/60%60)
 }
 
-func setupDate() {
-	ctor := NewConstructor("Date", 7, func(Value, []Value) Value {
+func (rt *Realm) setupDate() {
+	ctor := rt.NewConstructor("Date", 7, func(Value, []Value) Value {
 		t := time.Now()
 		return t.Format("Mon Jan 02 2006 15:04:05 ") + tzString(t)
 	}, func(args []Value, nt *Object) Value {
@@ -189,14 +186,14 @@ func setupDate() {
 			}
 			ms = makeTime(f[0], f[1], f[2], f[3], f[4], f[5], f[6], false)
 		}
-		d := OrdinaryCreateFromConstructor(nt, DatePrototype)
+		d := OrdinaryCreateFromConstructor(nt, rt.DatePrototype)
 		d.Class, d.Internal = "Date", timeClip(ms)
 		return d
-	}, DatePrototype)
-	Global.DefineHidden("Date", ctor)
-	method(ctor, "now", 0, func(Value, []Value) Value { return float64(time.Now().UnixMilli()) })
-	method(ctor, "parse", 1, func(_ Value, args []Value) Value { return parseDate(ToString(Arg(args, 0))) })
-	method(ctor, "UTC", 7, func(_ Value, args []Value) Value {
+	}, rt.DatePrototype)
+	rt.Global.DefineHidden("Date", ctor)
+	rt.method(ctor, "now", 0, func(Value, []Value) Value { return float64(time.Now().UnixMilli()) })
+	rt.method(ctor, "parse", 1, func(_ Value, args []Value) Value { return parseDate(ToString(Arg(args, 0))) })
+	rt.method(ctor, "UTC", 7, func(_ Value, args []Value) Value {
 		f := [7]float64{math.NaN(), 0, 1, 0, 0, 0, 0}
 		for i := 0; i < len(args) && i < 7; i++ {
 			f[i] = ToNumber(args[i])
@@ -209,9 +206,9 @@ func setupDate() {
 		return timeClip(makeTime(f[0], f[1], f[2], f[3], f[4], f[5], f[6], true))
 	})
 
-	p := DatePrototype
+	p := rt.DatePrototype
 	getter := func(name string, utc bool, i int) {
-		method(p, name, 0, func(this Value, _ []Value) Value {
+		rt.method(p, name, 0, func(this Value, _ []Value) Value {
 			t := thisTime(this, name)
 			if math.IsNaN(t) {
 				return math.NaN()
@@ -228,16 +225,16 @@ func setupDate() {
 	}
 	getter("getDay", false, 7)
 	getter("getUTCDay", true, 7)
-	method(p, "getYear", 0, func(this Value, _ []Value) Value {
+	rt.method(p, "getYear", 0, func(this Value, _ []Value) Value {
 		t := thisTime(this, "getYear")
 		if math.IsNaN(t) {
 			return t
 		}
 		return dateFields(toGo(t, false))[0] - 1900
 	})
-	method(p, "getTime", 0, func(this Value, _ []Value) Value { return thisTime(this, "getTime") })
-	method(p, "valueOf", 0, func(this Value, _ []Value) Value { return thisTime(this, "valueOf") })
-	method(p, "getTimezoneOffset", 0, func(this Value, _ []Value) Value {
+	rt.method(p, "getTime", 0, func(this Value, _ []Value) Value { return thisTime(this, "getTime") })
+	rt.method(p, "valueOf", 0, func(this Value, _ []Value) Value { return thisTime(this, "valueOf") })
+	rt.method(p, "getTimezoneOffset", 0, func(this Value, _ []Value) Value {
 		t := thisTime(this, "getTimezoneOffset")
 		if math.IsNaN(t) {
 			return t
@@ -246,7 +243,7 @@ func setupDate() {
 		return float64(-off / 60)
 	})
 	setter := func(name string, utc bool, first, count int) {
-		method(p, name, count, func(this Value, args []Value) Value {
+		rt.method(p, name, count, func(this Value, args []Value) Value {
 			o := this.(*Object)
 			t := thisTime(this, name)
 			f := dateFields(toGo(t, utc))
@@ -274,14 +271,14 @@ func setupDate() {
 		setter("set"+s.name, false, s.first, s.count)
 		setter("setUTC"+s.name, true, s.first, s.count)
 	}
-	method(p, "setTime", 1, func(this Value, args []Value) Value {
+	rt.method(p, "setTime", 1, func(this Value, args []Value) Value {
 		thisTime(this, "setTime")
 		t := timeClip(ToNumber(Arg(args, 0)))
 		this.(*Object).Internal = t
 		return t
 	})
 	format := func(name string, fn func(t float64) string) {
-		method(p, name, 0, func(this Value, _ []Value) Value {
+		rt.method(p, name, 0, func(this Value, _ []Value) Value {
 			t := thisTime(this, name)
 			if math.IsNaN(t) {
 				if name == "toISOString" {
@@ -307,14 +304,14 @@ func setupDate() {
 	format("toLocaleString", func(t float64) string { return toGo(t, false).Format("01/02/2006, 15:04:05") })
 	format("toLocaleDateString", func(t float64) string { return toGo(t, false).Format("01/02/2006") })
 	format("toLocaleTimeString", func(t float64) string { return toGo(t, false).Format("15:04:05") })
-	method(p, "toJSON", 1, func(this Value, _ []Value) Value {
+	rt.method(p, "toJSON", 1, func(this Value, _ []Value) Value {
 		tv := ToPrimitive(this, "number")
 		if n, ok := tv.(float64); ok && (math.IsNaN(n) || math.IsInf(n, 0)) {
 			return Null
 		}
-		return CallMethod(this, "toISOString")
+		return rt.CallMethod(this, "toISOString")
 	})
-	tp := NewFunction("[Symbol.toPrimitive]", 1, func(this Value, args []Value) Value {
+	tp := rt.NewFunction("[Symbol.toPrimitive]", 1, func(this Value, args []Value) Value {
 		hint := ToString(Arg(args, 0))
 		o, ok := this.(*Object)
 		if !ok {

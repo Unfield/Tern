@@ -1,78 +1,78 @@
 package js
 
-func toObjectArg(args []Value, name string) *Object {
+func (rt *Realm) toObjectArg(args []Value, name string) *Object {
 	v := Arg(args, 0)
 	if IsNullish(v) {
 		panic(TypeErrorf("%s called on null or undefined", name))
 	}
-	return ToObject(v)
+	return rt.ToObject(v)
 }
 
-func setupObject() {
-	ObjectCtor = NewConstructor("Object", 1, func(_ Value, args []Value) Value {
+func (rt *Realm) setupObject() {
+	rt.ObjectCtor = rt.NewConstructor("Object", 1, func(_ Value, args []Value) Value {
 		v := Arg(args, 0)
 		if IsNullish(v) {
-			return NewPlainObject()
+			return rt.NewPlainObject()
 		}
-		return ToObject(v)
+		return rt.ToObject(v)
 	}, func(args []Value, nt *Object) Value {
 		v := Arg(args, 0)
 		if IsNullish(v) {
-			return OrdinaryCreateFromConstructor(nt, ObjectPrototype)
+			return OrdinaryCreateFromConstructor(nt, rt.ObjectPrototype)
 		}
-		return ToObject(v)
-	}, ObjectPrototype)
-	c := ObjectCtor
-	method(c, "keys", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.keys")
-		return NewArray(o.OwnKeys(true, false))
+		return rt.ToObject(v)
+	}, rt.ObjectPrototype)
+	c := rt.ObjectCtor
+	rt.method(c, "keys", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.keys")
+		return rt.NewArray(o.OwnKeys(true, false))
 	})
-	method(c, "values", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.values")
+	rt.method(c, "values", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.values")
 		var out []Value
 		o.EnumerableOwn(func(_ string, v Value) { out = append(out, v) })
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
-	method(c, "entries", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.entries")
+	rt.method(c, "entries", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.entries")
 		var out []Value
-		o.EnumerableOwn(func(k string, v Value) { out = append(out, NewArray([]Value{k, v})) })
-		return NewArray(out)
+		o.EnumerableOwn(func(k string, v Value) { out = append(out, rt.NewArray([]Value{k, v})) })
+		return rt.NewArray(out)
 	})
-	method(c, "assign", 2, func(_ Value, args []Value) Value {
-		target := toObjectArg(args, "Object.assign")
+	rt.method(c, "assign", 2, func(_ Value, args []Value) Value {
+		target := rt.toObjectArg(args, "Object.assign")
 		for _, src := range args[1:] {
 			if IsNullish(src) {
 				continue
 			}
-			s := ToObject(src)
+			s := rt.ToObject(src)
 			for _, k := range s.OwnKeys(true, true) {
 				target.Set(k, s.Get(k))
 			}
 		}
 		return target
 	})
-	method(c, "fromEntries", 1, func(_ Value, args []Value) Value {
-		o := NewPlainObject()
-		ForOf(Arg(args, 0), func(entry Value) bool {
-			o.Define(ToPropertyKey(Get(entry, "0")), Get(entry, "1"))
+	rt.method(c, "fromEntries", 1, func(_ Value, args []Value) Value {
+		o := rt.NewPlainObject()
+		rt.ForOf(Arg(args, 0), func(entry Value) bool {
+			o.Define(ToPropertyKey(rt.Get(entry, "0")), rt.Get(entry, "1"))
 			return true
 		})
 		return o
 	})
-	method(c, "freeze", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "freeze", 1, func(_ Value, args []Value) Value {
 		if o, ok := Arg(args, 0).(*Object); ok {
 			o.Freeze()
 		}
 		return Arg(args, 0)
 	})
-	method(c, "isFrozen", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "isFrozen", 1, func(_ Value, args []Value) Value {
 		o, ok := Arg(args, 0).(*Object)
 		return !ok || o.IsFrozen()
 	})
-	method(c, "seal", 1, func(_ Value, args []Value) Value { return Arg(args, 0) })
-	method(c, "preventExtensions", 1, func(_ Value, args []Value) Value { return Arg(args, 0) })
-	method(c, "create", 2, func(_ Value, args []Value) Value {
+	rt.method(c, "seal", 1, func(_ Value, args []Value) Value { return Arg(args, 0) })
+	rt.method(c, "preventExtensions", 1, func(_ Value, args []Value) Value { return Arg(args, 0) })
+	rt.method(c, "create", 2, func(_ Value, args []Value) Value {
 		var proto *Object
 		switch p := Arg(args, 0).(type) {
 		case *Object:
@@ -84,19 +84,19 @@ func setupObject() {
 		o := NewObject(proto)
 		if props, ok := Arg(args, 1).(*Object); ok {
 			for _, k := range props.OwnKeys(true, true) {
-				o.DefineProperty(k, ToObject(props.Get(k)))
+				o.DefineProperty(k, rt.ToObject(props.Get(k)))
 			}
 		}
 		return o
 	})
-	method(c, "getPrototypeOf", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.getPrototypeOf")
+	rt.method(c, "getPrototypeOf", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.getPrototypeOf")
 		if o.proto == nil {
 			return Null
 		}
 		return o.proto
 	})
-	method(c, "setPrototypeOf", 2, func(_ Value, args []Value) Value {
+	rt.method(c, "setPrototypeOf", 2, func(_ Value, args []Value) Value {
 		if o, ok := Arg(args, 0).(*Object); ok {
 			switch p := Arg(args, 1).(type) {
 			case *Object:
@@ -107,7 +107,7 @@ func setupObject() {
 		}
 		return Arg(args, 0)
 	})
-	method(c, "defineProperty", 3, func(_ Value, args []Value) Value {
+	rt.method(c, "defineProperty", 3, func(_ Value, args []Value) Value {
 		o, ok := Arg(args, 0).(*Object)
 		if !ok {
 			panic(TypeErrorf("Object.defineProperty called on non-object"))
@@ -119,58 +119,58 @@ func setupObject() {
 		o.DefineProperty(ToPropertyKey(Arg(args, 1)), d)
 		return o
 	})
-	method(c, "defineProperties", 2, func(_ Value, args []Value) Value {
+	rt.method(c, "defineProperties", 2, func(_ Value, args []Value) Value {
 		o, ok := Arg(args, 0).(*Object)
 		if !ok {
 			panic(TypeErrorf("Object.defineProperties called on non-object"))
 		}
-		props := ToObject(Arg(args, 1))
+		props := rt.ToObject(Arg(args, 1))
 		for _, k := range props.OwnKeys(true, true) {
-			o.DefineProperty(k, ToObject(props.Get(k)))
+			o.DefineProperty(k, rt.ToObject(props.Get(k)))
 		}
 		return o
 	})
-	method(c, "getOwnPropertyNames", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.getOwnPropertyNames")
-		return NewArray(keysToValues(o.OwnKeys(false, false)))
+	rt.method(c, "getOwnPropertyNames", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.getOwnPropertyNames")
+		return rt.NewArray(keysToValues(o.OwnKeys(false, false)))
 	})
-	method(c, "getOwnPropertySymbols", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.getOwnPropertySymbols")
+	rt.method(c, "getOwnPropertySymbols", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.getOwnPropertySymbols")
 		var out []Value
 		for _, k := range o.OwnKeys(false, true) {
 			if s, ok := k.(*Symbol); ok {
 				out = append(out, s)
 			}
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
-	method(c, "getOwnPropertyDescriptor", 2, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.getOwnPropertyDescriptor")
-		return o.descriptor(ToPropertyKey(Arg(args, 1)))
+	rt.method(c, "getOwnPropertyDescriptor", 2, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.getOwnPropertyDescriptor")
+		return o.descriptor(rt, ToPropertyKey(Arg(args, 1)))
 	})
-	method(c, "getOwnPropertyDescriptors", 1, func(_ Value, args []Value) Value {
-		o := toObjectArg(args, "Object.getOwnPropertyDescriptors")
-		out := NewPlainObject()
+	rt.method(c, "getOwnPropertyDescriptors", 1, func(_ Value, args []Value) Value {
+		o := rt.toObjectArg(args, "Object.getOwnPropertyDescriptors")
+		out := rt.NewPlainObject()
 		for _, k := range o.OwnKeys(false, true) {
-			out.Define(k, o.descriptor(k))
+			out.Define(k, o.descriptor(rt, k))
 		}
 		return out
 	})
-	method(c, "is", 2, func(_ Value, args []Value) Value { return SameValue(Arg(args, 0), Arg(args, 1)) })
-	method(c, "hasOwn", 2, func(_ Value, args []Value) Value {
-		return toObjectArg(args, "Object.hasOwn").HasOwn(ToPropertyKey(Arg(args, 1)))
+	rt.method(c, "is", 2, func(_ Value, args []Value) Value { return SameValue(Arg(args, 0), Arg(args, 1)) })
+	rt.method(c, "hasOwn", 2, func(_ Value, args []Value) Value {
+		return rt.toObjectArg(args, "Object.hasOwn").HasOwn(ToPropertyKey(Arg(args, 1)))
 	})
 
-	p := ObjectPrototype
-	method(p, "hasOwnProperty", 1, func(this Value, args []Value) Value {
-		return ToObject(this).HasOwn(ToPropertyKey(Arg(args, 0)))
+	p := rt.ObjectPrototype
+	rt.method(p, "hasOwnProperty", 1, func(this Value, args []Value) Value {
+		return rt.ToObject(this).HasOwn(ToPropertyKey(Arg(args, 0)))
 	})
-	method(p, "isPrototypeOf", 1, func(this Value, args []Value) Value {
+	rt.method(p, "isPrototypeOf", 1, func(this Value, args []Value) Value {
 		o, ok := Arg(args, 0).(*Object)
 		if !ok {
 			return false
 		}
-		self := ToObject(this)
+		self := rt.ToObject(this)
 		for q := o.proto; q != nil; q = q.proto {
 			if q == self {
 				return true
@@ -178,8 +178,8 @@ func setupObject() {
 		}
 		return false
 	})
-	method(p, "propertyIsEnumerable", 1, func(this Value, args []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "propertyIsEnumerable", 1, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
 		k := ToPropertyKey(Arg(args, 0))
 		if o.array != nil {
 			if _, ok := arrayIndex(k); ok {
@@ -189,20 +189,20 @@ func setupObject() {
 		i := o.find(k)
 		return i >= 0 && o.shape.attrs[i]&attrEnumerable != 0
 	})
-	method(p, "toString", 0, func(this Value, _ []Value) Value { return ObjectToString(this) })
-	method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return CallMethod(this, "toString") })
-	method(p, "valueOf", 0, func(this Value, _ []Value) Value { return ToObject(this) })
+	rt.method(p, "toString", 0, func(this Value, _ []Value) Value { return rt.ObjectToString(this) })
+	rt.method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return rt.CallMethod(this, "toString") })
+	rt.method(p, "valueOf", 0, func(this Value, _ []Value) Value { return rt.ToObject(this) })
 }
 
 // ObjectToString is Object.prototype.toString.
-func ObjectToString(v Value) string {
+func (rt *Realm) ObjectToString(v Value) string {
 	switch v.(type) {
 	case undefinedType:
 		return "[object Undefined]"
 	case nullType:
 		return "[object Null]"
 	}
-	o := ToObject(v)
+	o := rt.ToObject(v)
 	if tag, ok := o.Get(SymbolToStringTag).(string); ok {
 		return "[object " + tag + "]"
 	}
@@ -219,10 +219,10 @@ func ObjectToString(v Value) string {
 	return "[object Object]"
 }
 
-func (o *Object) descriptor(k PropKey) Value {
+func (o *Object) descriptor(rt *Realm, k PropKey) Value {
 	if o.array != nil {
 		if v, ok := o.GetOwn(k); ok {
-			d := NewPlainObject()
+			d := rt.NewPlainObject()
 			d.Define("value", v)
 			d.Define("writable", !o.frozen && k != "length" || k == "length")
 			d.Define("enumerable", k != "length")
@@ -235,7 +235,7 @@ func (o *Object) descriptor(k PropKey) Value {
 		return Undefined
 	}
 	p := o.propAt(i)
-	d := NewPlainObject()
+	d := rt.NewPlainObject()
 	if p.accessor {
 		d.Define("get", orUndefined(p.get))
 		d.Define("set", orUndefined(p.set))
@@ -255,24 +255,24 @@ func orUndefined(o *Object) Value {
 	return o
 }
 
-func setupFunction() {
-	FunctionCtor = NewConstructor("Function", 1, func(Value, []Value) Value {
+func (rt *Realm) setupFunction() {
+	rt.FunctionCtor = rt.NewConstructor("Function", 1, func(Value, []Value) Value {
 		panic(NotSupported("new Function"))
-	}, func([]Value, *Object) Value { panic(NotSupported("new Function")) }, FunctionPrototype)
-	p := FunctionPrototype
+	}, func([]Value, *Object) Value { panic(NotSupported("new Function")) }, rt.FunctionPrototype)
+	p := rt.FunctionPrototype
 	p.add(prop{key: "length", value: 0.0, configurable: true})
 	p.add(prop{key: "name", value: "", configurable: true})
-	method(p, "call", 1, func(this Value, args []Value) Value {
+	rt.method(p, "call", 1, func(this Value, args []Value) Value {
 		var rest []Value
 		if len(args) > 1 {
 			rest = args[1:]
 		}
 		return Call(this, Arg(args, 0), rest...)
 	})
-	method(p, "apply", 2, func(this Value, args []Value) Value {
+	rt.method(p, "apply", 2, func(this Value, args []Value) Value {
 		return Call(this, Arg(args, 0), ListFromArrayLike(Arg(args, 1))...)
 	})
-	method(p, "bind", 1, func(this Value, args []Value) Value {
+	rt.method(p, "bind", 1, func(this Value, args []Value) Value {
 		target, ok := this.(*Object)
 		if !ok || target.call == nil {
 			panic(TypeErrorf("Bind must be called on a function"))
@@ -290,7 +290,7 @@ func setupFunction() {
 		if l, ok := target.Get("length").(float64); ok {
 			length = max(0, l-float64(len(bound)))
 		}
-		f := NewFunction("bound "+name, int(length), func(_ Value, more []Value) Value {
+		f := rt.NewFunction("bound "+name, int(length), func(_ Value, more []Value) Value {
 			return target.call(boundThis, append(append([]Value(nil), bound...), more...))
 		})
 		if target.construct != nil {
@@ -303,7 +303,7 @@ func setupFunction() {
 		}
 		return f
 	})
-	method(p, "toString", 0, func(Value, []Value) Value { return "function () { [native code] }" })
+	rt.method(p, "toString", 0, func(Value, []Value) Value { return "function () { [native code] }" })
 }
 
 // ListFromArrayLike turns an array or array-like object into arguments.

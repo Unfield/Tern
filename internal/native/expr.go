@@ -28,7 +28,7 @@ func literalValue(n *Node) (js.Value, bool) {
 	if string(raw) == "null" || raw == nil {
 		return js.Null, true
 	}
-	v, err := js.ParseJSON(string(raw))
+	v, err := compileRealm.ParseJSON(string(raw))
 	if err != nil {
 		return nil, false
 	}
@@ -141,12 +141,12 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		for _, el := range q.List("quasis") {
 			v := el.Child("value")
 			if v.Has("cooked") {
-				cv, _ := js.ParseJSON(string(v.Raw("cooked")))
+				cv, _ := compileRealm.ParseJSON(string(v.Raw("cooked")))
 				cooked = append(cooked, quote(js.ToString(cv)))
 			} else {
 				cooked = append(cooked, "js.Undefined")
 			}
-			rv, _ := js.ParseJSON(string(v.Raw("raw")))
+			rv, _ := compileRealm.ParseJSON(string(v.Raw("raw")))
 			raws = append(raws, quote(js.ToString(rv)))
 		}
 		args := []string{fmt.Sprintf("js.TemplateObject(%d, []js.Value{%s}, []string{%s})", c.site(), join(cooked), join(raws))}
@@ -293,7 +293,7 @@ func (c *Compiler) template(s *scope, n *Node) string {
 	exprs := n.List("expressions")
 	var parts []string
 	for i, q := range quasis {
-		cv, _ := js.ParseJSON(string(q.Child("value").Raw("cooked")))
+		cv, _ := compileRealm.ParseJSON(string(q.Child("value").Raw("cooked")))
 		if str := js.ToString(cv); str != "" {
 			parts = append(parts, quote(str))
 		}
@@ -528,3 +528,6 @@ func (c *Compiler) exprStatement(w *writer, s *scope, n *Node) {
 	}
 	w.line("_ = %s", c.expr(s, n))
 }
+
+// compileRealm decodes literals while compiling.
+var compileRealm = js.NewRealm()

@@ -7,30 +7,30 @@ import (
 
 // Get is v[key] for any value: objects, and primitives through their
 // prototypes.
-func Get(v Value, key PropKey) Value {
+func (rt *Realm) Get(v Value, key PropKey) Value {
 	switch x := v.(type) {
 	case *Object:
 		return x.Get(key)
 	case string:
 		if key == "length" {
-			return Box(float64(Len16(x)))
+			return Box(float64(rt.Len16(x)))
 		}
 		if i, ok := arrayIndex(key); ok {
-			if u := UnitAt(x, i); u >= 0 {
-				return charAt(x, i)
+			if u := rt.UnitAt(x, i); u >= 0 {
+				return rt.charAt(x, i)
 			}
 			return Undefined
 		}
-		return StringPrototype.GetFrom(key, v)
+		return rt.StringPrototype.GetFrom(key, v)
 	case float64:
-		return NumberPrototype.GetFrom(key, v)
+		return rt.NumberPrototype.GetFrom(key, v)
 	case bool:
-		return BooleanPrototype.GetFrom(key, v)
+		return rt.BooleanPrototype.GetFrom(key, v)
 	case *Symbol:
 		if key == "description" {
 			return x.Description
 		}
-		return SymbolPrototype.GetFrom(key, v)
+		return rt.SymbolPrototype.GetFrom(key, v)
 	case undefinedType, nullType:
 		panic(TypeErrorf("Cannot read properties of %s (reading '%s')", ToString(v), keyName(key)))
 	}
@@ -45,11 +45,11 @@ var asciiChars = func() (out [128]Value) {
 	return
 }()
 
-func charAt(s string, i int) Value {
-	if isASCII(s) {
+func (rt *Realm) charAt(s string, i int) Value {
+	if rt.isASCII(s) {
 		return asciiChars[s[i]]
 	}
-	u := units16(s)[i]
+	u := rt.units16(s)[i]
 	if u < 128 {
 		return asciiChars[u]
 	}
@@ -57,12 +57,12 @@ func charAt(s string, i int) Value {
 }
 
 // GetV is v[k] where k is any value, with a fast path for array indexes.
-func GetV(v Value, k Value) Value {
+func (rt *Realm) GetV(v Value, k Value) Value {
 	if str, ok := v.(string); ok {
 		if n, ok := k.(float64); ok {
 			if i := int(n); float64(i) == n && i >= 0 {
-				if UnitAt(str, i) >= 0 {
-					return charAt(str, i)
+				if rt.UnitAt(str, i) >= 0 {
+					return rt.charAt(str, i)
 				}
 				return Undefined
 			}
@@ -85,15 +85,15 @@ func GetV(v Value, k Value) Value {
 			}
 		}
 	}
-	return Get(v, ToPropertyKey(k))
+	return rt.Get(v, ToPropertyKey(k))
 }
 
 // GetOptional is v?.[key]: undefined when v is nullish.
-func GetOptional(v Value, key PropKey) Value {
+func (rt *Realm) GetOptional(v Value, key PropKey) Value {
 	if IsNullish(v) {
 		return Undefined
 	}
-	return Get(v, key)
+	return rt.Get(v, key)
 }
 
 // Set is v[key] = val in strict mode code.
@@ -130,7 +130,7 @@ func SetV(v Value, k Value, val Value) {
 }
 
 // Add is the + operator.
-func Add(a, b Value) Value {
+func (rt *Realm) Add(a, b Value) Value {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
 			return Box(x + y)
@@ -138,15 +138,15 @@ func Add(a, b Value) Value {
 	}
 	if x, ok := a.(string); ok {
 		if y, ok := b.(string); ok {
-			return Concat(x, y)
+			return rt.Concat(x, y)
 		}
 	}
 	pa, pb := ToPrimitive(a, "default"), ToPrimitive(b, "default")
 	if sa, ok := pa.(string); ok {
-		return Concat(sa, ToString(pb))
+		return rt.Concat(sa, ToString(pb))
 	}
 	if sb, ok := pb.(string); ok {
-		return Concat(ToString(pa), sb)
+		return rt.Concat(ToString(pa), sb)
 	}
 	return Box(ToNumber(pa) + ToNumber(pb))
 }
@@ -317,7 +317,7 @@ func sameType(a, b Value) bool {
 
 // lessThan is IsLessThan: it returns -1 for undefined (a NaN was involved),
 // 0 for false and 1 for true.
-func lessThan(a, b Value, leftFirst bool) int {
+func (rt *Realm) lessThan(a, b Value, leftFirst bool) int {
 	var pa, pb Value
 	if leftFirst {
 		pa, pb = ToPrimitive(a, "number"), ToPrimitive(b, "number")
@@ -326,7 +326,7 @@ func lessThan(a, b Value, leftFirst bool) int {
 	}
 	if sa, ok := pa.(string); ok {
 		if sb, ok := pb.(string); ok {
-			if CompareStrings(sa, sb) < 0 {
+			if rt.CompareStrings(sa, sb) < 0 {
 				return 1
 			}
 			return 0
@@ -343,52 +343,52 @@ func lessThan(a, b Value, leftFirst bool) int {
 }
 
 // Less is <.
-func Less(a, b Value) bool {
+func (rt *Realm) Less(a, b Value) bool {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
 			return x < y
 		}
 	}
-	return lessThan(a, b, true) == 1
+	return rt.lessThan(a, b, true) == 1
 }
 
 // Greater is >.
-func Greater(a, b Value) bool {
+func (rt *Realm) Greater(a, b Value) bool {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
 			return x > y
 		}
 	}
-	return lessThan(b, a, false) == 1
+	return rt.lessThan(b, a, false) == 1
 }
 
 // LessEq is <=.
-func LessEq(a, b Value) bool {
+func (rt *Realm) LessEq(a, b Value) bool {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
 			return x <= y
 		}
 	}
-	return lessThan(b, a, false) == 0
+	return rt.lessThan(b, a, false) == 0
 }
 
 // GreaterEq is >=.
-func GreaterEq(a, b Value) bool {
+func (rt *Realm) GreaterEq(a, b Value) bool {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
 			return x >= y
 		}
 	}
-	return lessThan(a, b, true) == 0
+	return rt.lessThan(a, b, true) == 0
 }
 
 // InstanceOf is instanceof.
-func InstanceOf(v Value, ctor Value) bool {
+func (rt *Realm) InstanceOf(v Value, ctor Value) bool {
 	c, ok := ctor.(*Object)
 	if !ok || c.call == nil {
 		panic(TypeErrorf("Right-hand side of 'instanceof' is not callable"))
 	}
-	if h, ok := c.Get(symbolHasInstance).(*Object); ok && h.call != nil && h != defaultHasInstance {
+	if h, ok := c.Get(symbolHasInstance).(*Object); ok && h.call != nil && h != rt.defaultHasInstance {
 		return Truthy(h.invoke(c, v))
 	}
 	o, ok := v.(*Object)
@@ -408,7 +408,6 @@ func InstanceOf(v Value, ctor Value) bool {
 }
 
 var symbolHasInstance = &Symbol{"Symbol.hasInstance"}
-var defaultHasInstance *Object
 
 // In is the in operator.
 func In(key Value, obj Value) bool {

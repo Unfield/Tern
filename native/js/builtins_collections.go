@@ -71,7 +71,7 @@ func (m *ordered) clear() {
 }
 
 // iterate visits entries added during iteration too, as Map iteration does.
-func (m *ordered) iterate(kind string) func() (Value, bool) {
+func (m *ordered) iterate(rt *Realm, kind string) func() (Value, bool) {
 	i := 0
 	return func() (Value, bool) {
 		for i < len(m.keys) {
@@ -86,15 +86,15 @@ func (m *ordered) iterate(kind string) func() (Value, bool) {
 			case "values":
 				return v, true
 			}
-			return NewArray([]Value{k, v}), true
+			return rt.NewArray([]Value{k, v}), true
 		}
 		return Undefined, false
 	}
 }
 
-func setupCollections() {
+func (rt *Realm) setupCollections() {
 	collection := func(name string, isSet, weak bool) {
-		proto := &Object{proto: ObjectPrototype}
+		proto := &Object{proto: rt.ObjectPrototype}
 		proto.DefineHidden(SymbolToStringTag, name)
 		this := func(v Value) *ordered {
 			if o, ok := v.(*Object); ok && o.Class == name {
@@ -102,40 +102,40 @@ func setupCollections() {
 			}
 			panic(TypeErrorf("Method %s.prototype called on incompatible receiver", name))
 		}
-		ctor := NewConstructor(name, 0, nil, func(args []Value, nt *Object) Value {
+		ctor := rt.NewConstructor(name, 0, nil, func(args []Value, nt *Object) Value {
 			o := OrdinaryCreateFromConstructor(nt, proto)
 			m := &ordered{index: map[any]int{}}
 			o.Class, o.Internal = name, m
 			if it := Arg(args, 0); !IsNullish(it) {
-				ForOf(it, func(e Value) bool {
+				rt.ForOf(it, func(e Value) bool {
 					if isSet {
 						m.set(e, e)
 					} else {
-						m.set(Get(e, "0"), Get(e, "1"))
+						m.set(rt.Get(e, "0"), rt.Get(e, "1"))
 					}
 					return true
 				})
 			}
 			return o
 		}, proto)
-		Global.DefineHidden(name, ctor)
-		method(proto, "has", 1, func(t Value, args []Value) Value { _, ok := this(t).get(Arg(args, 0)); return ok })
-		method(proto, "delete", 1, func(t Value, args []Value) Value { return this(t).del(Arg(args, 0)) })
+		rt.Global.DefineHidden(name, ctor)
+		rt.method(proto, "has", 1, func(t Value, args []Value) Value { _, ok := this(t).get(Arg(args, 0)); return ok })
+		rt.method(proto, "delete", 1, func(t Value, args []Value) Value { return this(t).del(Arg(args, 0)) })
 		if isSet {
-			method(proto, "add", 1, func(t Value, args []Value) Value { this(t).set(Arg(args, 0), Arg(args, 0)); return t })
+			rt.method(proto, "add", 1, func(t Value, args []Value) Value { this(t).set(Arg(args, 0), Arg(args, 0)); return t })
 		} else {
-			method(proto, "get", 1, func(t Value, args []Value) Value { v, _ := this(t).get(Arg(args, 0)); return v })
-			method(proto, "set", 2, func(t Value, args []Value) Value { this(t).set(Arg(args, 0), Arg(args, 1)); return t })
+			rt.method(proto, "get", 1, func(t Value, args []Value) Value { v, _ := this(t).get(Arg(args, 0)); return v })
+			rt.method(proto, "set", 2, func(t Value, args []Value) Value { this(t).set(Arg(args, 0), Arg(args, 1)); return t })
 		}
 		if weak {
 			return
 		}
-		method(proto, "clear", 0, func(t Value, _ []Value) Value { this(t).clear(); return Undefined })
-		proto.DefineAccessor("size", NewFunction("get size", 0, func(t Value, _ []Value) Value { return float64(this(t).live) }), nil, false)
-		method(proto, "forEach", 1, func(t Value, args []Value) Value {
+		rt.method(proto, "clear", 0, func(t Value, _ []Value) Value { this(t).clear(); return Undefined })
+		proto.DefineAccessor("size", rt.NewFunction("get size", 0, func(t Value, _ []Value) Value { return float64(this(t).live) }), nil, false)
+		rt.method(proto, "forEach", 1, func(t Value, args []Value) Value {
 			f := callback(args, "forEach")
 			m := this(t)
-			next := m.iterate("entries")
+			next := m.iterate(rt, "entries")
 			for {
 				e, ok := next()
 				if !ok {
@@ -145,20 +145,20 @@ func setupCollections() {
 				f.invoke(Arg(args, 1), kv[1], kv[0], t)
 			}
 		})
-		method(proto, "keys", 0, func(t Value, _ []Value) Value { return NewIterator(this(t).iterate("keys")) })
-		vals := method(proto, "values", 0, func(t Value, _ []Value) Value { return NewIterator(this(t).iterate("values")) })
-		ents := method(proto, "entries", 0, func(t Value, _ []Value) Value {
+		rt.method(proto, "keys", 0, func(t Value, _ []Value) Value { return rt.NewIterator(this(t).iterate(rt, "keys")) })
+		vals := rt.method(proto, "values", 0, func(t Value, _ []Value) Value { return rt.NewIterator(this(t).iterate(rt, "values")) })
+		ents := rt.method(proto, "entries", 0, func(t Value, _ []Value) Value {
 			if isSet {
-				next := this(t).iterate("keys")
-				return NewIterator(func() (Value, bool) {
+				next := this(t).iterate(rt, "keys")
+				return rt.NewIterator(func() (Value, bool) {
 					k, ok := next()
 					if !ok {
 						return Undefined, false
 					}
-					return NewArray([]Value{k, k}), true
+					return rt.NewArray([]Value{k, k}), true
 				})
 			}
-			return NewIterator(this(t).iterate("entries"))
+			return rt.NewIterator(this(t).iterate(rt, "entries"))
 		})
 		if isSet {
 			proto.DefineHidden(SymbolIterator, vals)

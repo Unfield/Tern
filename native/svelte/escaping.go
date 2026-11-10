@@ -11,26 +11,27 @@ import (
 // source is the one it was written against (internal/native/intrinsics.go
 // checks), so they behave exactly the same.
 
-var stringGlobal js.GlobalRef
-
-// EscapeHTML is escape_html from svelte/src/escaping.js:
+// EscapeHTML is escape_html from svelte/src/escaping.js, for realm rt:
 //
 //	const str = String(value ?? '');
 //	… escape & and <, and " too when is_attr …
-var EscapeHTML = js.Value(js.NewFunction("escape_html", 2, func(_ js.Value, args []js.Value) js.Value {
-	v := js.Arg(args, 0)
-	if js.IsNullish(v) {
-		v = ""
-	}
-	if _, ok := v.(string); !ok || js.GlobalGetCached(&stringGlobal, "String") != js.Value(js.StringCtor) {
-		v = js.Call(js.GlobalGetCached(&stringGlobal, "String"), js.Undefined, v)
-	}
-	s, ok := v.(string)
-	if !ok {
-		s = js.ToString(v)
-	}
-	return Escape(v, s, js.Truthy(js.Arg(args, 1)))
-}))
+func EscapeHTML(rt *js.Realm) js.Value {
+	var stringGlobal js.GlobalRef
+	return rt.NewFunction("escape_html", 2, func(_ js.Value, args []js.Value) js.Value {
+		v := js.Arg(args, 0)
+		if js.IsNullish(v) {
+			v = ""
+		}
+		if _, ok := v.(string); !ok || rt.GlobalGetCached(&stringGlobal, "String") != js.Value(rt.StringCtor) {
+			v = js.Call(rt.GlobalGetCached(&stringGlobal, "String"), js.Undefined, v)
+		}
+		s, ok := v.(string)
+		if !ok {
+			s = js.ToString(v)
+		}
+		return Escape(v, s, js.Truthy(js.Arg(args, 1)))
+	})
+}
 
 // Escape escapes s, whose Value is v: when nothing needs escaping, v comes
 // back as it is, without allocating.

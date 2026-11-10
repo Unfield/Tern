@@ -10,10 +10,6 @@ import (
 // as UTF-8 Go strings; a lone surrogate, which UTF-8 can't hold, is kept as
 // its 3-byte WTF-8 encoding. ASCII strings, the common case, take fast paths.
 
-// infoCache remembers facts about the last long string looked at: code
-// that walks a string by index asks for them on every step.
-var infoCache stringInfo
-
 type stringInfo struct {
 	p     *byte
 	n     int
@@ -21,8 +17,8 @@ type stringInfo struct {
 	units []uint16 // read only; nil until asked for
 }
 
-func strInfo(s string) *stringInfo {
-	c := &infoCache
+func (rt *Realm) strInfo(s string) *stringInfo {
+	c := &rt.infoCache
 	if p := unsafe.StringData(s); p != c.p || len(s) != c.n {
 		c.p, c.n, c.ascii, c.units = p, len(s), scanASCII(s), nil
 	}
@@ -30,11 +26,11 @@ func strInfo(s string) *stringInfo {
 }
 
 // units16 is Units(s), not to be changed: cached for long strings.
-func units16(s string) []uint16 {
+func (rt *Realm) units16(s string) []uint16 {
 	if len(s) < 32 {
 		return Units(s)
 	}
-	c := strInfo(s)
+	c := rt.strInfo(s)
 	if c.units == nil {
 		c.units = Units(s)
 	}
@@ -90,36 +86,36 @@ func FromUnits(u []uint16) string {
 }
 
 // Len16 is a string's length in UTF-16 code units.
-func Len16(s string) int {
-	if isASCII(s) {
+func (rt *Realm) Len16(s string) int {
+	if rt.isASCII(s) {
 		return len(s)
 	}
-	return len(units16(s))
+	return len(rt.units16(s))
 }
 
 // Slice16 is s.slice(start, end) after both are clamped to [0, len].
-func Slice16(s string, start, end int) string {
+func (rt *Realm) Slice16(s string, start, end int) string {
 	if start >= end {
 		return ""
 	}
-	if isASCII(s) {
+	if rt.isASCII(s) {
 		return s[start:end]
 	}
-	return FromUnits(units16(s)[start:end])
+	return FromUnits(rt.units16(s)[start:end])
 }
 
 // UnitAt is s.charCodeAt(i), or -1 out of range.
-func UnitAt(s string, i int) int {
+func (rt *Realm) UnitAt(s string, i int) int {
 	if i < 0 {
 		return -1
 	}
-	if isASCII(s) {
+	if rt.isASCII(s) {
 		if i >= len(s) {
 			return -1
 		}
 		return int(s[i])
 	}
-	u := units16(s)
+	u := rt.units16(s)
 	if i >= len(u) {
 		return -1
 	}
@@ -127,8 +123,8 @@ func UnitAt(s string, i int) int {
 }
 
 // CompareStrings orders strings by UTF-16 code units, as < does.
-func CompareStrings(a, b string) int {
-	if isASCII(a) && isASCII(b) {
+func (rt *Realm) CompareStrings(a, b string) int {
+	if rt.isASCII(a) && rt.isASCII(b) {
 		switch {
 		case a < b:
 			return -1
@@ -156,8 +152,8 @@ func CompareStrings(a, b string) int {
 }
 
 // Index16 is s.indexOf(sub, from).
-func Index16(s, sub string, from int) int {
-	if isASCII(s) && isASCII(sub) {
+func (rt *Realm) Index16(s, sub string, from int) int {
+	if rt.isASCII(s) && rt.isASCII(sub) {
 		if from < 0 {
 			from = 0
 		}

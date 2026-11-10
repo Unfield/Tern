@@ -21,23 +21,23 @@ func thisNumber(this Value, name string) float64 {
 	panic(TypeErrorf("Number.prototype.%s requires that 'this' be a Number", name))
 }
 
-func setupNumber() {
-	NumberCtor = NewConstructor("Number", 1, func(_ Value, args []Value) Value {
+func (rt *Realm) setupNumber() {
+	rt.NumberCtor = rt.NewConstructor("Number", 1, func(_ Value, args []Value) Value {
 		if len(args) == 0 {
 			return 0.0
 		}
 		return ToNumber(args[0])
 	}, func(args []Value, nt *Object) Value {
-		o := OrdinaryCreateFromConstructor(nt, NumberPrototype)
+		o := OrdinaryCreateFromConstructor(nt, rt.NumberPrototype)
 		n := 0.0
 		if len(args) > 0 {
 			n = ToNumber(args[0])
 		}
 		o.Class, o.Internal = "Number", n
 		return o
-	}, NumberPrototype)
-	NumberPrototype.Internal = 0.0
-	c := NumberCtor
+	}, rt.NumberPrototype)
+	rt.NumberPrototype.Internal = 0.0
+	c := rt.NumberCtor
 	for name, v := range map[string]float64{
 		"EPSILON": math.Pow(2, -52), "MAX_SAFE_INTEGER": 1<<53 - 1, "MIN_SAFE_INTEGER": -(1<<53 - 1),
 		"MAX_VALUE": math.MaxFloat64, "MIN_VALUE": 5e-324, "POSITIVE_INFINITY": math.Inf(1),
@@ -46,28 +46,28 @@ func setupNumber() {
 		c.add(prop{key: name, value: v})
 	}
 	isInt := func(n float64) bool { return !math.IsInf(n, 0) && !math.IsNaN(n) && n == math.Trunc(n) }
-	method(c, "isInteger", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "isInteger", 1, func(_ Value, args []Value) Value {
 		n, ok := Arg(args, 0).(float64)
 		return ok && isInt(n)
 	})
-	method(c, "isSafeInteger", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "isSafeInteger", 1, func(_ Value, args []Value) Value {
 		n, ok := Arg(args, 0).(float64)
 		return ok && isInt(n) && math.Abs(n) <= 1<<53-1
 	})
-	method(c, "isFinite", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "isFinite", 1, func(_ Value, args []Value) Value {
 		n, ok := Arg(args, 0).(float64)
 		return ok && !math.IsInf(n, 0) && !math.IsNaN(n)
 	})
-	method(c, "isNaN", 1, func(_ Value, args []Value) Value {
+	rt.method(c, "isNaN", 1, func(_ Value, args []Value) Value {
 		n, ok := Arg(args, 0).(float64)
 		return ok && math.IsNaN(n)
 	})
-	method(c, "parseFloat", 1, func(_ Value, args []Value) Value { return parseFloat(ToString(Arg(args, 0))) })
-	method(c, "parseInt", 2, func(_ Value, args []Value) Value { return parseInt(ToString(Arg(args, 0)), Arg(args, 1)) })
+	rt.method(c, "parseFloat", 1, func(_ Value, args []Value) Value { return parseFloat(ToString(Arg(args, 0))) })
+	rt.method(c, "parseInt", 2, func(_ Value, args []Value) Value { return parseInt(ToString(Arg(args, 0)), Arg(args, 1)) })
 
-	p := NumberPrototype
-	method(p, "valueOf", 0, func(this Value, _ []Value) Value { return thisNumber(this, "valueOf") })
-	method(p, "toString", 1, func(this Value, args []Value) Value {
+	p := rt.NumberPrototype
+	rt.method(p, "valueOf", 0, func(this Value, _ []Value) Value { return thisNumber(this, "valueOf") })
+	rt.method(p, "toString", 1, func(this Value, args []Value) Value {
 		x := thisNumber(this, "toString")
 		radix := 10.0
 		if r := Arg(args, 0); r != Undefined {
@@ -82,8 +82,8 @@ func setupNumber() {
 		return toRadix(x, int(radix))
 	})
 	// QuickJS's own toLocaleString is toString; Tern's polyfill replaces it.
-	method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return NumberToString(thisNumber(this, "toLocaleString")) })
-	method(p, "toFixed", 1, func(this Value, args []Value) Value {
+	rt.method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return NumberToString(thisNumber(this, "toLocaleString")) })
+	rt.method(p, "toFixed", 1, func(this Value, args []Value) Value {
 		x := thisNumber(this, "toFixed")
 		d := ToIntegerOrInfinity(Arg(args, 0))
 		if d < 0 || d > 100 {
@@ -91,7 +91,7 @@ func setupNumber() {
 		}
 		return ToFixed(x, int(d))
 	})
-	method(p, "toPrecision", 1, func(this Value, args []Value) Value {
+	rt.method(p, "toPrecision", 1, func(this Value, args []Value) Value {
 		x := thisNumber(this, "toPrecision")
 		if Arg(args, 0) == Undefined {
 			return NumberToString(x)
@@ -105,7 +105,7 @@ func setupNumber() {
 		}
 		return toPrecision(x, int(pr))
 	})
-	method(p, "toExponential", 1, func(this Value, args []Value) Value {
+	rt.method(p, "toExponential", 1, func(this Value, args []Value) Value {
 		x := thisNumber(this, "toExponential")
 		f := ToIntegerOrInfinity(Arg(args, 0))
 		if math.IsNaN(x) || math.IsInf(x, 0) {

@@ -7,11 +7,11 @@ import (
 )
 
 // NewArray makes an array holding elems (which it keeps).
-func NewArray(elems []Value) *Object {
+func (rt *Realm) NewArray(elems []Value) *Object {
 	if elems == nil {
 		elems = []Value{}
 	}
-	return &Object{proto: ArrayPrototype, array: &elems, Class: "Array"}
+	return &Object{proto: rt.ArrayPrototype, array: &elems, Class: "Array"}
 }
 
 // IsArray is Array.isArray.
@@ -32,8 +32,8 @@ func (o *Object) Elems() []Value {
 func (o *Object) Push(v ...Value) { *o.array = append(*o.array, v...) }
 
 // elems reads an array or array-like as a slice, for the generic methods.
-func elems(this Value) []Value {
-	o := ToObject(this)
+func (rt *Realm) elems(this Value) []Value {
+	o := rt.ToObject(this)
 	if o.array != nil {
 		return *o.array
 	}
@@ -66,8 +66,8 @@ func relIndex(v Value, length int, def int) int {
 	return int(n)
 }
 
-func setupArray() {
-	ArrayCtor = NewConstructor("Array", 1, nil, func(args []Value, nt *Object) Value {
+func (rt *Realm) setupArray() {
+	rt.ArrayCtor = rt.NewConstructor("Array", 1, nil, func(args []Value, nt *Object) Value {
 		if len(args) == 1 {
 			if n, ok := args[0].(float64); ok {
 				l := int(n)
@@ -78,16 +78,16 @@ func setupArray() {
 				for i := range out {
 					out[i] = Undefined
 				}
-				return NewArray(out)
+				return rt.NewArray(out)
 			}
 		}
-		return NewArray(append([]Value(nil), args...))
-	}, ArrayPrototype)
-	ArrayCtor.call = func(_ Value, args []Value) Value { return ArrayCtor.construct(args, ArrayCtor) }
-	ArrayPrototype.array = &[]Value{}
-	method(ArrayCtor, "isArray", 1, func(_ Value, args []Value) Value { return IsArray(Arg(args, 0)) })
-	method(ArrayCtor, "of", 0, func(_ Value, args []Value) Value { return NewArray(append([]Value(nil), args...)) })
-	method(ArrayCtor, "from", 1, func(_ Value, args []Value) Value {
+		return rt.NewArray(append([]Value(nil), args...))
+	}, rt.ArrayPrototype)
+	rt.ArrayCtor.call = func(_ Value, args []Value) Value { return rt.ArrayCtor.construct(args, rt.ArrayCtor) }
+	rt.ArrayPrototype.array = &[]Value{}
+	rt.method(rt.ArrayCtor, "isArray", 1, func(_ Value, args []Value) Value { return IsArray(Arg(args, 0)) })
+	rt.method(rt.ArrayCtor, "of", 0, func(_ Value, args []Value) Value { return rt.NewArray(append([]Value(nil), args...)) })
+	rt.method(rt.ArrayCtor, "from", 1, func(_ Value, args []Value) Value {
 		src := Arg(args, 0)
 		var mapFn *Object
 		if f, ok := Arg(args, 1).(*Object); ok && f.call != nil {
@@ -99,10 +99,10 @@ func setupArray() {
 		if IsNullish(src) {
 			panic(TypeErrorf("%s is not iterable", ToString(src)))
 		}
-		if _, iterable := iteratorFor(src); iterable {
-			ForOf(src, func(v Value) bool { out = append(out, v); return true })
+		if _, iterable := rt.iteratorFor(src); iterable {
+			rt.ForOf(src, func(v Value) bool { out = append(out, v); return true })
 		} else {
-			o := ToObject(src)
+			o := rt.ToObject(src)
 			n := int(ToIntegerOrInfinity(o.Get("length")))
 			out = make([]Value, n)
 			for i := range out {
@@ -114,12 +114,12 @@ func setupArray() {
 				out[i] = mapFn.invoke(Arg(args, 2), v, float64(i))
 			}
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
 
-	p := ArrayPrototype
-	method(p, "at", 1, func(this Value, args []Value) Value {
-		a := elems(this)
+	p := rt.ArrayPrototype
+	rt.method(p, "at", 1, func(this Value, args []Value) Value {
+		a := rt.elems(this)
 		i := int(ToIntegerOrInfinity(Arg(args, 0)))
 		if i < 0 {
 			i += len(a)
@@ -129,8 +129,8 @@ func setupArray() {
 		}
 		return a[i]
 	})
-	method(p, "concat", 1, func(this Value, args []Value) Value {
-		out := append([]Value(nil), elems(this)...)
+	rt.method(p, "concat", 1, func(this Value, args []Value) Value {
+		out := append([]Value(nil), rt.elems(this)...)
 		for _, a := range args {
 			if IsArray(a) {
 				out = append(out, *a.(*Object).array...)
@@ -138,11 +138,11 @@ func setupArray() {
 				out = append(out, a)
 			}
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
 	iterating := func(name string, fn func(f *Object, thisArg Value, a []Value, arr Value) Value) {
-		method(p, name, 1, func(this Value, args []Value) Value {
-			return fn(callback(args, name), Arg(args, 1), elems(this), this)
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
+			return fn(callback(args, name), Arg(args, 1), rt.elems(this), this)
 		})
 	}
 	iterating("every", func(f *Object, t Value, a []Value, arr Value) Value {
@@ -169,14 +169,14 @@ func setupArray() {
 				out = append(out, v)
 			}
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
 	iterating("map", func(f *Object, t Value, a []Value, arr Value) Value {
 		out := make([]Value, len(a))
 		for i := 0; i < len(a); i++ {
 			out[i] = f.invoke(t, a[i], float64(i), arr)
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
 	iterating("forEach", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
@@ -226,12 +226,12 @@ func setupArray() {
 				out = append(out, r)
 			}
 		}
-		return NewArray(out)
+		return rt.NewArray(out)
 	})
 	reduce := func(name string, right bool) {
-		method(p, name, 1, func(this Value, args []Value) Value {
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			f := callback(args, name)
-			a := elems(this)
+			a := rt.elems(this)
 			i, end, step := 0, len(a), 1
 			if right {
 				i, end, step = len(a)-1, -1, -1
@@ -254,8 +254,8 @@ func setupArray() {
 	}
 	reduce("reduce", false)
 	reduce("reduceRight", true)
-	method(p, "fill", 1, func(this Value, args []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "fill", 1, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
 		a := *o.array
 		start := relIndex(Arg(args, 1), len(a), 0)
 		end := relIndex(Arg(args, 2), len(a), len(a))
@@ -275,15 +275,15 @@ func setupArray() {
 		}
 		return out
 	}
-	method(p, "flat", 0, func(this Value, args []Value) Value {
+	rt.method(p, "flat", 0, func(this Value, args []Value) Value {
 		depth := 1.0
 		if d := Arg(args, 0); d != Undefined {
 			depth = ToIntegerOrInfinity(d)
 		}
-		return NewArray(flatten(nil, elems(this), depth))
+		return rt.NewArray(flatten(nil, rt.elems(this), depth))
 	})
-	method(p, "includes", 1, func(this Value, args []Value) Value {
-		a := elems(this)
+	rt.method(p, "includes", 1, func(this Value, args []Value) Value {
+		a := rt.elems(this)
 		for i := relIndex(Arg(args, 1), len(a), 0); i < len(a); i++ {
 			if SameValueZero(a[i], Arg(args, 0)) {
 				return true
@@ -291,8 +291,8 @@ func setupArray() {
 		}
 		return false
 	})
-	method(p, "indexOf", 1, func(this Value, args []Value) Value {
-		a := elems(this)
+	rt.method(p, "indexOf", 1, func(this Value, args []Value) Value {
+		a := rt.elems(this)
 		for i := relIndex(Arg(args, 1), len(a), 0); i < len(a); i++ {
 			if StrictEquals(a[i], Arg(args, 0)) {
 				return float64(i)
@@ -300,8 +300,8 @@ func setupArray() {
 		}
 		return -1.0
 	})
-	method(p, "lastIndexOf", 1, func(this Value, args []Value) Value {
-		a := elems(this)
+	rt.method(p, "lastIndexOf", 1, func(this Value, args []Value) Value {
+		a := rt.elems(this)
 		from := len(a) - 1
 		if len(args) > 1 {
 			from = relIndex(args[1], len(a), 0)
@@ -316,30 +316,30 @@ func setupArray() {
 		}
 		return -1.0
 	})
-	method(p, "join", 1, func(this Value, args []Value) Value {
+	rt.method(p, "join", 1, func(this Value, args []Value) Value {
 		sep := ","
 		if s := Arg(args, 0); s != Undefined {
 			sep = ToString(s)
 		}
-		return Join(elems(this), sep)
+		return Join(rt.elems(this), sep)
 	})
-	method(p, "toString", 0, func(this Value, _ []Value) Value {
+	rt.method(p, "toString", 0, func(this Value, _ []Value) Value {
 		if o, ok := this.(*Object); ok && o.array == nil {
-			return ObjectToString(this)
+			return rt.ObjectToString(this)
 		}
-		return Join(elems(this), ",")
+		return Join(rt.elems(this), ",")
 	})
-	method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return Join(elems(this), ",") })
-	method(p, "push", 1, func(this Value, args []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return Join(rt.elems(this), ",") })
+	rt.method(p, "push", 1, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
 		if o.frozen {
 			panic(TypeErrorf("Cannot add property %d, object is not extensible", len(*o.array)))
 		}
 		*o.array = append(*o.array, args...)
 		return float64(len(*o.array))
 	})
-	method(p, "pop", 0, func(this Value, _ []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "pop", 0, func(this Value, _ []Value) Value {
+		o := rt.ToObject(this)
 		a := *o.array
 		if len(a) == 0 {
 			return Undefined
@@ -348,8 +348,8 @@ func setupArray() {
 		*o.array = a[:len(a)-1]
 		return v
 	})
-	method(p, "shift", 0, func(this Value, _ []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "shift", 0, func(this Value, _ []Value) Value {
+		o := rt.ToObject(this)
 		a := *o.array
 		if len(a) == 0 {
 			return Undefined
@@ -358,19 +358,19 @@ func setupArray() {
 		*o.array = append([]Value(nil), a[1:]...)
 		return v
 	})
-	method(p, "unshift", 1, func(this Value, args []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "unshift", 1, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
 		*o.array = append(append([]Value(nil), args...), *o.array...)
 		return float64(len(*o.array))
 	})
-	method(p, "slice", 2, func(this Value, args []Value) Value {
-		a := elems(this)
+	rt.method(p, "slice", 2, func(this Value, args []Value) Value {
+		a := rt.elems(this)
 		start := relIndex(Arg(args, 0), len(a), 0)
 		end := relIndex(Arg(args, 1), len(a), len(a))
 		if start >= end {
-			return NewArray(nil)
+			return rt.NewArray(nil)
 		}
-		return NewArray(append([]Value(nil), a[start:end]...))
+		return rt.NewArray(append([]Value(nil), a[start:end]...))
 	})
 	splice := func(a []Value, args []Value) (kept, removed []Value) {
 		start := relIndex(Arg(args, 0), len(a), 0)
@@ -389,38 +389,38 @@ func setupArray() {
 		kept = append(append(append([]Value(nil), a[:start]...), items...), a[start+del:]...)
 		return kept, removed
 	}
-	method(p, "splice", 2, func(this Value, args []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "splice", 2, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
 		kept, removed := splice(*o.array, args)
 		*o.array = kept
-		return NewArray(removed)
+		return rt.NewArray(removed)
 	})
-	method(p, "toSpliced", 2, func(this Value, args []Value) Value {
-		kept, _ := splice(elems(this), args)
-		return NewArray(kept)
+	rt.method(p, "toSpliced", 2, func(this Value, args []Value) Value {
+		kept, _ := splice(rt.elems(this), args)
+		return rt.NewArray(kept)
 	})
-	method(p, "reverse", 0, func(this Value, _ []Value) Value {
-		o := ToObject(this)
+	rt.method(p, "reverse", 0, func(this Value, _ []Value) Value {
+		o := rt.ToObject(this)
 		slices.Reverse(*o.array)
 		return o
 	})
-	method(p, "toReversed", 0, func(this Value, _ []Value) Value {
-		a := append([]Value(nil), elems(this)...)
+	rt.method(p, "toReversed", 0, func(this Value, _ []Value) Value {
+		a := append([]Value(nil), rt.elems(this)...)
 		slices.Reverse(a)
-		return NewArray(a)
+		return rt.NewArray(a)
 	})
-	method(p, "sort", 1, func(this Value, args []Value) Value {
-		o := ToObject(this)
-		sortValues(*o.array, Arg(args, 0))
+	rt.method(p, "sort", 1, func(this Value, args []Value) Value {
+		o := rt.ToObject(this)
+		rt.sortValues(*o.array, Arg(args, 0))
 		return o
 	})
-	method(p, "toSorted", 1, func(this Value, args []Value) Value {
-		a := append([]Value(nil), elems(this)...)
-		sortValues(a, Arg(args, 0))
-		return NewArray(a)
+	rt.method(p, "toSorted", 1, func(this Value, args []Value) Value {
+		a := append([]Value(nil), rt.elems(this)...)
+		rt.sortValues(a, Arg(args, 0))
+		return rt.NewArray(a)
 	})
-	method(p, "with", 2, func(this Value, args []Value) Value {
-		a := append([]Value(nil), elems(this)...)
+	rt.method(p, "with", 2, func(this Value, args []Value) Value {
+		a := append([]Value(nil), rt.elems(this)...)
 		i := int(ToIntegerOrInfinity(Arg(args, 0)))
 		if i < 0 {
 			i += len(a)
@@ -429,12 +429,12 @@ func setupArray() {
 			panic(RangeErrorf("Invalid index : %d", i))
 		}
 		a[i] = Arg(args, 1)
-		return NewArray(a)
+		return rt.NewArray(a)
 	})
 	keys := func(this Value, _ []Value) Value {
-		a := elems(this)
+		a := rt.elems(this)
 		i := 0
-		return NewIterator(func() (Value, bool) {
+		return rt.NewIterator(func() (Value, bool) {
 			if i >= len(a) {
 				return Undefined, false
 			}
@@ -443,10 +443,10 @@ func setupArray() {
 		})
 	}
 	values := func(this Value, _ []Value) Value {
-		o := ToObject(this)
+		o := rt.ToObject(this)
 		i := 0
-		return NewIterator(func() (Value, bool) {
-			a := elems(o)
+		return rt.NewIterator(func() (Value, bool) {
+			a := rt.elems(o)
 			if i >= len(a) {
 				return Undefined, false
 			}
@@ -454,18 +454,18 @@ func setupArray() {
 			return a[i-1], true
 		})
 	}
-	method(p, "keys", 0, keys)
-	vf := method(p, "values", 0, values)
+	rt.method(p, "keys", 0, keys)
+	vf := rt.method(p, "values", 0, values)
 	p.DefineHidden(SymbolIterator, vf)
-	method(p, "entries", 0, func(this Value, _ []Value) Value {
-		a := elems(this)
+	rt.method(p, "entries", 0, func(this Value, _ []Value) Value {
+		a := rt.elems(this)
 		i := 0
-		return NewIterator(func() (Value, bool) {
+		return rt.NewIterator(func() (Value, bool) {
 			if i >= len(a) {
 				return Undefined, false
 			}
 			i++
-			return NewArray([]Value{float64(i - 1), a[i-1]}), true
+			return rt.NewArray([]Value{float64(i - 1), a[i-1]}), true
 		})
 	})
 }
@@ -486,7 +486,7 @@ func Join(a []Value, sep string) string {
 
 // sortValues is the stable sort of Array.prototype.sort: undefined last,
 // then by the comparator, or by UTF-16 strings.
-func sortValues(a []Value, cmp Value) {
+func (rt *Realm) sortValues(a []Value, cmp Value) {
 	f, hasCmp := cmp.(*Object)
 	if cmp != Undefined && (!hasCmp || f.call == nil) {
 		panic(TypeErrorf("The comparison function must be either a function or undefined"))
@@ -510,16 +510,16 @@ func sortValues(a []Value, cmp Value) {
 			}
 			return 0
 		}
-		return CompareStrings(ToString(x), ToString(y))
+		return rt.CompareStrings(ToString(x), ToString(y))
 	})
 }
 
 // NewIterator makes an iterator object from a next function.
-func NewIterator(next func() (Value, bool)) *Object {
-	it := NewObject(IteratorPrototype)
-	method(it, "next", 0, func(Value, []Value) Value {
+func (rt *Realm) NewIterator(next func() (Value, bool)) *Object {
+	it := NewObject(rt.IteratorPrototype)
+	rt.method(it, "next", 0, func(Value, []Value) Value {
 		v, ok := next()
-		r := NewPlainObject()
+		r := rt.NewPlainObject()
 		r.Define("value", v)
 		r.Define("done", !ok)
 		return r
@@ -528,16 +528,16 @@ func NewIterator(next func() (Value, bool)) *Object {
 	return it
 }
 
-func init() {
-	method(IteratorPrototype, "[Symbol.iterator]", 0, func(this Value, _ []Value) Value { return this })
-	f, _ := IteratorPrototype.GetOwn("[Symbol.iterator]")
-	iteratorSelf = f
-	IteratorPrototype.Delete("[Symbol.iterator]")
-	IteratorPrototype.DefineHidden(SymbolIterator, f)
+func (rt *Realm) setupIteratorPrototype() {
+	rt.method(rt.IteratorPrototype, "[Symbol.iterator]", 0, func(this Value, _ []Value) Value { return this })
+	f, _ := rt.IteratorPrototype.GetOwn("[Symbol.iterator]")
+	rt.iteratorSelf = f
+	rt.IteratorPrototype.Delete("[Symbol.iterator]")
+	rt.IteratorPrototype.DefineHidden(SymbolIterator, f)
 }
 
 // iteratorFor returns a Go iterator for v's for…of, and whether v is iterable.
-func iteratorFor(v Value) (func() (Value, bool), bool) {
+func (rt *Realm) iteratorFor(v Value) (func() (Value, bool), bool) {
 	switch x := v.(type) {
 	case string:
 		rs := []rune(x)
@@ -550,7 +550,7 @@ func iteratorFor(v Value) (func() (Value, bool), bool) {
 			return string(rs[i-1]), true
 		}, true
 	case *Object:
-		if x.array != nil && x.Get(SymbolIterator) == ArrayValues() {
+		if x.array != nil && x.Get(SymbolIterator) == rt.ArrayValues() {
 			i := 0
 			return func() (Value, bool) {
 				a := *x.array
@@ -561,10 +561,10 @@ func iteratorFor(v Value) (func() (Value, bool), bool) {
 				return a[i-1], true
 			}, true
 		}
-		if next, ok := x.Internal.(func() (Value, bool)); ok && x.proto == IteratorPrototype {
+		if next, ok := x.Internal.(func() (Value, bool)); ok && x.proto == rt.IteratorPrototype {
 			return next, true
 		}
-		if g, ok := x.Internal.(*Gen); ok && x.Get("next") == genNext && x.Get(SymbolIterator) == iteratorSelf {
+		if g, ok := x.Internal.(*Gen); ok && x.Get("next") == rt.genNext && x.Get(SymbolIterator) == rt.iteratorSelf {
 			return genIterator(x, g), true
 		}
 		m, ok := x.Get(SymbolIterator).(*Object)
@@ -573,38 +573,33 @@ func iteratorFor(v Value) (func() (Value, bool), bool) {
 		}
 		it := m.invoke(x)
 		if io, ok := it.(*Object); ok {
-			if next, ok := io.Internal.(func() (Value, bool)); ok && io.proto == IteratorPrototype {
+			if next, ok := io.Internal.(func() (Value, bool)); ok && io.proto == rt.IteratorPrototype {
 				return next, true
 			}
 		}
-		nextFn := Get(it, "next")
+		nextFn := rt.Get(it, "next")
 		return func() (Value, bool) {
 			r := Call(nextFn, it)
-			if Truthy(Get(r, "done")) {
+			if Truthy(rt.Get(r, "done")) {
 				return Undefined, false
 			}
-			return Get(r, "value"), true
+			return rt.Get(r, "value"), true
 		}, true
 	}
 	return nil, false
 }
 
-var arrayValues Value
-
-// iteratorSelf is %IteratorPrototype%[Symbol.iterator], which returns this.
-var iteratorSelf Value
-
 // ArrayValues is Array.prototype.values, to tell built-in iteration apart.
-func ArrayValues() Value {
-	if arrayValues == nil {
-		arrayValues = ArrayPrototype.Get("values")
+func (rt *Realm) ArrayValues() Value {
+	if rt.arrayValues == nil {
+		rt.arrayValues = rt.ArrayPrototype.Get("values")
 	}
-	return arrayValues
+	return rt.arrayValues
 }
 
 // ForOf runs fn for each value of a for…of over v, until fn returns false.
-func ForOf(v Value, fn func(Value) bool) {
-	next, ok := iteratorFor(v)
+func (rt *Realm) ForOf(v Value, fn func(Value) bool) {
+	next, ok := rt.iteratorFor(v)
 	if !ok {
 		panic(TypeErrorf("%s is not iterable", describeForError(v)))
 	}
@@ -617,12 +612,12 @@ func ForOf(v Value, fn func(Value) bool) {
 }
 
 // Spread collects the values of v, for [...v] and f(...v).
-func Spread(v Value) []Value {
-	if o, ok := v.(*Object); ok && o.array != nil && o.Get(SymbolIterator) == ArrayValues() {
+func (rt *Realm) Spread(v Value) []Value {
+	if o, ok := v.(*Object); ok && o.array != nil && o.Get(SymbolIterator) == rt.ArrayValues() {
 		return append([]Value(nil), *o.array...)
 	}
 	var out []Value
-	ForOf(v, func(x Value) bool { out = append(out, x); return true })
+	rt.ForOf(v, func(x Value) bool { out = append(out, x); return true })
 	return out
 }
 

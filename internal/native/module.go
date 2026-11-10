@@ -172,7 +172,7 @@ func (c *Compiler) importExpr(ref *importRef) string {
 		return fmt.Sprintf("js.Get(%s, %s)", ns, quote(ref.name))
 	}
 	if ref.name == "*" {
-		return ref.from.goVar + ".namespace()"
+		return fmt.Sprintf("r.ns%d()", ref.from.index)
 	}
 	c.resolveExports(ref.from, map[*module]bool{})
 	if e, ok := ref.from.exports[ref.name]; ok {
@@ -250,14 +250,16 @@ func (c *Compiler) compileModule(m *module) string {
 		fmt.Fprintf(&b, "\t%s js.Value\n", goIdent(name))
 	}
 	b.WriteString("\tns *js.Object\n}\n\n")
-	fmt.Fprintf(&b, "var %s = &%s{", m.goVar, m.goType)
+	var zero strings.Builder
+	fmt.Fprintf(&zero, "%s{", m.goType)
 	for i, name := range fields {
 		if i > 0 {
-			b.WriteString(", ")
+			zero.WriteString(", ")
 		}
-		fmt.Fprintf(&b, "%s: js.Undefined", goIdent(name))
+		fmt.Fprintf(&zero, "%s: js.Undefined", goIdent(name))
 	}
-	b.WriteString("}\n\n")
+	zero.WriteString("}")
+	m.zero = zero.String()
 
 	// Imports resolve now that every module's exports are known.
 	for _, bd := range m.scope.names {
@@ -272,18 +274,18 @@ func (c *Compiler) compileModule(m *module) string {
 	for _, n := range body {
 		c.moduleItem(w, m, n)
 	}
-	fmt.Fprintf(&b, "func (m *%s) init() {\n%s}\n\n", m.goType, w.String())
+	fmt.Fprintf(&b, "func (r *realm) init%d() {\n%s}\n\n", m.index, w.String())
 
 	names := make([]string, 0, len(m.exports))
 	for name := range m.exports {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	fmt.Fprintf(&b, "func (m *%s) namespace() js.Value {\n\tif m.ns == nil {\n\t\tm.ns = js.NewNamespace()\n", m.goType)
+	fmt.Fprintf(&b, "func (r *realm) ns%d() js.Value {\n\tif %s.ns == nil {\n\t\t%s.ns = js.NewNamespace()\n", m.index, m.goVar, m.goVar)
 	for _, name := range names {
-		fmt.Fprintf(&b, "\t\tjs.ExportLive(m.ns, %s, func() js.Value { return %s })\n", quote(name), m.exports[name])
+		fmt.Fprintf(&b, "\t\tjs.ExportLive(%s.ns, %s, func() js.Value { return %s })\n", m.goVar, quote(name), m.exports[name])
 	}
-	b.WriteString("\t}\n\treturn m.ns\n}\n\n")
+	fmt.Fprintf(&b, "\t}\n\treturn %s.ns\n}\n\n", m.goVar)
 	return b.String()
 }
 

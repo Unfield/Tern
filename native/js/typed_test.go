@@ -18,12 +18,12 @@ func TestUint8Base64(t *testing.T) {
 	if got := from("aGl", Undefined); got != "104,105" {
 		t.Errorf("fromBase64 loose, no zero bits: %s", got)
 	}
-	opts := NewPlainObject()
+	opts := tr.NewPlainObject()
 	opts.Set("alphabet", "base64url")
 	if got := from("-_8", opts); got != "251,255" {
 		t.Errorf("fromBase64 url: %s", got)
 	}
-	strict := NewPlainObject()
+	strict := tr.NewPlainObject()
 	strict.Set("lastChunkHandling", "strict")
 	if _, err := catch(func() { m(u8, "fromBase64", "aGl", strict) }); err == nil {
 		t.Error("strict decoding should reject a chunk with non-zero bits")
@@ -32,7 +32,7 @@ func TestUint8Base64(t *testing.T) {
 	if got := m(a, "toBase64"); got != "aGn/" {
 		t.Errorf("toBase64: %v", got)
 	}
-	o := NewPlainObject()
+	o := tr.NewPlainObject()
 	o.Set("alphabet", "base64url")
 	o.Set("omitPadding", true)
 	if got := m(m(a, "subarray", 0.0, 2.0), "toBase64", o); got != "aGk" {

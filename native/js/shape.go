@@ -67,12 +67,12 @@ const dictAt = 256
 // indexAt is the number of keys from which a shape finds keys with a map.
 const indexAt = 10
 
-var nullRoot = &Shape{}
-
 // rootShape is the shape of objects with no own properties and prototype p.
 func rootShape(p *Object) *Shape {
 	if p == nil {
-		return nullRoot
+		// Objects without a prototype are mostly used as maps: each gets
+		// its own dictionary shape.
+		return &Shape{dict: true}
 	}
 	if p.childRoot == nil {
 		p.childRoot = &Shape{proto: p}

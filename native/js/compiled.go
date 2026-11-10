@@ -2,7 +2,6 @@ package js
 
 import (
 	"math"
-	"sync"
 )
 
 // Helpers for compiled code.
@@ -26,7 +25,7 @@ const (
 // Try runs try…catch…finally. Each part returns how it ended: CtlNone to
 // carry on, or a return, break or continue with its value (a break or
 // continue carries the target's number).
-func Try(body func() (int, Value), catch func(Value) (int, Value), finally func() (int, Value)) (ctl int, val Value) {
+func (rt *Realm) Try(body func() (int, Value), catch func(Value) (int, Value), finally func() (int, Value)) (ctl int, val Value) {
 	run := func() (ctl int, val Value) {
 		if catch == nil {
 			return body()
@@ -45,7 +44,7 @@ func Try(body func() (int, Value), catch func(Value) (int, Value), finally func(
 			ctl, val = body()
 		}()
 		if thrown != nil {
-			return catch(thrown.Value)
+			return catch(thrown.In(rt))
 		}
 		return ctl, val
 	}
@@ -76,8 +75,8 @@ func ThrowValue(v Value) *Throw { return &Throw{Value: v} }
 func Fail(what string) Value { panic(NotSupported("%s", what)) }
 
 // Iterate returns a for…of's next function.
-func Iterate(v Value) func() (Value, bool) {
-	next, ok := iteratorFor(v)
+func (rt *Realm) Iterate(v Value) func() (Value, bool) {
+	next, ok := rt.iteratorFor(v)
 	if !ok {
 		panic(TypeErrorf("%s is not iterable", describeForError(v)))
 	}
@@ -85,12 +84,12 @@ func Iterate(v Value) func() (Value, bool) {
 }
 
 // Remaining collects an iterator's remaining values, for [...rest].
-func Remaining(next func() (Value, bool)) *Object {
+func (rt *Realm) Remaining(next func() (Value, bool)) *Object {
 	var out []Value
 	for {
 		v, ok := next()
 		if !ok {
-			return NewArray(out)
+			return rt.NewArray(out)
 		}
 		out = append(out, v)
 	}
@@ -98,11 +97,11 @@ func Remaining(next func() (Value, bool)) *Object {
 
 // ForInKeys returns a for…in's next function: enumerable string keys of
 // the object and its prototypes, each once.
-func ForInKeys(v Value) func() (Value, bool) {
+func (rt *Realm) ForInKeys(v Value) func() (Value, bool) {
 	if IsNullish(v) {
 		return func() (Value, bool) { return Undefined, false }
 	}
-	o := ToObject(v)
+	o := rt.ToObject(v)
 	inherited := false
 	for p := o.proto; p != nil; p = p.proto {
 		if p.hasEnumerable() {
@@ -188,55 +187,50 @@ type GlobalRef struct {
 
 // GlobalGetCached is GlobalGet with a cache, valid until globalThis's own
 // properties change. Accessors and inherited properties aren't cached.
-func GlobalGetCached(c *GlobalRef, name string) Value {
-	if c.version == globalVersion {
+func (rt *Realm) GlobalGetCached(c *GlobalRef, name string) Value {
+	if c.version == rt.globalVersion {
 		return c.value
 	}
-	if i := Global.findString(name); i >= 0 && Global.shape.attrs[i]&attrAccessor == 0 {
-		c.version, c.value = globalVersion, Global.slots[i]
+	if i := rt.Global.findString(name); i >= 0 && rt.Global.shape.attrs[i]&attrAccessor == 0 {
+		c.version, c.value = rt.globalVersion, rt.Global.slots[i]
 		return c.value
 	}
-	return GlobalGet(name)
+	return rt.GlobalGet(name)
 }
 
 // GlobalGet reads an undeclared identifier from globalThis.
-func GlobalGet(name string) Value {
-	if !Global.Has(name) {
-		panic(&Throw{Value: Construct(ReferenceError, name+" is not defined")})
+func (rt *Realm) GlobalGet(name string) Value {
+	if !rt.Global.Has(name) {
+		panic(ReferenceErrorf("%s is not defined", name))
 	}
-	return Global.Get(name)
+	return rt.Global.Get(name)
 }
 
 // GlobalSet assigns an undeclared identifier, which strict mode only
 // allows when globalThis has it.
-func GlobalSet(name string, v Value) {
-	if !Global.Has(name) {
-		panic(&Throw{Value: Construct(ReferenceError, name+" is not defined")})
+func (rt *Realm) GlobalSet(name string, v Value) {
+	if !rt.Global.Has(name) {
+		panic(ReferenceErrorf("%s is not defined", name))
 	}
-	Global.Set(name, v)
+	rt.Global.Set(name, v)
 }
 
 // TypeofGlobal is typeof of an undeclared identifier.
-func TypeofGlobal(name string) string {
-	if !Global.Has(name) {
+func (rt *Realm) TypeofGlobal(name string) string {
+	if !rt.Global.Has(name) {
 		return "undefined"
 	}
-	return Typeof(Global.Get(name))
-}
-
-// ReferenceErrorf makes a ReferenceError exception.
-func ReferenceErrorf(format string, args ...any) *Throw {
-	return &Throw{Value: Construct(ReferenceError, sprintf(format, args...))}
+	return Typeof(rt.Global.Get(name))
 }
 
 // CallMethodV is obj[key](...args) with a computed key.
-func CallMethodV(obj Value, key Value, args ...Value) Value {
-	return CallMethod(obj, ToPropertyKey(key), args...)
+func (rt *Realm) CallMethodV(obj Value, key Value, args ...Value) Value {
+	return rt.CallMethod(obj, ToPropertyKey(key), args...)
 }
 
 // Obj makes an object literal from keys and values.
-func Obj(kv ...Value) *Object {
-	o := &Object{proto: ObjectPrototype, shape: rootShape(ObjectPrototype), slots: make([]Value, 0, len(kv)/2)}
+func (rt *Realm) Obj(kv ...Value) *Object {
+	o := &Object{proto: rt.ObjectPrototype, shape: rootShape(rt.ObjectPrototype), slots: make([]Value, 0, len(kv)/2)}
 	for i := 0; i+1 < len(kv); i += 2 {
 		o.Define(kv[i], kv[i+1])
 	}
@@ -262,8 +256,8 @@ func CopyDataProperties(target *Object, src Value) {
 }
 
 // CopyDataPropertiesExcluding is an object pattern's rest element.
-func CopyDataPropertiesExcluding(src Value, excluded []PropKey) *Object {
-	out := NewPlainObject()
+func (rt *Realm) CopyDataPropertiesExcluding(src Value, excluded []PropKey) *Object {
+	out := rt.NewPlainObject()
 	s, ok := src.(*Object)
 	if !ok {
 		return out
@@ -300,42 +294,43 @@ func SetProtoFromLiteral(o *Object, v Value) {
 	}
 }
 
-var regexpCache sync.Map // source+flags → compiled data
-
 // RegExpLiteral evaluates a regular expression literal: a new object each
 // time, sharing the compiled pattern.
-func RegExpLiteral(source, flags string) Value {
+func (rt *Realm) RegExpLiteral(source, flags string) Value {
 	key := flags + "/" + source
-	if d, ok := regexpCache.Load(key); ok {
-		data := d.(*regexpData)
-		o := NewObject(RegExpPrototype)
+	if data, ok := rt.regexpCache[key]; ok {
+		o := NewObject(rt.RegExpPrototype)
 		o.Class, o.Internal = "RegExp", data
 		o.add(prop{key: "lastIndex", value: 0.0, writable: true})
 		return o
 	}
-	o := NewRegExp(source, flags)
-	regexpCache.Store(key, o.Internal)
+	o := rt.NewRegExp(source, flags)
+	if rt.regexpCache == nil {
+		rt.regexpCache = map[string]*regexpData{}
+	}
+	rt.regexpCache[key] = o.Internal.(*regexpData)
 	return o
 }
 
-var templates sync.Map // call site → template object
-
 // TemplateObject is a tagged template's strings array, the same object
 // every time its call site runs.
-func TemplateObject(site int, cooked []Value, raw []string) Value {
-	if t, ok := templates.Load(site); ok {
-		return t.(*Object)
+func (rt *Realm) TemplateObject(site int, cooked []Value, raw []string) Value {
+	if t, ok := rt.templates[site]; ok {
+		return t
 	}
 	rv := make([]Value, len(raw))
 	for i, r := range raw {
 		rv[i] = r
 	}
-	rawArr := NewArray(rv)
+	rawArr := rt.NewArray(rv)
 	rawArr.Freeze()
-	t := NewArray(cooked)
+	t := rt.NewArray(cooked)
 	t.DefineHidden("raw", rawArr)
 	t.Freeze()
-	templates.Store(site, t)
+	if rt.templates == nil {
+		rt.templates = map[int]Value{}
+	}
+	rt.templates[site] = t
 	return t
 }
 
@@ -348,32 +343,32 @@ func CheckThis(v Value) Value {
 }
 
 // Rest is a rest parameter: the arguments from i on.
-func Rest(args []Value, i int) *Object {
+func (rt *Realm) Rest(args []Value, i int) *Object {
 	if i >= len(args) {
-		return NewArray(nil)
+		return rt.NewArray(nil)
 	}
-	return NewArray(append([]Value(nil), args[i:]...))
+	return rt.NewArray(append([]Value(nil), args[i:]...))
 }
 
 // NewArguments is a function's arguments object.
-func NewArguments(args []Value) *Object {
-	a := NewArray(append([]Value(nil), args...))
+func (rt *Realm) NewArguments(args []Value) *Object {
+	a := rt.NewArray(append([]Value(nil), args...))
 	a.Class = "Arguments"
 	return a
 }
 
 // NonArrow makes a function declaration or expression constructible, as
 // non-arrow functions are.
-func NonArrow(f *Object) *Object {
+func (rt *Realm) NonArrow(f *Object) *Object {
 	if f.fnLazy == lazyNameLength {
 		f.fnLazy = lazyPrototype // made when first asked for
 	} else {
-		proto := NewPlainObject()
+		proto := rt.NewPlainObject()
 		proto.DefineHidden("constructor", f)
 		f.add(prop{key: "prototype", value: proto, writable: true})
 	}
 	f.construct = func(args []Value, nt *Object) Value {
-		this := OrdinaryCreateFromConstructor(nt, ObjectPrototype)
+		this := OrdinaryCreateFromConstructor(nt, rt.ObjectPrototype)
 		if r, ok := f.call(this, args).(*Object); ok {
 			return r
 		}
@@ -553,8 +548,8 @@ func NewNamespace() *Object {
 }
 
 // ExportLive adds a live binding to a namespace.
-func ExportLive(ns *Object, name string, get func() Value) {
-	ns.DefineAccessor(name, NewFunction(name, 0, func(Value, []Value) Value { return get() }), nil, true)
+func (rt *Realm) ExportLive(ns *Object, name string, get func() Value) {
+	ns.DefineAccessor(name, rt.NewFunction(name, 0, func(Value, []Value) Value { return get() }), nil, true)
 }
 
 // MissingImport stands for a binding imported from a module the IR doesn't

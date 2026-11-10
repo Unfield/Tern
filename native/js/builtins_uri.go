@@ -20,10 +20,10 @@ func uriEncode(s string, keep string) string {
 		var r rune
 		switch {
 		case c >= 0xDC00 && c <= 0xDFFF:
-			panic(newError(Global.Get("URIError").(*Object), "URI malformed"))
+			panic(URIErrorf("URI malformed"))
 		case c >= 0xD800 && c <= 0xDBFF:
 			if i+1 >= len(u) || u[i+1] < 0xDC00 || u[i+1] > 0xDFFF {
-				panic(newError(Global.Get("URIError").(*Object), "URI malformed"))
+				panic(URIErrorf("URI malformed"))
 			}
 			r = (rune(c)-0xD800)<<10 + (rune(u[i+1]) - 0xDC00) + 0x10000
 			i++
@@ -52,7 +52,7 @@ func uriDecode(s string, reserved string) string {
 		var bytes []byte
 		for i < len(s) && s[i] == '%' {
 			if i+2 >= len(s) || digitVal(rune(s[i+1])) < 0 || digitVal(rune(s[i+1])) > 15 || digitVal(rune(s[i+2])) < 0 || digitVal(rune(s[i+2])) > 15 {
-				panic(newError(Global.Get("URIError").(*Object), "URI malformed"))
+				panic(URIErrorf("URI malformed"))
 			}
 			bytes = append(bytes, byte(digitVal(rune(s[i+1]))<<4|digitVal(rune(s[i+2]))))
 			i += 3
@@ -71,15 +71,15 @@ func uriDecode(s string, reserved string) string {
 		}
 		r, size := utf8.DecodeRune(bytes)
 		if r == utf8.RuneError || size != len(bytes) {
-			panic(newError(Global.Get("URIError").(*Object), "URI malformed"))
+			panic(URIErrorf("URI malformed"))
 		}
 		b.WriteRune(r)
 	}
 	return b.String()
 }
 
-func setupURIFunctions(g *Object) {
-	uriErr := NewConstructor("URIError", 1, nil, nil, &Object{proto: ErrorPrototype, Class: "Error"})
+func (rt *Realm) setupURIFunctions(g *Object) {
+	uriErr := rt.NewConstructor("URIError", 1, nil, nil, &Object{proto: rt.ErrorPrototype, Class: "Error"})
 	uriErr.construct = func(args []Value, nt *Object) Value {
 		o := OrdinaryCreateFromConstructor(nt, uriErr.Get("prototype").(*Object))
 		o.Class = "Error"
@@ -89,10 +89,10 @@ func setupURIFunctions(g *Object) {
 		return o
 	}
 	uriErr.Get("prototype").(*Object).DefineHidden("name", "URIError")
-	uriErr.SetProto(Error)
+	uriErr.SetProto(rt.Error)
 	g.DefineHidden("URIError", uriErr)
-	method(g, "encodeURIComponent", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), "") })
-	method(g, "encodeURI", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), uriReserved) })
-	method(g, "decodeURIComponent", 1, func(_ Value, args []Value) Value { return uriDecode(ToString(Arg(args, 0)), "") })
-	method(g, "decodeURI", 1, func(_ Value, args []Value) Value { return uriDecode(ToString(Arg(args, 0)), uriReserved) })
+	rt.method(g, "encodeURIComponent", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), "") })
+	rt.method(g, "encodeURI", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), uriReserved) })
+	rt.method(g, "decodeURIComponent", 1, func(_ Value, args []Value) Value { return uriDecode(ToString(Arg(args, 0)), "") })
+	rt.method(g, "decodeURI", 1, func(_ Value, args []Value) Value { return uriDecode(ToString(Arg(args, 0)), uriReserved) })
 }

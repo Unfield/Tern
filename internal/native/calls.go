@@ -97,7 +97,7 @@ func (c *Compiler) namespaceMember(s *scope, n *Node) (expr, ns string, ok bool)
 	if !ok {
 		return "", "", false
 	}
-	return e, from.goVar + ".namespace()", true
+	return e, fmt.Sprintf("r.ns%d()", from.index), true
 }
 
 // chain compiles an optional chain's element, returning early with

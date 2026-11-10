@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "create-tern": "./index.js"
+    "create-tern": "index.js"
   },
   "files": [
     "index.js"

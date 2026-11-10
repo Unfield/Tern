@@ -2,5 +2,6 @@ node_modules/
 /build/
 .tern/
 tern.gen.go
+tern_native.gen.go
 test-results/
 playwright-report/

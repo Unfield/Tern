@@ -1,4 +1,5 @@
 .tern/
 tern.gen.go
+tern_native.gen.go
 build/
 node_modules/

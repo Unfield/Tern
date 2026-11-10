@@ -30,7 +30,15 @@ type Config struct {
 		// defaults to true; set it to false to register it yourself.
 		Register *bool `json:"register"`
 	} `json:"serviceWorker"`
+	// Native is whether tern build compiles the server renderer to Go, so
+	// pages render without the JavaScript engine (ADR 0011). It defaults
+	// to true.
+	Native *bool `json:"native"`
 }
+
+// NativeEnabled reports whether tern build compiles the server renderer
+// to Go.
+func (c Config) NativeEnabled() bool { return c.Native == nil || *c.Native }
 
 var basePathRe = regexp.MustCompile(`^(/[A-Za-z0-9._~!$&'()*+,;=:@-]+)+$`)
 

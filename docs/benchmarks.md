@@ -28,15 +28,15 @@ Memory levels off at about 240 MB with the render cache full, and stays flat ove
 
 [benchmarks/vs-sveltekit](../benchmarks/vs-sveltekit) serves the same Svelte components with Tern and with SvelteKit on Node. Summary, in requests per second:
 
-| | Tern | SvelteKit, 1 process | SvelteKit, 10 processes |
-|---|---|---|---|
-| A cacheable page | 25,665 to 60,252 | 2,611 to 17,459 | 5,464 to 19,458 |
-| Client-side navigation | 37,640 | 3,478 | 8,031 |
-| A page rendered for every request, small | 9,586 | 17,146 | 22,571 |
-| A page rendered for every request, a 100-row table | 640 | 2,525 | 5,451 |
-| Memory | about 200 MB | about 500 MB | about 3 GB |
+| | Tern, native | Tern, QuickJS | SvelteKit, 1 process | SvelteKit, 10 processes |
+|---|---|---|---|---|
+| A cacheable page | 32,120 to 87,584 | 25,665 to 60,252 | 2,611 to 17,459 | 5,464 to 19,458 |
+| Client-side navigation | 43,549 | 37,640 | 3,478 | 8,031 |
+| A page rendered for every request, small | 46,055 | 9,586 | 17,146 | 22,571 |
+| A page rendered for every request, a 100-row table | 7,844 | 640 | 2,525 | 5,451 |
+| Memory | about 240 MB | about 200 MB | about 500 MB | about 3 GB |
 
-Tern is faster wherever its Go side or the render cache answers. It is slower for every request that must be rendered, by 1.8× to 8.5×, because QuickJS interprets JavaScript and its VMs stop scaling at four. Speeding that up is the plan for v1.6.
+Since v1.5, `tern build` compiles the server renderer to Go ([ADR 0011](adr/0011-native-rendering.md)), and Tern is faster than SvelteKit on ten Node processes in every scenario. Pages that use what the compiler leaves to the JavaScript engine render with QuickJS, at the speeds in the QuickJS column.
 
 ## Running them
 
@@ -48,7 +48,7 @@ go test -run '^$' -bench . ./internal/routes/ ./kit/ ./internal/ssr/
 
 ## Tuning
 
-- `kit.WithSSRWorkers(n)` sets the number of rendering VMs. The default is one per CPU, at most 4: the VMs share a lock in the C runtime, and on a 10-core machine throughput peaks at 4 workers and halves at 10 ([ADR 0007](adr/0007-ssr-throughput-and-memory.md)).
+- `kit.WithSSRWorkers(n)` sets how many pages render at once. The default is one per CPU. Native rendering scales with every core; QuickJS VMs share a lock in the C runtime, so the engine uses at most 4 by default ([ADR 0007](adr/0007-ssr-throughput-and-memory.md)).
 - `kit.WithSSRCache(bytes)` sets the size of the render cache (default 32 MiB, 0 to turn it off). A render depends only on the page's data and URL, so identical pages render once.
 - Pages that are the same for everyone can be prerendered (`const Prerender = true`).
 - Pages that need no server-rendered HTML, such as dashboards behind a login, can opt out with `const SSR = false`.

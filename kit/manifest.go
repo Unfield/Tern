@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Unfield/Tern/goscript"
+	"github.com/Unfield/Tern/native/js"
 )
 
 // LoadFunc is a Load or LayoutLoad function with its result type erased.
@@ -65,6 +66,11 @@ type Manifest struct {
 	// ServerBundle is the server renderer built by `vite build --ssr`, or
 	// "" to render on the client only.
 	ServerBundle string
+	// Native is the server renderer compiled to Go by tern build, if it
+	// was: it makes a realm with the app's modules evaluated. Pages render
+	// with it, and with ServerBundle only what it can't render. The
+	// generated tern_native.gen.go sets it.
+	Native func(setup func(*js.Realm)) *js.Realm
 	// BasePath is the URL prefix the app is served under, from tern.json,
 	// such as "/app"; "" serves it at the root.
 	BasePath string
@@ -149,6 +155,7 @@ type options struct {
 	ssrWorkers      int
 	ssrCache        int
 	ssrTimeout      time.Duration
+	native          bool
 	live            LiveOptions
 	liveBroker      goscript.Broker
 }
@@ -214,9 +221,10 @@ func WithoutSSR() Option {
 }
 
 // WithSSRWorkers sets how many pages can render on the server at once.
-// Each worker is a JavaScript VM using roughly 5 to 20 MB of memory. The
-// default is GOMAXPROCS, at most 4: the VMs share a lock in the C runtime,
-// so more workers rarely render faster.
+// The default is GOMAXPROCS. Pages compiled to Go render in parallel on
+// every worker; with the JavaScript engine, each worker is a VM using
+// roughly 5 to 20 MB, and the default is at most 4: the VMs share a lock
+// in the C runtime, so more rarely render faster.
 func WithSSRWorkers(n int) Option {
 	return func(o *options) { o.ssrWorkers = n }
 }
@@ -234,6 +242,13 @@ func WithSSRCache(bytes int) Option {
 // falls back to client rendering. The default is 5 seconds.
 func WithSSRTimeout(d time.Duration) Option {
 	return func(o *options) { o.ssrTimeout = d }
+}
+
+// WithoutNativeSSR renders every page with the JavaScript engine, even when
+// tern build compiled the server renderer to Go. Setting TERN_NATIVE=0 does
+// the same without a rebuild.
+func WithoutNativeSSR() Option {
+	return func(o *options) { o.native = false }
 }
 
 // WithContentSecurityPolicy sends a Content-Security-Policy header on every

@@ -1,6 +1,9 @@
 package js
 
-import "math"
+import (
+	"math"
+	"sync/atomic"
+)
 
 // A Realm is a world of JavaScript objects: its own built-ins, globalThis
 // and module state. Realms share nothing that changes, so each can run on
@@ -24,6 +27,10 @@ type Realm struct {
 	// globalVersion counts changes to globalThis's own properties, so
 	// reads of globals can be cached.
 	globalVersion uint64
+
+	// interrupted stops the realm's code at the next call or loop turn.
+	interrupted atomic.Bool
+	depth       int // calls in progress, to stop runaway recursion
 
 	argStack    []Value    // see invoke
 	lastConcat  []byte     // see Concat

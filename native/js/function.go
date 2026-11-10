@@ -53,10 +53,11 @@ func (o *Object) invoke(this Value, args ...Value) Value {
 	if rt == nil {
 		return o.call(this, append([]Value(nil), args...))
 	}
+	rt.enter()
 	base := len(rt.argStack)
 	rt.argStack = append(rt.argStack, args...)
 	top := len(rt.argStack)
-	defer rt.popArgs(base)
+	defer rt.leave(base)
 	return o.call(this, rt.argStack[base:top:top])
 }
 
@@ -66,14 +67,30 @@ func (o *Object) constructArgs(args []Value, newTarget *Object) Value {
 	if rt == nil {
 		return o.construct(append([]Value(nil), args...), newTarget)
 	}
+	rt.enter()
 	base := len(rt.argStack)
 	rt.argStack = append(rt.argStack, args...)
 	top := len(rt.argStack)
-	defer rt.popArgs(base)
+	defer rt.leave(base)
 	return o.construct(rt.argStack[base:top:top], newTarget)
 }
 
-func (rt *Realm) popArgs(base int) {
+// MaxDepth is how deep calls may nest before a RangeError, as engines
+// have: Go's stack would otherwise overflow, which ends the process.
+const MaxDepth = 10000
+
+func (rt *Realm) enter() {
+	if rt.interrupted.Load() {
+		panic(ErrInterrupted)
+	}
+	if rt.depth >= MaxDepth {
+		panic(RangeErrorf("Maximum call stack size exceeded"))
+	}
+	rt.depth++
+}
+
+func (rt *Realm) leave(base int) {
+	rt.depth--
 	clear(rt.argStack[base:])
 	rt.argStack = rt.argStack[:base]
 }

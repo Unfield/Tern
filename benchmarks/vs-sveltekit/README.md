@@ -10,21 +10,25 @@ The same app twice: one served by Tern, one by SvelteKit on Node with `adapter-n
 
 Apple M4 (10 cores), 32 connections, 10 seconds after 3 seconds of warm-up. The load generator runs on the same machine. Requests per second, then median and 99th-percentile latency in ms, then resident memory at the end.
 
-| Scenario | Tern | SvelteKit, 1 Node process | SvelteKit, 10 Node processes |
-|---|---|---|---|
-| `/`, the same URL each time | **60,252** · 0.4 / 1.8 · 21 MB | 17,459 · 1.6 / 4.8 · 60 MB | 19,458 · 0.8 / 15.2 · 636 MB |
-| `/`, a new URL each time | 9,586 · 3.3 / 4.6 · 36 MB | 17,146 · 1.6 / 4.8 · 298 MB | **22,571** · 0.8 / 12.1 · 2.7 GB |
-| `/items`, the same URL each time | **25,665** · 1.0 / 5.0 · 118 MB | 2,611 · 11.7 / 23.1 · 304 MB | 5,464 · 4.9 / 20.1 · 2.7 GB |
-| `/items`, a new URL each time | 640 · 50.1 / 54.6 · 205 MB | 2,525 · 12.1 / 24.1 · 523 MB | **5,451** · 4.9 / 21.9 · 2.9 GB |
-| `/items/__data.json` (client-side navigation) | **37,640** · 0.7 / 3.1 · 207 MB | 3,478 · 8.5 / 16.8 · 526 MB | 8,031 · 3.0 / 15.5 · 3.0 GB |
+| Scenario | Tern, native (v1.5) | Tern, QuickJS (v1.4) | SvelteKit, 1 Node process | SvelteKit, 10 Node processes |
+|---|---|---|---|---|
+| `/`, the same URL each time | **87,584** · 0.3 / 1.1 · 36 MB | 60,252 · 0.4 / 1.8 · 21 MB | 17,459 · 1.6 / 4.8 · 60 MB | 19,458 · 0.8 / 15.2 · 636 MB |
+| `/`, a new URL each time | **46,055** · 0.5 / 3.1 · 183 MB | 9,586 · 3.3 / 4.6 · 36 MB | 17,146 · 1.6 / 4.8 · 298 MB | 22,571 · 0.8 / 12.1 · 2.7 GB |
+| `/items`, the same URL each time | **32,120** · 0.8 / 4.7 · 236 MB | 25,665 · 1.0 / 5.0 · 118 MB | 2,611 · 11.7 / 23.1 · 304 MB | 5,464 · 4.9 / 20.1 · 2.7 GB |
+| `/items`, a new URL each time | **7,844** · 3.5 / 12.3 · 236 MB | 640 · 50.1 / 54.6 · 205 MB | 2,525 · 12.1 / 24.1 · 523 MB | 5,451 · 4.9 / 21.9 · 2.9 GB |
+| `/items/__data.json` (client-side navigation) | **43,549** · 0.6 / 2.9 · 236 MB | 37,640 · 0.7 / 3.1 · 207 MB | 3,478 · 8.5 / 16.8 · 526 MB | 8,031 · 3.0 / 15.5 · 3.0 GB |
 
-Uncached `/items` renders with different numbers of Tern's rendering VMs (`kit.WithSSRWorkers`):
+Native is `tern build` compiling the server renderer to Go ([ADR 0011](../../docs/adr/0011-native-rendering.md)); the native column is in `results-native-2026-11-10.jsonl`, the rest in `results-2026-11-10.jsonl`. The QuickJS column is the same app with `TERN_NATIVE=0`.
+
+Uncached `/items` renders with different numbers of Tern's QuickJS VMs (`kit.WithSSRWorkers`), before native rendering:
 
 | Workers | 1 | 2 | 4 (default) | 8 |
 |---|---|---|---|---|
 | Requests per second | 345 | 562 | 688 | 433 |
 
 ## What it shows
+
+With native rendering, Tern is faster than SvelteKit on ten Node processes in every scenario, from one process and a tenth of the memory: 1.4× for an uncached 100-row table, 2× for an uncached small page. The rest of this section describes v1.4, with QuickJS, which is still what renders pages native rendering can't.
 
 - **Where Tern wins:**
   - **Pages the render cache can answer**, the same for many visitors: 3.5× to 10× SvelteKit on one process, which has no render cache.

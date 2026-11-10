@@ -46,9 +46,12 @@ type genReturn struct{ value Value }
 // nothing runs, as JavaScript would never resume it.
 type genAbort struct{}
 
-// IsAbort reports whether a panic is a generator being dropped, which Try
-// lets through without running finally blocks.
-func isAbort(r any) bool { _, ok := r.(genAbort); return ok }
+// isAbort reports whether a panic is a generator being dropped or an
+// interrupt, which Try lets through without running finally blocks.
+func isAbort(r any) bool {
+	_, ok := r.(genAbort)
+	return ok || r == any(ErrInterrupted)
+}
 
 // NewGeneratorFunction makes a generator function. call runs when it's
 // called: it binds the parameters and returns the body.

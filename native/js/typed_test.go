@@ -25,7 +25,7 @@ func TestUint8Base64(t *testing.T) {
 	}
 	strict := tr.NewPlainObject()
 	strict.Set("lastChunkHandling", "strict")
-	if _, err := catch(func() { m(u8, "fromBase64", "aGl", strict) }); err == nil {
+	if err := catch(func() { m(u8, "fromBase64", "aGl", strict) }); err == nil {
 		t.Error("strict decoding should reject a chunk with non-zero bits")
 	}
 	a := Construct(u8, arr(104.0, 105.0, 255.0))
@@ -43,12 +43,12 @@ func TestUint8Base64(t *testing.T) {
 	}
 }
 
-func catch(f func()) (v Value, err *Throw) {
+func catch(f func()) (err *Throw) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = r.(*Throw)
 		}
 	}()
 	f()
-	return nil, nil
+	return nil
 }

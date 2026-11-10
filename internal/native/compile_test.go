@@ -17,7 +17,7 @@ func TestCompileIR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := Compile(ir)
+	res, err := Compile(ir, Options{})
 	if res != nil {
 		_ = os.MkdirAll(out, 0o755)
 		_ = os.WriteFile(filepath.Join(out, "native.go"), res.Source, 0o644)

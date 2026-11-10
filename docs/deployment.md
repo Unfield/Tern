@@ -37,7 +37,8 @@ app, err := ternApp(
 - **Caching.** Content-hashed assets under `/_app/immutable/` are served with `Cache-Control: public, max-age=31536000, immutable`. Other static files and prerendered pages use ETags and revalidate. Dynamic pages are `private, no-cache`.
 - **Compression.** Text assets are precompressed with gzip at build time and served to clients that accept it.
 - **Security.** Cross-origin POST, PUT, PATCH and DELETE requests from browsers are rejected (`http.CrossOriginProtection`). Request bodies for actions and endpoints are limited to 1 MiB by default. Every response has `X-Content-Type-Options: nosniff`. Unexpected errors are logged and shown to users only as "Internal Error".
-- **Server rendering.** Pages render in a pool of embedded JavaScript VMs, one per CPU by default. A render that fails or takes longer than 5 seconds falls back to client rendering and is logged, so one broken component cannot take a page down.
+- **Server rendering.** `tern build` compiles the server renderer to Go, and pages render natively, one worker per CPU by default. What the compiler leaves to the JavaScript engine (listed in `.tern/native/report.txt`) renders in embedded QuickJS VMs, as does any page whose native render fails. A render that fails both ways or takes longer than 5 seconds falls back to client rendering and is logged, so one broken component cannot take a page down.
+- **Checking native rendering.** `TERN_NATIVE_VERIFY=1` renders every page both ways, serves the JavaScript engine's HTML and logs where native rendering differs. `TERN_NATIVE=0` turns native rendering off, at run time or for `tern build`; `"native": false` in `tern.json` does too.
 
 ## Behind a reverse proxy
 

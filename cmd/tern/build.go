@@ -74,6 +74,12 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	}
 
 	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern build")), p.Dim(version.String()))
+	cfg, err := codegen.LoadConfig(".")
+	if err != nil {
+		ui.New(stderr).Error(err)
+		return 1
+	}
+	native := cfg.NativeEnabled() && os.Getenv("TERN_NATIVE") != "0"
 	var gen *codegen.Result
 	compile := func(log io.Writer) (string, error) {
 		cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
@@ -93,8 +99,13 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	}) && step("Building the client", func(log io.Writer) (string, error) {
 		return "", runVite(log, "build", "--logLevel", "warn")
 	}) && step("Building the server renderer", func(log io.Writer) (string, error) {
-		return "", runVite(log, "build", "--ssr", "--logLevel", "warn")
-	}) && step("Compressing assets", func(io.Writer) (string, error) {
+		_ = os.Remove(nativeFile) // stale from an earlier build
+		var env []string
+		if native {
+			env = append(env, "TERN_NATIVE=1")
+		}
+		return "", runViteEnv(log, env, "build", "--ssr", "--logLevel", "warn")
+	}) && (!native || step("Compiling the server renderer to Go", compileNative)) && step("Compressing assets", func(io.Writer) (string, error) {
 		return "", precompress(codegen.ClientOut)
 	}) && step("Compiling the server", compile)
 	needsCompile := false

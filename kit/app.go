@@ -81,6 +81,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		csrf:            true,
 		ssr:             true,
 		ssrCache:        32 << 20,
+		native:          true,
 		bodyLimit:       1 << 20,
 		multipartMemory: 8 << 20,
 	}
@@ -166,17 +167,30 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			if m.Live {
 				sopts.Funcs = map[string]func(context.Context, []any) (any, error){"__tern_live_initial": liveInitial}
 			}
-			pool, err := ssr.NewPool(m.ServerBundle, sopts)
-			if err != nil {
-				return nil, fmt.Errorf("kit: %w", err)
+			var renderer ssr.Renderer
+			if m.Native != nil && o.native && os.Getenv("TERN_NATIVE") != "0" {
+				nopts := ssr.NativeOptions{Verify: os.Getenv("TERN_NATIVE_VERIFY") == "1"}
+				native, err := ssr.NewNative(m.Native, m.ServerBundle, sopts, nopts)
+				if err != nil {
+					return nil, fmt.Errorf("kit: %w", err)
+				}
+				renderer = native
+			} else {
+				pool, err := ssr.NewPool(m.ServerBundle, sopts)
+				if err != nil {
+					return nil, fmt.Errorf("kit: %w", err)
+				}
+				renderer = pool
 			}
-			a.ssr = pool
+			a.ssr = renderer
 			// Live components render per user and per moment, so pages
 			// with them can't be cached.
 			if o.ssrCache > 0 && !m.Live {
-				a.ssr = ssr.NewCache(pool, o.ssrCache)
+				a.ssr = ssr.NewCache(renderer, o.ssrCache)
 			}
-			a.closers = append(a.closers, pool)
+			if c, ok := renderer.(io.Closer); ok {
+				a.closers = append(a.closers, c)
+			}
 		}
 	}
 

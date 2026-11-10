@@ -249,6 +249,7 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 	case "WhileStatement":
 		out.line("%s", mark)
 		out.open("for %s {", c.cond(ls, n.Child("test")))
+		out.line("r.Tick()")
 		c.block(out, ls, n.Child("body"))
 		out.close("")
 	case "DoWhileStatement":
@@ -256,6 +257,7 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 		out.line("%s := true", first)
 		out.line("%s", mark)
 		out.open("for ; %s || %s; %s = false {", first, c.cond(ls, n.Child("test")), first)
+		out.line("r.Tick()")
 		c.block(out, ls, n.Child("body"))
 		out.close("")
 	case "ForStatement":
@@ -295,6 +297,7 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 			header()
 			out.line("%s", mark)
 			out.open("for %s := %s; %s; %s {", join(names), join(values), test, post)
+			out.line("r.Tick()")
 			for _, g := range names {
 				out.line("_ = %s", g)
 			}
@@ -316,6 +319,7 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 		header()
 		out.line("%s", mark)
 		out.open("for ; %s; %s {", test, post)
+		out.line("r.Tick()")
 		c.block(out, ls, n.Child("body"))
 		out.close("")
 		out.close("")
@@ -332,6 +336,7 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 		}
 		out.line("%s", mark)
 		out.open("for {")
+		out.line("r.Tick()")
 		v := c.temp("x")
 		out.line("%s, ok := %s()", v, next)
 		out.open("if !ok {")

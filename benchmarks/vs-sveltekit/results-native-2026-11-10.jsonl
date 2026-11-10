@@ -1,0 +1,5 @@
+{"server":"tern-native","scenario":"home","rps":87584,"p50_ms":0.32,"p99_ms":1.056,"rss_mb":36}
+{"server":"tern-native","scenario":"home-unique","rps":46055,"p50_ms":0.531,"p99_ms":3.061,"rss_mb":183}
+{"server":"tern-native","scenario":"items","rps":32120,"p50_ms":0.753,"p99_ms":4.663,"rss_mb":236}
+{"server":"tern-native","scenario":"items-unique","rps":7844,"p50_ms":3.54,"p99_ms":12.327,"rss_mb":236}
+{"server":"tern-native","scenario":"data","rps":43549,"p50_ms":0.598,"p99_ms":2.924,"rss_mb":236}

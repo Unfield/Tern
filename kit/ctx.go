@@ -161,7 +161,8 @@ func (c *Ctx) Cookie(name string) (string, bool) {
 	return ck.Value, true
 }
 
-// SetCookie adds a Set-Cookie header. Unset fields get safe defaults:
+// SetCookie adds a Set-Cookie header; setting the same cookie again in a
+// request replaces it. Unset fields get safe defaults:
 // Path "/", SameSite=Lax, and Secure unless the request is plain HTTP to
 // localhost. Set HttpOnly yourself for cookies scripts must not read, such
 // as session cookies. Loads may call it concurrently.
@@ -179,6 +180,13 @@ func (c *Ctx) SetCookie(ck *http.Cookie) {
 	r := c.rootCtx()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Setting a cookie again in the same request replaces it.
+	for i, old := range r.cookies {
+		if old.Name == cp.Name && old.Path == cp.Path && old.Domain == cp.Domain {
+			r.cookies[i] = &cp
+			return
+		}
+	}
 	r.cookies = append(r.cookies, &cp)
 }
 

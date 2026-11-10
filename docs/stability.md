@@ -8,7 +8,7 @@ Tern follows [semantic versioning](https://semver.org). From v1.0.0, minor and p
 |---|---|
 | **Route conventions** | `src/routes`, `+page.svelte`, `+layout.svelte`, `+error.svelte`, the `.param`, `.optional`, `.rest` and `.group` directory suffixes, and the exported names `Load`, `LayoutLoad`, `Actions`, `GET` (and other methods), `SSR`, `Prerender` and `Entries` |
 | **`kit` for application code** | `Ctx` and its methods, `LoadOf`, `Action`, `Actions`, `Parent`, `Defer` and `Deferred`, `Error`, `NotFound`, `Redirect`, `Fail` and their error types, `App`, `New`'s options (`With…`), `Plugin` and `Setup` |
-| **Built-in plugins** | `plugins/health`, `plugins/requestlog`, `plugins/compress`, `plugins/secure` |
+| **Built-in plugins** | Everything under `plugins/` |
 | **`@ternkit/tern`** | Everything exported from `@ternkit/tern` and `@ternkit/tern/vite` |
 | **Generated modules** | The names exported from `./$types` (`PageProps`, `PageData`, `LayoutProps`, `LayoutData`, `ActionData`, `RouteParams`, …) and from `$routes` (`route`, `base`, `Routes`, `RoutePattern`) |
 | **Wire format** | How Go types map to TypeScript, the placeholders in `src/app.html`, and `tern.json` |

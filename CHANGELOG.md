@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- More built-in plugins: `plugins/sessions` (encrypted cookie sessions with flash messages and secret rotation), `plugins/metrics` (Prometheus metrics labeled by route pattern), `plugins/ratelimit` (per-client token buckets) and `plugins/cors`.
+- `Setup.TrustOrigin` for plugins that allow cross-site requests.
+
+### Changed
+
+- `ctx.SetCookie` replaces a cookie set earlier in the same request instead of sending both.
+
 ## [1.0.0] - 2026-11-09
 
 Tern 1.0 is stable: the APIs described in [docs/stability.md](docs/stability.md) follow semantic versioning from here on.

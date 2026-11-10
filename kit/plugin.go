@@ -58,6 +58,10 @@ func (s *Setup) Middleware(mw func(http.Handler) http.Handler) {
 	s.o.middleware = append(s.o.middleware, mw)
 }
 
+// TrustOrigin allows cross-origin form posts and endpoint requests from
+// origin, as WithTrustedOrigins does. CORS plugins use it.
+func (s *Setup) TrustOrigin(origin string) { s.o.trustedOrigins = append(s.o.trustedOrigins, origin) }
+
 // Matcher registers a parameter matcher, as WithMatcher does.
 func (s *Setup) Matcher(name string, match func(value string) bool) { s.o.matchers[name] = match }
 

@@ -675,3 +675,18 @@ func TestPublicEnv(t *testing.T) {
 		t.Error("data responses should not repeat the environment")
 	}
 }
+
+func TestSetCookieReplaces(t *testing.T) {
+	m := testManifest()
+	m.Routes = append(m.Routes, RouteDef{ID: "/c", Endpoint: map[string]HandlerFunc{"GET": func(c *Ctx) error {
+		c.SetCookie(&http.Cookie{Name: "s", Value: "one"})
+		c.SetCookie(&http.Cookie{Name: "other", Value: "x"})
+		c.SetCookie(&http.Cookie{Name: "s", Value: "two"})
+		return c.Text(200, "ok")
+	}}})
+	a, _ := newTestApp(t, m)
+	got := do(t, a, "GET", "/c", nil).Header().Values("Set-Cookie")
+	if len(got) != 2 || !strings.HasPrefix(got[0], "s=two") {
+		t.Errorf("Set-Cookie = %v", got)
+	}
+}

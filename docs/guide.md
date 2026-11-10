@@ -353,6 +353,10 @@ app, err := ternApp(kit.WithPlugins(
 | `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration and size. |
 | `plugins/compress` | gzip for HTML, JSON, XML and text responses. Streaming still flushes as values resolve. |
 | `plugins/secure` | Security headers: no framing, a strict referrer policy, browser features off, cross-origin isolation, and opt-in HSTS. |
+| `plugins/sessions` | Encrypted cookie sessions (AES-GCM): `sessions.Get(ctx).Set("user", id)`, `GetString`, `Value`, flash messages, and secret rotation with `OldSecrets`. |
+| `plugins/metrics` | Prometheus metrics at `/metrics`: requests by route and status, a latency histogram, in-flight requests and Go runtime stats. Routes are labeled by pattern, so the number of series stays bounded. |
+| `plugins/ratelimit` | A token bucket per client; by default only form actions and other writes are limited. Over the limit: 429 with `Retry-After`. |
+| `plugins/cors` | CORS for endpoints, including preflights; the allowed origins are also trusted by cross-site request protection. |
 
 ### Writing a plugin
 
@@ -363,6 +367,7 @@ A plugin is any type with `Name() string` and `Setup(*kit.Setup) error`. `Setup`
 | `s.Hook(fn)` | a hook that runs before every request |
 | `s.Middleware(mw)` | `net/http` middleware |
 | `s.Matcher(name, fn)` | a parameter matcher |
+| `s.TrustOrigin(origin)` | an origin allowed to make cross-site writes |
 | `s.Handle(pattern, h)` | an `http.Handler`, served before routes (`"GET /metrics"`) |
 | `s.Head(html)`, `s.HeadFunc(fn)` | HTML in every page's `<head>`; `HeadFunc` gets the CSP nonce for inline scripts |
 | `s.OnShutdown(fn)` | work to do when the server stops |

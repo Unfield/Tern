@@ -575,6 +575,26 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
 
+## Images
+
+Add `?image` to an image import and Tern resizes it to several widths in AVIF, WebP and its own format. Show it with `<Image>`, which renders a `<picture>` with the right sources, its width and height (so the page does not shift while it loads) and lazy loading:
+
+```svelte
+<script lang="ts">
+	import { Image } from '@ternkit/tern';
+	import hero from '$lib/assets/hero.jpg?image';
+</script>
+
+<Image src={hero} alt="The team at work" sizes="(min-width: 1024px) 50vw, 100vw" />
+```
+
+- By default the widths are 640, 1280 and 1920 pixels, those smaller than the image, plus the image's own width. Choose others with `?w=400,800&image`.
+- `sizes` tells the browser how wide the image is shown, so it downloads the smallest file that is sharp enough. Without it, the browser assumes the image's full width.
+- `priority` loads the image at once with high priority; use it for the main image above the fold. Other images load lazily.
+- Images with transparency keep PNG as the fallback format; others use JPEG.
+
+Images are encoded with [sharp](https://sharp.pixelplumbing.com/), which you install in your app: `npm install -D sharp`. In development each size is encoded the first time the browser asks for it. Encoded files are cached in `node_modules/.cache/tern-images`, so builds only encode new or changed images. Their names come from the image's contents, and they are served with the other hashed assets, cached for a year.
+
 ## Translations
 
 Put one JSON file per locale in `src/locales`, such as `en.json` and `de.json`. Nest keys as you like; `t()` uses dotted paths:

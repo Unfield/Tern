@@ -295,3 +295,20 @@ test.describe('i18n', () => {
 		expect(problems).toEqual([]);
 	});
 });
+
+test('responsive images are served as AVIF and WebP with their size', async ({ page }) => {
+	await page.setViewportSize({ width: 1400, height: 900 });
+	await page.goto('/login');
+	const picture = page.locator('picture:has([data-testid="artwork"])');
+	await expect(picture.locator('source[type="image/avif"]')).toHaveCount(1);
+	await expect(picture.locator('source[type="image/webp"]')).toHaveCount(1);
+	const img = page.getByTestId('artwork');
+	await expect(img).toHaveAttribute('width', '1600');
+	await expect(img).toHaveAttribute('height', '2000');
+	await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+	const current = await img.evaluate((el: HTMLImageElement) => el.currentSrc);
+	expect(current).toMatch(/\/_app\/immutable\/img\/login-\d+-[0-9a-f]{10}\.avif$/);
+	const res = await page.request.get(current);
+	expect(res.headers()['content-type']).toBe('image/avif');
+	expect(res.headers()['cache-control']).toContain('immutable');
+});

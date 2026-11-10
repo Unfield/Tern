@@ -509,6 +509,18 @@ declare module '$service-worker' {
 	/** A string that changes with every build, for naming caches. */
 	export const version: string;
 }
+
+/** A responsive image: import hero from './hero.jpg?image'. */
+declare module '*?image' {
+	const picture: import('@ternkit/tern').Picture;
+	export default picture;
+}
+
+/** A responsive image with chosen widths: './hero.jpg?w=400,800&image'. */
+declare module '*&image' {
+	const picture: import('@ternkit/tern').Picture;
+	export default picture;
+}
 `
 
 func writeIfChanged(name string, data []byte) (bool, error) {

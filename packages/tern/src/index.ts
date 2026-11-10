@@ -15,6 +15,8 @@ export { enhance } from './runtime/forms.js';
 export type { SubmitFunction, SubmitInput, SubmitResult } from './runtime/forms.js';
 export type { ActionResult, GotoOptions, Navigation, NavigationTarget, NavigationType } from './runtime/types.js';
 
+export { default as Image } from './image/Image.svelte';
+export type { Picture } from './image/types.js';
 export { t, i18n, setLocale } from './runtime/i18n.svelte.js';
 export type { MessageKey } from './runtime/i18n.svelte.js';
 

@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin, UserConfig, ViteDevServer } from 'vite';
+import { imagePlugin } from './image.js';
 
 export interface TernOptions {
 	/** Options passed to @sveltejs/vite-plugin-svelte. */
@@ -162,7 +163,7 @@ export function tern(options: TernOptions = {}): Plugin[] {
 		return mod.render(payload, href);
 	}
 
-	return [...svelte(options.svelte), plugin];
+	return [imagePlugin(), ...svelte(options.svelte), plugin];
 }
 
 /** The $service-worker module: what this build produced, for caching. */

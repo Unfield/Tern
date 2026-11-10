@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Responsive images: `import hero from './hero.jpg?image'` encodes AVIF, WebP and fallback versions at several widths with sharp, and `<Image>` from `@ternkit/tern` renders them as a `<picture>` with width, height, `sizes` and lazy loading. `?w=400,800&image` picks the widths.
 - Translations: JSON message files in `src/locales`, `t()` with typed keys and ICU plurals and selects in components, `ctx.Locale()` and `ctx.T()` in Go, locale detection from a `lang` parameter, the `locale` cookie or `Accept-Language`, `setLocale()` to switch without a reload, and `%tern.lang%` in `app.html`. The browser loads only the current locale's messages.
 - More built-in plugins: `plugins/sessions` (encrypted cookie sessions with flash messages and secret rotation), `plugins/metrics` (Prometheus metrics labeled by route pattern), `plugins/ratelimit` (per-client token buckets) and `plugins/cors`.
 - Service workers: `src/service-worker.ts` is built to `/service-worker.js` after prerendering and registered in production. The `$service-worker` module lists the build's assets, static files and prerendered pages, with a version for cache names. `serviceWorker.register` in `tern.json` turns automatic registration off.

@@ -48,9 +48,13 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] More plugins: sessions, metrics, rate limiting, CORS
 - [x] Service workers
 - [x] Translations (`src/locales`, `t()`, `ctx.T`)
+- [x] Responsive images (`?image`, `<Image>`)
 
 ## Next
 
-- Image optimization
 
 
+
+- Markdown content (`.md` pages and collections)
+- WebSocket helpers
+- Remote images for `<Image>`

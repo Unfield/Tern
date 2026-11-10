@@ -111,7 +111,9 @@ func Flatten(raw []byte) (map[string]string, error) {
 func (c *Catalog) Keys() []string {
 	keys := make([]string, 0, len(c.messages[c.Default]))
 	for k := range c.messages[c.Default] {
-		keys = append(keys, k)
+		if !strings.HasPrefix(k, routesPrefix) {
+			keys = append(keys, k)
+		}
 	}
 	sort.Strings(keys)
 	return keys
@@ -131,6 +133,46 @@ func (c *Catalog) Missing() map[string][]string {
 		}
 	}
 	return out
+}
+
+// routesPrefix marks translations of URL path segments, such as
+// {"$routes": {"projects": "projekte"}} in de.json.
+const routesPrefix = "$routes."
+
+// RouteSegments returns a locale's translations of URL path segments,
+// from route directory names to the words in its URLs.
+func (c *Catalog) RouteSegments(locale string) map[string]string {
+	out := map[string]string{}
+	for k, v := range c.messages[locale] {
+		if seg, ok := strings.CutPrefix(k, routesPrefix); ok && v != "" {
+			out[seg] = v
+		}
+	}
+	return out
+}
+
+// Canonical rewrites a URL path that starts with a locale, such as
+// /de/projekte/42, to the route directories' names, /de/projects/42, so it
+// matches the routes. Other paths are returned unchanged.
+func (c *Catalog) Canonical(path string) string {
+	segs := strings.Split(path, "/")
+	if len(segs) < 3 || !c.Has(segs[1]) {
+		return path
+	}
+	trans := c.RouteSegments(segs[1])
+	if len(trans) == 0 {
+		return path
+	}
+	reverse := make(map[string]string, len(trans))
+	for canonical, local := range trans {
+		reverse[local] = canonical
+	}
+	for i := 2; i < len(segs); i++ {
+		if canonical, ok := reverse[segs[i]]; ok {
+			segs[i] = canonical
+		}
+	}
+	return strings.Join(segs, "/")
 }
 
 // Has reports whether locale has a messages file.

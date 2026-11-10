@@ -290,6 +290,9 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	rw := &responseWriter{ResponseWriter: w}
 	c := newCtx(a, rw, r)
 	c.reuse = reuse
+	if a.i18n != nil {
+		path = a.i18n.Canonical(path) // /de/projekte matches /lang.optional/projects
+	}
 	route, params, ok := a.router.Match(path)
 	var def *RouteDef
 	if ok {

@@ -1159,6 +1159,16 @@ Messages use a subset of ICU MessageFormat: `{name}` placeholders, `plural` (wit
 
 The locale fills `%tern.lang%` in `app.html` (`<html lang="%tern.lang%">`). Only the current locale's messages, and the default locale's for fallbacks, are sent to the browser. A message missing from a locale falls back to the default locale; `tern gen` warns about missing keys.
 
+**Translated URLs.** With the locale in the URL (`src/routes/lang.optional/projects`), each locale can use its own words. List them under `"$routes"` in its file:
+
+```json
+{ "$routes": { "projects": "projekte", "settings": "einstellungen" } }
+```
+
+- **Matching:** `/de/projekte` reaches the same route as `/projects`, with `lang` set to `de`. `/de/projects` works too.
+- **Links:** `route('/[[lang]]/projects', { lang: 'de' })` builds `/de/projekte`.
+- **What's translated:** only the words of the route directories, not parameter values.
+
 **In Go**, `ctx.Locale()` returns the locale and `ctx.T` translates, for example for validation errors returned with `kit.Fail`:
 
 ```go

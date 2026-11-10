@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -58,6 +59,9 @@ export const base = %q;
 
 const patterns = new Set(%s);
 
+/** URL path words per locale, from "$routes" in src/locales. */
+const translations = %s;
+
 /**
  * Builds the URL path of a route from its pattern and parameters:
  * route('/projects/[id]', { id: 42 }) is '/projects/42'.
@@ -82,7 +86,8 @@ export function route(pattern, params = {}) {
 			if (v === undefined || v === null || v === '') throw new Error(` + "`" + `route(): missing parameter "${m[1]}" for ${pattern}` + "`" + `);
 			path += '/' + encodeURIComponent(String(v));
 		} else {
-			path += '/' + segment;
+			// A route under a lang parameter uses that locale's words.
+			path += '/' + (translations[params.lang]?.[segment] ?? segment);
 		}
 	}
 	return base + (path || (base ? '' : '/'));
@@ -146,6 +151,15 @@ func (g *generator) linksModule() {
 	for i, k := range keys {
 		quoted[i] = fmt.Sprintf("%q", k)
 	}
-	g.files[".tern/generated/routes.js"] = []byte(fmt.Sprintf(routesJS, g.cfg.BasePath, "["+strings.Join(quoted, ", ")+"]"))
+	translations := map[string]map[string]string{}
+	if g.locales != nil {
+		for _, l := range g.locales.Locales {
+			if t := g.locales.RouteSegments(l); len(t) > 0 {
+				translations[l] = t
+			}
+		}
+	}
+	tj, _ := json.Marshal(translations)
+	g.files[".tern/generated/routes.js"] = []byte(fmt.Sprintf(routesJS, g.cfg.BasePath, "["+strings.Join(quoted, ", ")+"]", tj))
 	g.files[".tern/generated/routes.d.ts"] = []byte(fmt.Sprintf(routesDTS, dts.String()))
 }

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Translated URL paths: `"$routes": {"projects": "projekte"}` in a locale file makes `/de/projekte` match `/lang.optional/projects`, and `route()` builds localized paths when given `lang`.
 - Remote images: `<Image src="https://…" width height>` with `plugins/images`, which fetches images from allowed hosts, resizes them to the srcset's widths and caches them.
 - `tern new -template blog|api`: a Markdown blog with prerendered posts and an RSS feed, or typed JSON endpoints with OpenAPI and a typed client. CI builds and runs every template.
 - [Coming from SvelteKit](docs/migrating-from-sveltekit.md): a guide that maps SvelteKit's files, APIs and modules to Tern's.

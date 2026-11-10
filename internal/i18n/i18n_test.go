@@ -83,3 +83,30 @@ func TestCatalog(t *testing.T) {
 		t.Error("an unknown default locale must fail")
 	}
 }
+
+func TestRouteSegments(t *testing.T) {
+	c, err := Load(fstest.MapFS{
+		"en.json": {Data: []byte(`{"hi":"Hi"}`)},
+		"de.json": {Data: []byte(`{"hi":"Hallo","$routes":{"projects":"projekte","settings":"einstellungen"}}`)},
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string]string{
+		"/de/projekte/42":   "/de/projects/42",
+		"/de/einstellungen": "/de/settings",
+		"/de":               "/de",
+		"/en/projekte":      "/en/projekte", // English has no translations
+		"/projekte":         "/projekte",    // no locale prefix
+		"/de/projects":      "/de/projects", // the canonical path works too
+	} {
+		if got := c.Canonical(in); got != want {
+			t.Errorf("Canonical(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, k := range c.Keys() {
+		if strings.HasPrefix(k, "$routes") {
+			t.Errorf("Keys includes %s", k)
+		}
+	}
+}

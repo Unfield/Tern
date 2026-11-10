@@ -88,3 +88,20 @@ func TestNoI18n(t *testing.T) {
 		t.Errorf("without locales T returns the key: %q", body)
 	}
 }
+
+func TestTranslatedPaths(t *testing.T) {
+	m := testManifest()
+	m.Locales = fstest.MapFS{
+		"en.json": {Data: []byte(`{"title":"Projects"}`)},
+		"de.json": {Data: []byte(`{"title":"Projekte","$routes":{"projects":"projekte"}}`)},
+	}
+	m.Routes = append(m.Routes, RouteDef{ID: "/lang.optional/projects", Endpoint: map[string]HandlerFunc{"GET": func(c *Ctx) error {
+		return c.Text(200, c.Locale()+" "+c.T("title"))
+	}}})
+	a, _ := newTestApp(t, m)
+	for path, want := range map[string]string{"/de/projekte": "de Projekte", "/projects": "en Projects", "/de/projects": "de Projekte"} {
+		if w := do(t, a, "GET", path, nil); w.Code != 200 || w.Body.String() != want {
+			t.Errorf("%s: %d %q, want %q", path, w.Code, w.Body, want)
+		}
+	}
+}

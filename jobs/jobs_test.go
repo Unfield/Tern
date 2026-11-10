@@ -143,7 +143,9 @@ func TestUniqueDelayAndTx(t *testing.T) {
 		if err := q.Migrate(ctx); err != nil {
 			t.Fatal(err)
 		}
-		a, err := k.Enqueue(ctx, struct{}{}, jobs.Unique("remind:1"), jobs.Delay(300*time.Millisecond))
+		const delay = time.Second
+		enqueued := time.Now()
+		a, err := k.Enqueue(ctx, struct{}{}, jobs.Unique("remind:1"), jobs.Delay(delay))
 		if err != nil || a == 0 {
 			t.Fatalf("first = %d, %v", a, err)
 		}
@@ -159,7 +161,8 @@ func TestUniqueDelayAndTx(t *testing.T) {
 
 		start(t, q)
 		time.Sleep(150 * time.Millisecond)
-		if runs.Load() != 0 {
+		// Only a run before the delay is up is early; slow machines may get there late.
+		if ran := runs.Load(); ran != 0 && time.Since(enqueued) < delay {
 			t.Error("the delayed job ran early")
 		}
 		waitFor(t, "the delayed job", func() bool { return runs.Load() == 1 })

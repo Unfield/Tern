@@ -65,10 +65,32 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Experimental: `<script lang="go">`, in WebAssembly and live on the server ([notes](experimental-go-script.md))
 - [x] Remote images for `<Image>`, translated URL paths, starter templates, a SvelteKit migration guide
 
-## Next
-
-
+## v1.3
 
 - [x] Live components, production ready: per-component goroutines, typed markup with `tern check`, patches, pending and optimistic updates, bindings, events, several server processes through a broker
 - [x] An MCP server covering all of Tern: project scaffolding, routes and their types, docs, codegen, and running checks, for AI coding tools
 - [x] A component library: accessible, keyboard-friendly Svelte components with Tern's own design, themeable with CSS variables
+
+## v1.4: Everything an app needs
+
+Built alongside a real app, a self-hosted web analytics tool, so every piece is used before it ships.
+
+**Starting a project**
+- [ ] `npm create tern@latest`, and an interactive `tern new`: name, template, Tern UI, git, install
+- [x] `ctx.ClientIP()` with trusted proxies, the Intl shim's `signDisplay`, a password sign-in recipe
+
+**Tern UI: the complete set**
+- [ ] Overlays: Popover, Hover Card, Alert Dialog, Sheet, Drawer, Context Menu, Menubar
+- [ ] Inputs: Combobox, Command palette, custom Select, Slider, Toggle, Toggle Group, Input OTP, Input Group, Date Picker, Calendar, Label, Button Group
+- [ ] Layout and navigation: Sidebar, Navigation Menu, Breadcrumb, Pagination, Collapsible, Resizable, Scroll Area, Aspect Ratio, Carousel, Empty, Item, Table
+- [ ] Data: a Data Table with sorting, filtering, selection and pagination
+- [ ] Charts: line, area, bar and donut, with axes, tooltips, legends, and a table for screen readers
+- [ ] Blocks wired to Tern's plugins: sign-in and sign-up (passwords, `plugins/oauth`), the consent screen for `plugins/oidc`, account and sessions pages, a dashboard shell
+- [ ] `tern ui add <component>`: copy a component into the project, to own and change it
+
+**The analytics app**
+- [ ] A tracking script and collection endpoint, rollups as jobs, retention, a live dashboard, weekly email reports, a stats API with OpenAPI, one binary
+
+## Next
+
+

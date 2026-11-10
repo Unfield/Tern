@@ -97,6 +97,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v0.4** | Typed links, navigation hooks, selective reloading, CSP, a shadcn-svelte dashboard example, docs site | Done |
 | **v1.0** | Plugins, base paths, public environment variables, the stability promise | Done |
 | **v1.1** | Translations, responsive images, service workers, sessions, metrics, rate limiting and CORS plugins | Done |
+| **v1.2** | Markdown and content, realtime, jobs and migrations, OAuth/OIDC, email, storage, typed endpoints with OpenAPI, starter templates, experimental Go components | Done |
 
 ## Documentation
 

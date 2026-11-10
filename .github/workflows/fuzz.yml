@@ -1,0 +1,44 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pkg: ./internal/routes/, target: FuzzMatch }
+          - { pkg: ./internal/routes/, target: FuzzBuildParam }
+          - { pkg: ./internal/routes/, target: FuzzParseID }
+          - { pkg: ./internal/i18n/, target: FuzzFormat }
+          - { pkg: ./internal/i18n/, target: FuzzFlatten }
+          - { pkg: ./internal/i18n/, target: FuzzMatch }
+          - { pkg: ./internal/i18n/, target: FuzzParity }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Fuzz for 5 minutes
+        run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
+      - name: Upload the failing input
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: '**/testdata/fuzz/**'

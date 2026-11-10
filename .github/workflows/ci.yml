@@ -70,6 +70,8 @@ jobs:
       - run: pnpm -r typecheck
       - name: Client unit tests
         run: pnpm --filter @ternkit/tern test
+      - name: Go and TypeScript message formatters agree
+        run: go test -count=1 -run FuzzParity -v ./internal/i18n/
       - name: Server-render popular libraries and compare with Node
         run: |
           pnpm --filter ssr-compat build

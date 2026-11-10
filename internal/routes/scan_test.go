@@ -244,7 +244,7 @@ func TestSort(t *testing.T) {
 }
 
 // routeFor builds a Route from an ID by parsing each segment.
-func routeFor(t *testing.T, id string) *Route {
+func routeFor(t testing.TB, id string) *Route {
 	t.Helper()
 	r := &Route{ID: id}
 	for _, name := range strings.Split(strings.Trim(id, "/"), "/") {

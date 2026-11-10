@@ -194,7 +194,9 @@ func (s Segment) pattern() string {
 	case OptionalParam:
 		return `(?:/([^/]+))?`
 	case Rest:
-		return `(?:/(.+))?`
+		// One or more non-empty segments: "//x" has an empty one and does
+		// not match, so a rest value never starts or ends with a slash.
+		return `(?:/([^/]+(?:/[^/]+)*))?`
 	default:
 		return "/" + regexp.QuoteMeta(pathEscaper.Replace(s.Value))
 	}

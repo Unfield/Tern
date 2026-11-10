@@ -88,12 +88,13 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 		}
 		return plural(len(gen.Manifest.Routes), "route"), nil
 	}) && step("Building the client", func(log io.Writer) (string, error) {
-		return "", runVite(log, log, "build", "--logLevel", "warn")
+		return "", runVite(log, "build", "--logLevel", "warn")
 	}) && step("Building the server renderer", func(log io.Writer) (string, error) {
-		return "", runVite(log, log, "build", "--ssr", "--logLevel", "warn")
+		return "", runVite(log, "build", "--ssr", "--logLevel", "warn")
 	}) && step("Compressing assets", func(io.Writer) (string, error) {
 		return "", precompress(codegen.ClientOut)
 	}) && step("Compiling the server", compile)
+	needsCompile := false
 	if ok && gen.Prerender {
 		ok = step("Prerendering pages", func(io.Writer) (string, error) {
 			cfg, err := codegen.LoadConfig(".")
@@ -104,7 +105,19 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 			return plural(n, "page"), err
 		}) && step("Compressing prerendered pages", func(io.Writer) (string, error) {
 			return "", precompress(codegen.ClientOut)
-		}) && step("Embedding prerendered pages", compile)
+		})
+		needsCompile = true
+	}
+	// The service worker comes last, so its file lists include every asset
+	// and prerendered page.
+	if ok && codegen.FindServiceWorker(".") != "" {
+		ok = step("Building the service worker", func(log io.Writer) (string, error) {
+			return "", runViteEnv(log, []string{"TERN_SW_BUILD=1"}, "build", "--logLevel", "warn")
+		})
+		needsCompile = true
+	}
+	if ok && needsCompile {
+		ok = step("Embedding the final assets", compile)
 	}
 	if !ok {
 		return 1
@@ -298,13 +311,18 @@ func viteBin() (string, error) {
 	return p, nil
 }
 
-func runVite(stdout, stderr io.Writer, args ...string) error {
+func runVite(out io.Writer, args ...string) error {
+	return runViteEnv(out, nil, args...)
+}
+
+func runViteEnv(out io.Writer, env []string, args ...string) error {
 	bin, err := viteBin()
 	if err != nil {
 		return err
 	}
 	cmd := exec.Command(bin, args...)
-	cmd.Stdout, cmd.Stderr = stdout, stderr
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdout, cmd.Stderr = out, out
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("vite %s: %w", args[0], err)
 	}

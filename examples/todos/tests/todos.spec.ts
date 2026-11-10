@@ -186,6 +186,24 @@ test('prerendered endpoints are served as static files', async ({ request }) => 
 	expect(await res.text()).toContain('<loc>https://todos.example.com/about</loc>');
 });
 
+test('the service worker caches the app for offline use', async ({ page, context }) => {
+	await page.goto('/about');
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 10_000 }).toBe(true);
+
+	const sw = await page.evaluate(async () => {
+		const res = await fetch('/service-worker.js');
+		return { status: res.status, text: await res.text() };
+	});
+	expect(sw.status).toBe(200);
+	expect(sw.text).toContain('_app/immutable/');
+
+	await context.setOffline(true);
+	await page.reload();
+	await expect(page.getByTestId('features')).toContainText('One binary');
+	await context.setOffline(false);
+});
+
 test.describe('without JavaScript', () => {
 	test.use({ javaScriptEnabled: false });
 

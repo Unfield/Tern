@@ -26,6 +26,8 @@ export interface RouteEntry {
 export interface ClientManifest {
 	/** The base path from tern.json, such as '/app', or ''. */
 	base?: string;
+	/** Whether to register /service-worker.js. */
+	serviceWorker?: boolean;
 	layouts: LayoutEntry[];
 	routes: Record<string, RouteEntry>;
 	fallback: { layouts: number[]; errors: ErrorEntry[] };

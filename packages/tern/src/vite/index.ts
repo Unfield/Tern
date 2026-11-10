@@ -13,6 +13,7 @@ export interface TernOptions {
 const CLIENT_ENTRY = '.tern/generated/client.js';
 const SERVER_ENTRY = '.tern/generated/server.js';
 const CLIENT_OUT = '.tern/output/client';
+const SW_MODULE = '$service-worker';
 const SERVER_OUT = '.tern/output/server';
 
 /** The dev endpoint the Go app calls to server-render a page. */
@@ -51,6 +52,26 @@ export function tern(options: TernOptions = {}): Plugin[] {
 					}
 				}
 			};
+
+			if (process.env.TERN_SW_BUILD === '1') {
+				const source = ['src/service-worker.ts', 'src/service-worker.js'].map((f) => path.join(root, f)).find((f) => fs.existsSync(f));
+				if (!source) throw new Error('tern: no src/service-worker.ts to build');
+				return {
+					...shared,
+					publicDir: false,
+					build: {
+						outDir: CLIENT_OUT,
+						emptyOutDir: false,
+						manifest: false,
+						minify: true,
+						target: 'es2022',
+						rolldownOptions: {
+							input: source,
+							output: { format: 'iife', entryFileNames: 'service-worker.js' }
+						}
+					}
+				};
+			}
 
 			if (env.isSsrBuild) {
 				return {
@@ -104,6 +125,13 @@ export function tern(options: TernOptions = {}): Plugin[] {
 				}
 			};
 		},
+		resolveId(id) {
+			return id === SW_MODULE ? '\0' + SW_MODULE : undefined;
+		},
+		load(id) {
+			if (id !== '\0' + SW_MODULE) return undefined;
+			return serviceWorkerModule(root, readBasePath(root));
+		},
 		configureServer(server) {
 			server.middlewares.use(RENDER_PATH, (req, res) => {
 				void renderInDev(server, req).then(
@@ -135,6 +163,53 @@ export function tern(options: TernOptions = {}): Plugin[] {
 	}
 
 	return [...svelte(options.svelte), plugin];
+}
+
+/** The $service-worker module: what this build produced, for caching. */
+function serviceWorkerModule(root: string, base: string): string {
+	const out = path.join(root, CLIENT_OUT);
+	const build: string[] = [];
+	try {
+		const manifest = JSON.parse(fs.readFileSync(path.join(out, '.vite/manifest.json'), 'utf8')) as Record<string, { file: string; css?: string[]; assets?: string[] }>;
+		const seen = new Set<string>();
+		for (const chunk of Object.values(manifest)) {
+			for (const f of [chunk.file, ...(chunk.css ?? []), ...(chunk.assets ?? [])]) {
+				if (!seen.has(f)) {
+					seen.add(f);
+					build.push(`${base}/${f}`);
+				}
+			}
+		}
+	} catch {
+		// Development: nothing is built yet.
+	}
+	const files = walk(path.join(root, 'static')).map((f) => `${base}/${f}`);
+	const prerendered = walk(out)
+		.filter((f) => f === 'index.html' || f.endsWith('/index.html'))
+		.map((f) => `${base}/${f.replace(/\/?index\.html$/, '')}` || '/');
+	const version = Date.now().toString(36);
+	return [
+		`export const base = ${JSON.stringify(base)};`,
+		`export const build = ${JSON.stringify(build.sort())};`,
+		`export const files = ${JSON.stringify(files.sort())};`,
+		`export const prerendered = ${JSON.stringify(prerendered.sort())};`,
+		`export const version = ${JSON.stringify(version)};`
+	].join('\n');
+}
+
+/** Lists files below dir, relative to it, with forward slashes. */
+function walk(dir: string, prefix = ''): string[] {
+	let entries: fs.Dirent[];
+	try {
+		entries = fs.readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return [];
+	}
+	return entries.flatMap((e) => {
+		if (e.name.startsWith('.') || e.name.endsWith('.gz')) return [];
+		const rel = prefix ? `${prefix}/${e.name}` : e.name;
+		return e.isDirectory() ? walk(path.join(dir, e.name), rel) : [rel];
+	});
 }
 
 /** Reads basePath from tern.json; the Go side validates it. */

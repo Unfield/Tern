@@ -43,11 +43,14 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Public environment variables
 - [x] Stability promise ([stability.md](stability.md))
 
+## v1.1
+
+- [x] More plugins: sessions, metrics, rate limiting, CORS
+- [x] Service workers
+
 ## Next
 
 - Internationalization helpers
 - Image optimization
-- More plugins (metrics, rate limiting, sessions)
-- Service worker support
 
 

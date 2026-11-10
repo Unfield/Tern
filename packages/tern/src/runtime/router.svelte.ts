@@ -92,6 +92,7 @@ export async function start(m: ClientManifest): Promise<void> {
 	started = true;
 	await tick();
 	runAfter({ from: null, to: current(), type: 'enter' });
+	registerServiceWorker();
 
 	const saved = scrollPositions[historyIndex];
 	if (saved) {
@@ -100,6 +101,15 @@ export async function start(m: ClientManifest): Promise<void> {
 		scrollToHash(url.hash);
 	}
 	listen();
+}
+
+function registerServiceWorker() {
+	// Not in development: a caching worker would serve stale modules.
+	if (!manifest.serviceWorker || import.meta.env?.DEV || !('serviceWorker' in navigator)) return;
+	const base = manifest.base ?? '';
+	navigator.serviceWorker.register(`${base}/service-worker.js`, { scope: `${base}/` }).catch((err) => {
+		console.error('Tern: registering the service worker failed', err);
+	});
 }
 
 /** Navigates to href, which may be relative to the current URL. */

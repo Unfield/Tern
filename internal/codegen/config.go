@@ -18,6 +18,12 @@ type Config struct {
 	// BasePath serves the app under a URL prefix such as "/app". It must
 	// start with a slash and must not end with one. The default is "".
 	BasePath string `json:"basePath"`
+	// ServiceWorker configures src/service-worker.ts, if the app has one.
+	ServiceWorker struct {
+		// Register is whether the client registers the service worker. It
+		// defaults to true; set it to false to register it yourself.
+		Register *bool `json:"register"`
+	} `json:"serviceWorker"`
 }
 
 var basePathRe = regexp.MustCompile(`^(/[A-Za-z0-9._~!$&'()*+,;=:@-]+)+$`)

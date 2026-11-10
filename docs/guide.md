@@ -19,6 +19,7 @@ This guide covers everything you need to build an app with Tern. If you know Sve
 - [The client API](#the-client-api)
 - [Reloading data](#reloading-data)
 - [Static files and assets](#static-files-and-assets)
+- [Service workers](#service-workers)
 - [Configuration file](#configuration-file)
 - [Commands](#commands)
 
@@ -574,12 +575,45 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
 
+## Service workers
+
+Add `src/service-worker.ts` and Tern builds it to `/service-worker.js` and registers it in production. The `$service-worker` module tells it what this build contains:
+
+| Export | Contents |
+|---|---|
+| `build` | URLs of the hashed JavaScript, CSS and asset files |
+| `files` | URLs of the files in `static/` |
+| `prerendered` | URLs of the prerendered pages |
+| `version` | a string that changes with every build, for naming caches |
+| `base` | the base path |
+
+```ts
+/// <reference no-default-lib="true"/>
+/// <reference lib="esnext" />
+/// <reference lib="webworker" />
+import { build, files, prerendered, version } from '$service-worker';
+
+const sw = self as unknown as ServiceWorkerGlobalScope;
+const CACHE = `app-${version}`;
+
+sw.addEventListener('install', (event) => {
+	event.waitUntil(caches.open(CACHE).then((c) => c.addAll([...build, ...files, ...prerendered])));
+});
+```
+
+`examples/todos/src/service-worker.ts` is a complete offline-first worker: cached assets and prerendered pages, the network first for everything else, and the cache when offline.
+
+The service worker is built after prerendering, so its lists are complete. It is not registered in development, where a caching worker would serve stale modules; test it with `tern build`. To register it yourself, set `"serviceWorker": { "register": false }` in `tern.json`.
+
 ## Configuration file
 
 Tern works without configuration. An optional `tern.json` at the project root holds the few settings that the Go server, the code generator and Vite must agree on:
 
 ```json
-{ "basePath": "/app" }
+{
+	"basePath": "/app",
+	"serviceWorker": { "register": true }
+}
 ```
 
 **`basePath`** serves the app under a URL prefix, for example behind a proxy that routes `/app/*` to it. With it set:

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - More built-in plugins: `plugins/sessions` (encrypted cookie sessions with flash messages and secret rotation), `plugins/metrics` (Prometheus metrics labeled by route pattern), `plugins/ratelimit` (per-client token buckets) and `plugins/cors`.
+- Service workers: `src/service-worker.ts` is built to `/service-worker.js` after prerendering and registered in production. The `$service-worker` module lists the build's assets, static files and prerendered pages, with a version for cache names. `serviceWorker.register` in `tern.json` turns automatic registration off.
 - `Setup.TrustOrigin` for plugins that allow cross-site requests.
 
 ### Changed

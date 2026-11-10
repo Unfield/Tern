@@ -21,6 +21,7 @@ var commands = []command{
 	{"build", "", "Build a production binary"},
 	{"gen", "", "Generate route wiring and TypeScript types"},
 	{"routes", "[dir]", "List the app's routes"},
+	{"migrate", "new <name>", "Create a database migration"},
 	{"version", "", "Print the Tern version"},
 }
 
@@ -35,7 +36,7 @@ func printUsage(w io.Writer) {
 		if c.args != "" {
 			usage += " " + c.args
 		}
-		p.Printf("    %s%s %s\n", p.Cyan(usage), pad(usage, 14), c.summary)
+		p.Printf("    %s%s %s\n", p.Cyan(usage), pad(usage, 19), c.summary)
 	}
 	p.Printf("\n  Run %s for a command's options.\n", p.Cyan("tern <command> -h"))
 	p.Printf("  Docs: %s\n\n", p.Dim("https://github.com/Unfield/Tern/blob/main/docs/guide.md"))
@@ -75,6 +76,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdBuild(args[1:], stdout, stderr)
 	case "new":
 		return cmdNew(args[1:], stdout, stderr)
+	case "migrate":
+		return cmdMigrate(args[1:], stdout, stderr)
 	default:
 		ui.New(stderr).Error(fmt.Errorf("unknown command %q", cmd))
 		printUsage(stderr)

@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Unfield/Tern/internal/i18n"
@@ -50,6 +51,9 @@ type App struct {
 	hasPluginRoutes bool
 	head            []func(*Ctx, string) string
 	shutdown        []func(context.Context) error
+	start           []func(context.Context) error
+	startOnce       sync.Once
+	startErr        error
 
 	// shutdownCtx is canceled when the server begins shutting down, which
 	// ends event streams and WebSockets.

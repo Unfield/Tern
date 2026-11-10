@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 type testPlugin struct {
@@ -75,5 +76,48 @@ func TestPluginErrors(t *testing.T) {
 	var s []string
 	if _, err := New(testManifest(), WithPlugins(testPlugin{name: "x", stopped: &s}, testPlugin{name: "x", stopped: &s})); err == nil || !strings.Contains(err.Error(), "added twice") {
 		t.Errorf("duplicate error = %v", err)
+	}
+}
+
+type startPlugin struct {
+	calls   *[]string
+	stopped chan struct{}
+}
+
+func (p startPlugin) Name() string { return "start" }
+func (p startPlugin) Setup(s *Setup) error {
+	s.OnStart(func(ctx context.Context) error { *p.calls = append(*p.calls, "first"); return nil })
+	s.OnStart(func(ctx context.Context) error {
+		*p.calls = append(*p.calls, "second")
+		go func() { <-ctx.Done(); close(p.stopped) }()
+		return nil
+	})
+	return nil
+}
+
+func TestOnStart(t *testing.T) {
+	var calls []string
+	stopped := make(chan struct{})
+	a, _ := newTestApp(t, testManifest(), WithPlugins(startPlugin{&calls, stopped}))
+	if err := a.Start(); err != nil {
+		t.Fatal(err)
+	}
+	_ = a.Start() // runs once
+	if strings.Join(calls, ",") != "first,second" {
+		t.Errorf("calls = %v", calls)
+	}
+	_ = a.Close()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Error("the start context is not canceled on Close")
+	}
+
+	t.Setenv("TERN_PRERENDER", "1")
+	var none []string
+	b, _ := newTestApp(t, testManifest(), WithPlugins(startPlugin{&none, make(chan struct{})}))
+	_ = b.Start()
+	if len(none) != 0 {
+		t.Errorf("start functions ran while prerendering: %v", none)
 	}
 }

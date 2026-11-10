@@ -42,6 +42,9 @@ func (a *App) Serve(ctx context.Context) error {
 		MaxHeaderBytes:    1 << 20,
 	}
 	srv.RegisterOnShutdown(a.beginShutdown)
+	if err := a.Start(); err != nil {
+		return err
+	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

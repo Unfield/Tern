@@ -41,6 +41,33 @@ jobs:
       - name: Test
         run: go test -race -count=1 ./...
 
+  postgres:
+    name: PostgreSQL
+    # Service containers need a GitHub-hosted runner.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: tern
+          POSTGRES_PASSWORD: tern
+          POSTGRES_DB: tern
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tern"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Test the database packages against PostgreSQL
+        env:
+          TERN_TEST_POSTGRES: postgres://tern:tern@localhost:5432/tern?sslmode=disable
+        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/
+
   lint:
     name: Lint
     runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Background jobs: the `jobs` package stores jobs in SQLite or PostgreSQL, runs them with retries, backoff, timeouts, delays, unique keys and transactional enqueueing, and runs cron and `@every` schedules once across instances. `q.Stats`, `q.List` and `q.Retry` support admin pages.
+- Database migrations: the `migrate` package applies `<version>_<name>.sql` files in transactions on startup (`migrate.Plugin`), detects edited migrations, and supports `-- +down` sections. `tern migrate new <name>` creates a file.
+- `Setup.OnStart` for plugins that start work with the server, and `App.Start` for custom servers. Start functions don't run while prerendering.
 - Realtime: `ctx.EventStream` for server-sent events and `ctx.WebSocket` for WebSockets (same-origin by default), both ending cleanly on shutdown; the `realtime` package's `Hub` publishes to subscribers through a pluggable `Broker`; `stream()` and `socket()` from `@ternkit/tern` keep the latest message in reactive state and reconnect.
 - Markdown pages: a `+page.md` route is rendered to HTML by `tern gen`, with its front matter's `title` and `description` in the page head.
 - Content collections: the `content` package reads Markdown from `src/content` with typed YAML front matter, rendered with GitHub-flavored Markdown, heading IDs, footnotes and highlighted code. `src/content` is embedded in the binary; drafts show only under `tern dev`. `ctx.Content()` returns the directory.

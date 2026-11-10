@@ -57,7 +57,7 @@ The goal: you can build a real app with Tern and deploy it as one binary.
 - [x] Fuzz tests for routing and messages
 - [x] Markdown pages and content collections
 - [x] WebSocket and server-sent event helpers, with pub/sub
-- [ ] Background jobs, cron and database migrations
+- [x] Background jobs, cron and database migrations
 - [ ] OAuth2 and OpenID Connect: sign-in with providers, and a provider of your own
 - [ ] Email with Svelte templates; file uploads and storage
 - [ ] OpenAPI from endpoints, with a typed client

@@ -594,6 +594,70 @@ Libraries that inject inline scripts during server rendering (for example a dark
 - Assets you import are processed by Vite and get content-hashed names: `import logo from '$lib/logo.svg'`.
 - Hashed files are cached by browsers for a year; everything else revalidates with ETags. Text assets are precompressed with gzip.
 
+## Databases
+
+Tern doesn't choose a database library for you: use `database/sql`, sqlc, GORM or anything else in your loads and actions. Its own database packages work with SQLite and PostgreSQL through `database/sql`, with any driver (such as `modernc.org/sqlite` or `github.com/jackc/pgx/v5/stdlib`), and detect which one you use.
+
+### Database migrations
+
+`tern migrate new add users` creates `migrations/<timestamp>_add_users.sql`. Write the change, and optionally an `-- +down` section that undoes it:
+
+```sql
+CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+
+-- +down
+DROP TABLE users;
+```
+
+Embed the directory and apply pending migrations when the server starts:
+
+```go
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+app, err := ternApp(kit.WithPlugins(migrate.Plugin(db, migrations)))
+```
+
+Each migration runs in a transaction and is recorded in `tern_migrations`. If a migration fails, the server doesn't start. Editing a migration after it was applied is reported as an error (`migrate.ErrChanged`); add a new one instead. On PostgreSQL, instances starting at the same time take turns. `migrate.Up`, `migrate.Down` and `migrate.Status` are available for your own tooling.
+
+### Background jobs
+
+The `jobs` package runs work outside requests, such as sending email, with retries. Jobs are stored in your database, so they survive restarts, and instances sharing a database run each job once:
+
+```go
+q, err := jobs.New(db, jobs.Options{})
+
+sendWelcome := jobs.Handle(q, "email.welcome", func(ctx context.Context, u User) error {
+	return mailer.Send(ctx, u.Email, "Welcome!")
+}, jobs.MaxAttempts(5), jobs.Timeout(time.Minute))
+
+app, err := ternApp(kit.WithPlugins(q))
+```
+
+```go
+// In an action, after creating the user:
+if _, err := sendWelcome.Enqueue(ctx, user); err != nil {
+	return err
+}
+```
+
+- The payload is stored as JSON and decoded into the handler's type.
+- A handler that returns an error or panics is retried with exponential backoff (about 1s, 4s, 16s, and so on, up to an hour) until it has run `MaxAttempts` times.
+- `jobs.Delay(d)` and `jobs.At(t)` run a job later. `jobs.Unique("reminder:42")` skips enqueueing while a job with the same key is queued or running. `jobs.InTx(tx)` enqueues inside your transaction, so the job only exists if it commits.
+- The workers start with the server, after migrations, and stop when it shuts down. Running jobs get the shutdown timeout to finish.
+- `q.Stats`, `q.List` and `q.Retry` let you build an admin page.
+
+### Scheduled tasks
+
+```go
+q.Schedule("cleanup", "0 3 * * *", func(ctx context.Context) error {
+	return deleteExpiredSessions(ctx, db)
+})
+q.Schedule("ping", "@every 30s", checkMonitors)
+```
+
+Schedules take five-field cron expressions (`*/5 * * * *`, `0 9 * * mon-fri`), `@hourly`, `@daily`, `@weekly`, `@monthly` and `@every <duration>`. They run in UTC unless `Options.Location` says otherwise. Each run is a job, retried like any other. With several instances, each run happens once, and a run doesn't start while the previous one is still going.
+
 ## Realtime
 
 ### Server-sent events
@@ -848,6 +912,8 @@ Tern works without configuration. An optional `tern.json` at the project root ho
 	"serviceWorker": { "register": true }
 }
 ```
+
+**`i18n.defaultLocale`** chooses the default locale (see Translations).
 
 **`basePath`** serves the app under a URL prefix, for example behind a proxy that routes `/app/*` to it. With it set:
 

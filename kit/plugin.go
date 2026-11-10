@@ -91,6 +91,34 @@ func (s *Setup) OnShutdown(fn func(ctx context.Context) error) {
 	s.app.shutdown = append(s.app.shutdown, fn)
 }
 
+// OnStart registers work to do when the server starts, before it accepts
+// requests, such as running migrations or starting background workers. ctx
+// is canceled when the server begins shutting down; start long-running work
+// in a goroutine that stops then. An error stops the server from starting.
+// Start functions run in order of registration, and not while tern build
+// prerenders pages.
+func (s *Setup) OnStart(fn func(ctx context.Context) error) {
+	s.app.start = append(s.app.start, fn)
+}
+
+// Start runs the plugins' start functions. Serve and ListenAndServe call it;
+// call it yourself when serving the App with your own http.Server. It runs
+// once; later calls return the first result.
+func (a *App) Start() error {
+	a.startOnce.Do(func() {
+		if a.prerendering {
+			return
+		}
+		for _, fn := range a.start {
+			if err := fn(a.shutdownCtx); err != nil {
+				a.startErr = err
+				return
+			}
+		}
+	})
+	return a.startErr
+}
+
 // setupPlugins runs each plugin's Setup.
 func (a *App) setupPlugins() error {
 	seen := map[string]bool{}

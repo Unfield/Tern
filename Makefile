@@ -29,12 +29,14 @@ fmt: ## Format Go code
 	golangci-lint fmt
 
 .PHONY: tidy
-tidy: ## Tidy go.mod
+tidy: ## Tidy go.mod and the examples' go.mod files
 	go mod tidy
+	for d in examples/*/; do (cd $$d && go mod tidy); done
 
 .PHONY: check
 check: vet lint test ## Run everything CI runs
 	go mod tidy -diff
+	for d in examples/*/; do (cd $$d && go mod tidy -diff) || exit 1; done
 
 .PHONY: clean
 clean: ## Remove build output

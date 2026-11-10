@@ -58,12 +58,15 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 		note, err := fn(&log)
 		if err != nil {
 			s.Fail()
+			// The tool's output explains the failure: it goes to stderr with
+			// the error, where CI logs and process managers keep it.
+			e := ui.New(stderr)
 			if log.Len() > 0 {
-				p.Println()
-				p.Println(strings.TrimRight(log.String(), "\n"))
+				e.Println()
+				e.Println(strings.TrimRight(log.String(), "\n"))
 			}
-			p.Println()
-			ui.New(stderr).Error(err)
+			e.Println()
+			e.Error(err)
 			return false
 		}
 		s.Done(note)

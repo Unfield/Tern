@@ -313,6 +313,21 @@ func ParseJSON(s string) (Value, error) {
 type jsonParser struct {
 	s string
 	i int
+	// keys holds each object key once, as a Value: the objects of a list
+	// repeat their keys, and boxing each would allocate.
+	keys map[string]PropKey
+}
+
+func (p *jsonParser) key(k string) PropKey {
+	if v, ok := p.keys[k]; ok {
+		return v
+	}
+	if p.keys == nil {
+		p.keys = map[string]PropKey{}
+	}
+	v := PropKey(k)
+	p.keys[k] = v
+	return v
 }
 
 func (p *jsonParser) fail() error {
@@ -365,7 +380,7 @@ func (p *jsonParser) value() (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			o.Define(k, v)
+			o.Define(p.key(k), v)
 			p.space()
 			if p.i < len(p.s) && p.s[p.i] == ',' {
 				p.i++
@@ -453,7 +468,7 @@ func (p *jsonParser) value() (Value, error) {
 			}
 		}
 		f, _ := strconv.ParseFloat(p.s[start:p.i], 64)
-		return f, nil
+		return Box(f), nil
 	}
 	return nil, p.fail()
 }

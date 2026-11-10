@@ -144,7 +144,7 @@ func ForInKeys(v Value) func() (Value, bool) {
 					continue
 				}
 			}
-			if i := p.find(s); i >= 0 && p.props[i].enumerable {
+			if i := p.find(s); i >= 0 && p.shape.attrs[i]&attrEnumerable != 0 {
 				keys = append(keys, s)
 			}
 		}
@@ -171,8 +171,9 @@ func (o *Object) hasEnumerable() bool {
 	if (o.array != nil && len(*o.array) > 0) || (o.typed != nil && o.typed.length > 0) {
 		return true
 	}
-	for i := range o.props {
-		if _, ok := o.props[i].key.(string); ok && o.props[i].enumerable {
+	s := o.sh()
+	for i, k := range s.keys {
+		if _, ok := k.(string); ok && s.attrs[i]&attrEnumerable != 0 {
 			return true
 		}
 	}
@@ -191,8 +192,8 @@ func GlobalGetCached(c *GlobalRef, name string) Value {
 	if c.version == globalVersion {
 		return c.value
 	}
-	if i := Global.findString(name); i >= 0 && !Global.props[i].accessor {
-		c.version, c.value = globalVersion, Global.props[i].value
+	if i := Global.findString(name); i >= 0 && Global.shape.attrs[i]&attrAccessor == 0 {
+		c.version, c.value = globalVersion, Global.slots[i]
 		return c.value
 	}
 	return GlobalGet(name)
@@ -235,7 +236,7 @@ func CallMethodV(obj Value, key Value, args ...Value) Value {
 
 // Obj makes an object literal from keys and values.
 func Obj(kv ...Value) *Object {
-	o := &Object{proto: ObjectPrototype, props: make([]prop, 0, len(kv)/2)}
+	o := &Object{proto: ObjectPrototype, shape: rootShape(ObjectPrototype), slots: make([]Value, 0, len(kv)/2)}
 	for i := 0; i+1 < len(kv); i += 2 {
 		o.Define(kv[i], kv[i+1])
 	}
@@ -293,9 +294,9 @@ func RequireObjectCoercible(v Value) {
 func SetProtoFromLiteral(o *Object, v Value) {
 	switch p := v.(type) {
 	case *Object:
-		o.proto = p
+		o.SetProto(p)
 	case nullType:
-		o.proto = nil
+		o.SetProto(nil)
 	}
 }
 
@@ -414,7 +415,7 @@ func ClassParentProto(parent Value) *Object {
 // InheritStatics makes a subclass's constructor inherit the parent's statics.
 func InheritStatics(ctor *Object, parent Value) {
 	if p, ok := parent.(*Object); ok {
-		ctor.proto = p
+		ctor.SetProto(p)
 	}
 }
 
@@ -424,12 +425,12 @@ func DefineField(obj Value, key PropKey, v Value) {
 	if !ok {
 		return
 	}
+	p := prop{key: key, value: v, enumerable: true, writable: true, configurable: true}
 	if i := o.find(key); i >= 0 {
-		o.props[i] = prop{key: key, value: v, enumerable: true, writable: true, configurable: true}
-		o.touched()
+		o.setAt(i, p)
 		return
 	}
-	o.add(prop{key: key, value: v, enumerable: true, writable: true, configurable: true})
+	o.add(p)
 }
 
 // PrivateName is a class's #name; each evaluation of the class makes new ones.

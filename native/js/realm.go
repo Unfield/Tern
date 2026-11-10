@@ -61,6 +61,8 @@ func init() {
 	setupGenerators()
 	setupPromise()
 	setupGlobals()
+	Global.sh()
+	Global.reshape() // globals change; reads of them have their own cache
 	defaultHasInstance = method(FunctionPrototype, "[Symbol.hasInstance]", 1, func(this Value, args []Value) Value {
 		return InstanceOf(Arg(args, 0), this)
 	})
@@ -145,7 +147,7 @@ func setupErrors() {
 		}, proto)
 		ctor.call = func(_ Value, args []Value) Value { return ctor.construct(args, ctor) }
 		if parent != nil {
-			ctor.proto = parent
+			ctor.SetProto(parent)
 		}
 		proto.DefineHidden("name", name)
 		proto.DefineHidden("message", "")

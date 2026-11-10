@@ -89,7 +89,7 @@ func setupURIFunctions(g *Object) {
 		return o
 	}
 	uriErr.Get("prototype").(*Object).DefineHidden("name", "URIError")
-	uriErr.proto = Error
+	uriErr.SetProto(Error)
 	g.DefineHidden("URIError", uriErr)
 	method(g, "encodeURIComponent", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), "") })
 	method(g, "encodeURI", 1, func(_ Value, args []Value) Value { return uriEncode(ToString(Arg(args, 0)), uriReserved) })

@@ -221,13 +221,13 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		}
 		obj := c.expr(s, n.Child("object"))
 		if !n.Bool("computed") {
-			return fmt.Sprintf("js.Get(%s, %s)", obj, quote(n.Child("property").Str("name")))
+			return fmt.Sprintf("js.GetIC(%s, %s, %s)", c.ic(), obj, quote(n.Child("property").Str("name")))
 		}
 		p := n.Child("property")
 		if p.Type == "Literal" {
 			if v, ok := literalValue(p); ok {
 				if str, ok := v.(string); ok {
-					return fmt.Sprintf("js.Get(%s, %s)", obj, quote(str))
+					return fmt.Sprintf("js.GetIC(%s, %s, %s)", c.ic(), obj, quote(str))
 				}
 			}
 		}
@@ -269,6 +269,18 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 	}
 	c.problem(n, "the %s expression", n.Type)
 	return "js.Fail(" + quote(n.Type) + ")"
+}
+
+// globalRead reads an undeclared name from globalThis, with a cache.
+func (c *Compiler) globalRead(name string) string {
+	c.globalRefs++
+	return fmt.Sprintf("js.GlobalGetCached(&globals[%d], %s)", c.globalRefs-1, quote(name))
+}
+
+// ic allocates an inline cache for one property access.
+func (c *Compiler) ic() string {
+	c.ics++
+	return fmt.Sprintf("&ics[%d]", c.ics-1)
 }
 
 func (c *Compiler) site() int {
@@ -315,8 +327,7 @@ func (c *Compiler) ident(s *scope, n *Node) string {
 	if b := s.lookup(name); b != nil {
 		return b.expr
 	}
-	c.globalRefs++
-	return fmt.Sprintf("js.GlobalGetCached(&globals[%d], %s)", c.globalRefs-1, quote(name))
+	return c.globalRead(name)
 }
 
 func (c *Compiler) thisExpr(s *scope, _ *Node) string {

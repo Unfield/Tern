@@ -59,6 +59,7 @@ type module struct {
 type Compiler struct {
 	mismatches []string
 	globalRefs int
+	ics        int
 	ir         *IR
 	mods       map[string]*module
 	order      []*module
@@ -97,6 +98,9 @@ func Compile(ir *IR) (*Result, error) {
 		fmt.Fprintf(&b, "\t%s.init()\n", m.goVar)
 	}
 	b.WriteString("}\n")
+	if c.ics > 0 {
+		fmt.Fprintf(&b, "\n// ics are the inline caches of property accesses.\nvar ics [%d]js.IC\n", c.ics)
+	}
 	if c.globalRefs > 0 {
 		fmt.Fprintf(&b, "\n// globals caches reads of globals, one per place in the code.\nvar globals [%d]js.GlobalRef\n", c.globalRefs)
 	}

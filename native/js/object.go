@@ -1,13 +1,11 @@
 package js
 
-import (
-	"slices"
-	"strconv"
-)
+import "slices"
 
 // PropKey is a property key: a string or a *Symbol.
 type PropKey = any
 
+// prop describes a property: what add takes and propAt returns.
 type prop struct {
 	key          PropKey
 	value        Value
@@ -22,15 +20,20 @@ type prop struct {
 // objects with internal slots (Map, Set, RegExp, Date, errors) are objects
 // with the matching fields set.
 type Object struct {
-	props []prop
-	index map[string]int // string keys, when there are many props
+	// shape lists the own properties, slots holds their values: accessor
+	// properties' slots hold an *accessor. A nil shape is the root shape
+	// of the prototype, set when first needed.
+	shape *Shape
+	slots []Value
 	proto *Object
+	// childRoot is the root shape of objects whose prototype this is.
+	childRoot *Shape
 
 	// Functions.
 	call      func(this Value, args []Value) Value
 	construct func(args []Value, newTarget *Object) Value
 
-	// Arrays keep their elements here, not in props.
+	// Arrays keep their elements here, not in properties.
 	array *[]Value
 	// Typed arrays read and write their buffer.
 	typed *typedArray
@@ -56,6 +59,17 @@ const (
 	lazyPrototype  = 2
 )
 
+// sh is the object's shape.
+func (o *Object) sh() *Shape {
+	if o.shape == nil {
+		o.shape = rootShape(o.proto)
+	}
+	if o.fnLazy != 0 {
+		o.materialize()
+	}
+	return o.shape
+}
+
 // materialize adds a function's lazy properties.
 func (o *Object) materialize() {
 	lazy := o.fnLazy
@@ -69,19 +83,41 @@ func (o *Object) materialize() {
 	}
 }
 
-const indexAt = 12 // build an index once an object has this many props
-
 // NewObject makes an ordinary object with the given prototype (nil for none).
-func NewObject(proto *Object) *Object { return &Object{proto: proto} }
+func NewObject(proto *Object) *Object { return &Object{proto: proto, shape: rootShape(proto)} }
 
 // NewPlainObject makes an object like an object literal does.
-func NewPlainObject() *Object { return &Object{proto: ObjectPrototype} }
+func NewPlainObject() *Object { return NewObject(ObjectPrototype) }
 
 // Proto is the object's prototype, or nil.
 func (o *Object) Proto() *Object { return o.proto }
 
-// SetProto changes the prototype.
-func (o *Object) SetProto(p *Object) { o.proto = p }
+// SetProto changes the prototype. The shape follows: shapes know their
+// prototype.
+func (o *Object) SetProto(p *Object) {
+	if o.proto == p {
+		return
+	}
+	o.proto = p
+	if o.shape == nil {
+		return
+	}
+	old := o.shape
+	switch {
+	case old.dict:
+		old.proto = p
+		old.index = nil
+	case len(old.keys) == 0:
+		o.shape = rootShape(p)
+	default:
+		s := rootShape(p)
+		for i, k := range old.keys {
+			s = s.with(k, old.attrs[i])
+		}
+		o.shape = s
+	}
+	o.touched()
+}
 
 // globalVersion counts changes to globalThis's own properties, so reads of
 // globals can be cached.
@@ -97,60 +133,70 @@ func (o *Object) touched() {
 // IsCallable reports whether o is a function.
 func (o *Object) IsCallable() bool { return o.call != nil }
 
-func (o *Object) find(key PropKey) int {
-	if o.fnLazy != 0 {
-		o.materialize()
+func (o *Object) find(key PropKey) int { return o.sh().find(key) }
+
+// findString is find for a string key, the common case.
+func (o *Object) findString(k string) int { return o.sh().findString(k) }
+
+// propAt describes the own property in slot i.
+func (o *Object) propAt(i int) prop {
+	s := o.shape
+	a := s.attrs[i]
+	p := prop{key: s.keys[i], enumerable: a&attrEnumerable != 0, writable: a&attrWritable != 0, configurable: a&attrConfigurable != 0}
+	if a&attrAccessor != 0 {
+		acc := o.slots[i].(*accessor)
+		p.accessor, p.get, p.set = true, acc.get, acc.set
+	} else {
+		p.value = o.slots[i]
 	}
-	if k, ok := key.(string); ok {
-		return o.findString(k)
-	}
-	for i := range o.props { // a symbol: there are few
-		if o.props[i].key == key {
-			return i
-		}
-	}
-	return -1
+	return p
 }
 
-// findString is find for a string key, the common case: comparing
-// strings directly is much cheaper than comparing interfaces.
-func (o *Object) findString(k string) int {
-	if o.fnLazy != 0 {
-		o.materialize()
+// setAt replaces the property in slot i, attributes and all.
+func (o *Object) setAt(i int, p prop) {
+	if a := attrsOf(&p); a != o.shape.attrs[i] {
+		o.reshape()
+		o.shape.attrs[i] = a
 	}
-	if o.index != nil {
-		if i, ok := o.index[k]; ok {
-			return i
-		}
-		return -1
+	if p.accessor {
+		o.slots[i] = &accessor{get: p.get, set: p.set}
+	} else {
+		o.slots[i] = p.value
 	}
-	for i := range o.props {
-		if s, ok := o.props[i].key.(string); ok && len(s) == len(k) && s == k {
-			return i
-		}
-	}
-	return -1
+	o.touched()
 }
 
 func (o *Object) add(p prop) {
 	if o.frozen {
 		panic(TypeErrorf("Cannot add property %s, object is not extensible", keyName(p.key)))
 	}
-	if o.fnLazy != 0 {
-		o.materialize()
+	s := o.sh()
+	a := attrsOf(&p)
+	v := p.value
+	if p.accessor {
+		v = &accessor{get: p.get, set: p.set}
 	}
-	o.touched()
-	if o.props == nil {
-		o.props = make([]prop, 0, 4) // most objects have a few properties
-	}
-	o.props = append(o.props, p)
-	if o.index != nil {
-		if k, ok := p.key.(string); ok {
-			o.index[k] = len(o.props) - 1
+	switch {
+	case s.dict:
+		s.keys = append(s.keys, p.key)
+		s.attrs = append(s.attrs, a)
+		if s.index != nil {
+			if k, ok := p.key.(string); ok {
+				s.index[k] = len(s.keys) - 1
+			}
 		}
-	} else if len(o.props) >= indexAt {
-		o.reindex()
+	case len(s.keys) >= dictAt:
+		o.reshape()
+		o.shape.keys = append(o.shape.keys, p.key)
+		o.shape.attrs = append(o.shape.attrs, a)
+	default:
+		o.shape = s.with(p.key, a)
 	}
+	if o.slots == nil {
+		o.slots = make([]Value, 0, 4) // most objects have a few properties
+	}
+	o.slots = append(o.slots, v)
+	o.touched()
 }
 
 func keyName(k PropKey) string {
@@ -158,15 +204,6 @@ func keyName(k PropKey) string {
 		return "Symbol(" + s.Description + ")"
 	}
 	return k.(string)
-}
-
-func (o *Object) reindex() {
-	o.index = make(map[string]int, len(o.props)*2)
-	for i := range o.props {
-		if k, ok := o.props[i].key.(string); ok {
-			o.index[k] = i
-		}
-	}
 }
 
 // arrayIndex reports whether key is an array index, such as "0" or "12".
@@ -205,11 +242,11 @@ func (o *Object) GetOwn(key PropKey) (Value, bool) {
 			return Undefined, false
 		}
 		if key == "length" {
-			return float64(len(*o.array)), true
+			return Box(float64(len(*o.array))), true
 		}
 	}
-	if i := o.find(key); i >= 0 && !o.props[i].accessor {
-		return o.props[i].value, true
+	if i := o.find(key); i >= 0 && o.shape.attrs[i]&attrAccessor == 0 {
+		return o.slots[i], true
 	}
 	return Undefined, false
 }
@@ -251,14 +288,14 @@ func (o *Object) GetFrom(key PropKey, receiver Value) Value {
 			}
 		}
 		if i := p.find(key); i >= 0 {
-			pr := &p.props[i]
-			if pr.accessor {
-				if pr.get == nil {
+			if p.shape.attrs[i]&attrAccessor != 0 {
+				acc := p.slots[i].(*accessor)
+				if acc.get == nil {
 					return Undefined
 				}
-				return pr.get.invoke(receiver)
+				return acc.get.invoke(receiver)
 			}
-			return pr.value
+			return p.slots[i]
 		}
 	}
 	return Undefined
@@ -326,19 +363,20 @@ func (o *Object) SetFrom(key PropKey, v Value, receiver Value) {
 	}
 	for p := o; p != nil; p = p.proto {
 		if i := p.find(key); i >= 0 {
-			pr := &p.props[i]
-			if pr.accessor {
-				if pr.set == nil {
+			a := p.shape.attrs[i]
+			if a&attrAccessor != 0 {
+				acc := p.slots[i].(*accessor)
+				if acc.set == nil {
 					panic(TypeErrorf("Cannot set property %s of object which has only a getter", keyName(key)))
 				}
-				pr.set.invoke(receiver, v)
+				acc.set.invoke(receiver, v)
 				return
 			}
-			if !pr.writable || p.frozen {
+			if a&attrWritable == 0 || p.frozen {
 				panic(TypeErrorf("Cannot assign to read only property '%s' of object", keyName(key)))
 			}
 			if p == o && receiver == Value(o) {
-				pr.value = v
+				p.slots[i] = v
 				p.touched()
 				return
 			}
@@ -350,7 +388,7 @@ func (o *Object) SetFrom(key PropKey, v Value, receiver Value) {
 		panic(TypeErrorf("Cannot create property '%s' on %s", keyName(key), Typeof(receiver)))
 	}
 	if i := r.find(key); i >= 0 {
-		r.props[i].value = v
+		r.slots[i] = v
 		r.touched()
 		return
 	}
@@ -383,32 +421,32 @@ func (o *Object) Define(key PropKey, v Value) {
 			return
 		}
 	}
+	p := prop{key: key, value: v, enumerable: true, writable: true, configurable: true}
 	if i := o.find(key); i >= 0 {
-		o.props[i] = prop{key: key, value: v, enumerable: true, writable: true, configurable: true}
-		o.touched()
+		o.setAt(i, p)
 		return
 	}
-	o.add(prop{key: key, value: v, enumerable: true, writable: true, configurable: true})
+	o.add(p)
 }
 
 // DefineHidden makes an own, non-enumerable data property, as built-ins and
 // class methods have.
 func (o *Object) DefineHidden(key PropKey, v Value) {
+	p := prop{key: key, value: v, writable: true, configurable: true}
 	if i := o.find(key); i >= 0 {
-		o.props[i] = prop{key: key, value: v, writable: true, configurable: true}
-		o.touched()
+		o.setAt(i, p)
 		return
 	}
-	o.add(prop{key: key, value: v, writable: true, configurable: true})
+	o.add(p)
 }
 
 // DefineAccessor makes a getter and/or setter property. Object literals'
 // accessors are enumerable; classes' are not.
 func (o *Object) DefineAccessor(key PropKey, get, set *Object, enumerable bool) {
 	if i := o.find(key); i >= 0 {
-		p := &o.props[i]
+		p := o.propAt(i)
 		if !p.accessor {
-			*p = prop{key: key, accessor: true, enumerable: enumerable, configurable: true}
+			p = prop{key: key, accessor: true, enumerable: enumerable, configurable: true}
 		}
 		if get != nil {
 			p.get = get
@@ -416,6 +454,7 @@ func (o *Object) DefineAccessor(key PropKey, get, set *Object, enumerable bool) 
 		if set != nil {
 			p.set = set
 		}
+		o.setAt(i, p)
 		return
 	}
 	o.add(prop{key: key, get: get, set: set, accessor: true, enumerable: enumerable, configurable: true})
@@ -430,28 +469,28 @@ func (o *Object) DefineProperty(key PropKey, desc *Object) {
 	if hasGet || hasSet || desc.HasOwn("get") || desc.HasOwn("set") {
 		g, _ := get.(*Object)
 		s, _ := set.(*Object)
+		p := prop{key: key, get: g, set: s, accessor: true, enumerable: enumerable, configurable: configurable}
 		if i := o.find(key); i >= 0 {
-			o.props[i] = prop{key: key, get: g, set: s, accessor: true, enumerable: enumerable, configurable: configurable}
-			o.touched()
+			o.setAt(i, p)
 			return
 		}
-		o.add(prop{key: key, get: g, set: s, accessor: true, enumerable: enumerable, configurable: configurable})
+		o.add(p)
 		return
 	}
 	v := desc.Get("value")
 	writable := Truthy(desc.Get("writable"))
 	if i := o.find(key); i >= 0 {
-		p := &o.props[i]
+		old := o.propAt(i)
 		if !desc.HasOwn("value") {
-			v = p.value
+			v = old.value
 		}
 		if !desc.HasOwn("writable") {
-			writable = p.writable
+			writable = old.writable
 		}
 		if !desc.HasOwn("enumerable") {
-			enumerable = p.enumerable
+			enumerable = old.enumerable
 		}
-		*p = prop{key: key, value: v, enumerable: enumerable, writable: writable, configurable: configurable}
+		o.setAt(i, prop{key: key, value: v, enumerable: enumerable, writable: writable, configurable: configurable})
 		return
 	}
 	if o.array != nil {
@@ -488,61 +527,82 @@ func (o *Object) Delete(key PropKey) bool {
 	if i < 0 {
 		return true
 	}
-	o.props = slices.Delete(o.props, i, i+1)
+	o.reshape()
+	s := o.shape
+	s.keys = slices.Delete(s.keys, i, i+1)
+	s.attrs = slices.Delete(s.attrs, i, i+1)
+	s.index = nil
+	o.slots = slices.Delete(o.slots, i, i+1)
 	o.touched()
-	if o.index != nil {
-		o.reindex()
-	}
 	return true
 }
 
 // OwnKeys lists own property keys in JavaScript's order: array indexes
 // ascending, then strings in creation order, then symbols.
 func (o *Object) OwnKeys(onlyEnumerable, withSymbols bool) []PropKey {
-	if o.fnLazy != 0 {
-		o.materialize()
-	}
-	var ints []int
-	var strs, syms []PropKey
+	s := o.sh()
+	n := len(s.keys)
 	if o.array != nil {
-		for i := range *o.array {
-			ints = append(ints, i)
-		}
+		n += len(*o.array) + 1
+	} else if o.typed != nil {
+		n += o.typed.length
 	}
-	if o.typed != nil {
-		for i := range o.typed.length {
-			ints = append(ints, i)
-		}
+	out := make([]PropKey, 0, n)
+	elements := 0
+	if o.array != nil {
+		elements = len(*o.array)
+	} else if o.typed != nil {
+		elements = o.typed.length
 	}
-	for _, p := range o.props {
-		if onlyEnumerable && !p.enumerable {
+	for i := range elements {
+		out = append(out, indexKey(i))
+	}
+	// Integer keys among the properties come first, in order; then the
+	// rest as they were added.
+	var ints []int
+	for i, k := range s.keys {
+		if onlyEnumerable && s.attrs[i]&attrEnumerable == 0 {
 			continue
 		}
-		switch k := p.key.(type) {
-		case *Symbol:
-			if withSymbols {
-				syms = append(syms, k)
-			}
-		case string:
-			if i, ok := arrayIndex(k); ok {
-				ints = append(ints, i)
-			} else {
-				strs = append(strs, k)
-			}
+		if j, ok := arrayIndex(k); ok {
+			ints = append(ints, j)
 		}
 	}
-	out := make([]PropKey, 0, len(ints)+len(strs)+len(syms))
 	if len(ints) > 0 {
 		slices.Sort(ints)
-		for _, i := range ints {
-			out = append(out, strconv.Itoa(i))
+		for _, j := range ints {
+			out = append(out, indexKey(j))
 		}
 	}
-	out = append(out, strs...)
+	for i, k := range s.keys {
+		if onlyEnumerable && s.attrs[i]&attrEnumerable == 0 {
+			continue
+		}
+		if str, ok := k.(string); ok {
+			if _, isInt := arrayIndex(str); !isInt {
+				out = append(out, k)
+			}
+		}
+	}
 	if o.array != nil && !onlyEnumerable {
 		out = append(out, "length")
 	}
-	return append(out, syms...)
+	if withSymbols {
+		for i, k := range s.keys {
+			if _, ok := k.(*Symbol); ok && (!onlyEnumerable || s.attrs[i]&attrEnumerable != 0) {
+				out = append(out, k)
+			}
+		}
+	}
+	return out
+}
+
+// indexKey is the key of an array index, as a Value.
+func indexKey(i int) PropKey {
+	if i < len(intKeys) {
+		return intKeys[i]
+	}
+	return Itoa(i)
 }
 
 // EnumerableOwn calls fn for each enumerable own string-keyed property, in
@@ -556,14 +616,18 @@ func (o *Object) EnumerableOwn(fn func(key string, v Value)) {
 
 // Freeze is Object.freeze.
 func (o *Object) Freeze() {
-	if o.fnLazy != 0 {
-		o.materialize()
-	}
+	s := o.sh()
 	o.frozen = true
 	o.touched()
-	for i := range o.props {
-		o.props[i].writable = o.props[i].writable && o.props[i].accessor
-		o.props[i].configurable = false
+	if len(s.keys) == 0 {
+		return
+	}
+	o.reshape()
+	for i, a := range o.shape.attrs {
+		if a&attrAccessor == 0 {
+			a &^= attrWritable
+		}
+		o.shape.attrs[i] = a &^ attrConfigurable
 	}
 }
 

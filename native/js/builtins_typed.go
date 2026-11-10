@@ -168,7 +168,7 @@ func setupTypedArrays() {
 			proto := OrdinaryCreateFromConstructor(nt, k.proto).proto
 			return constructTyped(k, proto, args)
 		}, k.proto)
-		k.ctor.proto = ta
+		k.ctor.SetProto(ta)
 		k.ctor.add(prop{key: "BYTES_PER_ELEMENT", value: float64(k.size)})
 		k.proto.add(prop{key: "BYTES_PER_ELEMENT", value: float64(k.size)})
 		Global.DefineHidden(k.name, k.ctor)

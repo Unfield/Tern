@@ -62,7 +62,7 @@ func (c *Compiler) callWith(s *scope, callee *Node, compiled []string, useNodes 
 			return fmt.Sprintf("js.Call(%s, %s%s)", e, ns, args)
 		}
 		if !callee.Bool("computed") {
-			return fmt.Sprintf("js.CallMethod(%s, %s%s)", c.expr(s, obj), quote(prop.Str("name")), args)
+			return fmt.Sprintf("js.CallIC(%s, %s, %s%s)", c.ic(), c.expr(s, obj), quote(prop.Str("name")), args)
 		}
 		return fmt.Sprintf("js.CallMethodV(%s, %s%s)", c.expr(s, obj), c.expr(s, prop), args)
 	}
@@ -122,6 +122,9 @@ func (c *Compiler) chain(w *writer, s *scope, n *Node) string {
 		}
 		if n.Child("property").Type == "PrivateIdentifier" {
 			return fmt.Sprintf("js.PrivateGet(%s, %s)", t, c.privateKey(s, n.Child("property")))
+		}
+		if !n.Bool("computed") {
+			return fmt.Sprintf("js.GetIC(%s, %s, %s)", c.ic(), t, quote(n.Child("property").Str("name")))
 		}
 		return fmt.Sprintf("js.Get(%s, %s)", t, c.memberKey(s, n))
 	case "CallExpression":
@@ -186,7 +189,7 @@ func (c *Compiler) lvalue(w *writer, s *scope, n *Node) *ref {
 		b := s.lookup(name)
 		if b == nil {
 			return &ref{
-				read:  fmt.Sprintf("js.GlobalGet(%s)", quote(name)),
+				read:  c.globalRead(name),
 				write: func(v string) string { return fmt.Sprintf("js.GlobalSet(%s, %s)", quote(name), v) },
 			}
 		}
@@ -219,9 +222,10 @@ func (c *Compiler) lvalue(w *writer, s *scope, n *Node) *ref {
 		}
 		if !n.Bool("computed") {
 			key := quote(n.Child("property").Str("name"))
+			get, set := c.ic(), c.ic()
 			return &ref{
-				read:  fmt.Sprintf("js.Get(%s, %s)", o, key),
-				write: func(v string) string { return fmt.Sprintf("js.Set(%s, %s, %s)", o, key, v) },
+				read:  fmt.Sprintf("js.GetIC(%s, %s, %s)", get, o, key),
+				write: func(v string) string { return fmt.Sprintf("js.SetIC(%s, %s, %s, %s)", set, o, key, v) },
 			}
 		}
 		k := c.temp("k")

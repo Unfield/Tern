@@ -70,7 +70,7 @@ func NewGeneratorFunction(name string, length int, call func(this Value, args []
 		o.Class, o.Internal = "Generator", &Gen{body: body}
 		return o
 	})
-	f.proto = GeneratorFunctionPrototype
+	f.SetProto(GeneratorFunctionPrototype)
 	f.add(prop{key: "prototype", value: NewObject(GeneratorPrototype), writable: true})
 	return f
 }

@@ -100,9 +100,9 @@ func setupObject() {
 		if o, ok := Arg(args, 0).(*Object); ok {
 			switch p := Arg(args, 1).(type) {
 			case *Object:
-				o.proto = p
+				o.SetProto(p)
 			case nullType:
-				o.proto = nil
+				o.SetProto(nil)
 			}
 		}
 		return Arg(args, 0)
@@ -187,7 +187,7 @@ func setupObject() {
 			}
 		}
 		i := o.find(k)
-		return i >= 0 && o.props[i].enumerable
+		return i >= 0 && o.shape.attrs[i]&attrEnumerable != 0
 	})
 	method(p, "toString", 0, func(this Value, _ []Value) Value { return ObjectToString(this) })
 	method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return CallMethod(this, "toString") })
@@ -234,7 +234,7 @@ func (o *Object) descriptor(k PropKey) Value {
 	if i < 0 {
 		return Undefined
 	}
-	p := o.props[i]
+	p := o.propAt(i)
 	d := NewPlainObject()
 	if p.accessor {
 		d.Define("get", orUndefined(p.get))

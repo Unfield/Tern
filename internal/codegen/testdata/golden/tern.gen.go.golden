@@ -23,9 +23,13 @@ var ternClientFS embed.FS
 //go:embed all:.tern/output/server
 var ternServerFS embed.FS
 
+//go:embed .tern/generated/openapi.json
+var ternOpenAPI []byte
+
 var ternManifest = &kit.Manifest{
 	AppHTML:     ternAppHTML,
 	ClientEntry: ".tern/generated/client.js",
+	OpenAPI:     ternOpenAPI,
 	Layouts: []kit.LayoutDef{
 		{Dir: "", Component: "src/routes/+layout.svelte", Load: kit.LoadOf(route0.LayoutLoad)},
 		{Dir: "blog", Component: "src/routes/blog/+layout.svelte"},

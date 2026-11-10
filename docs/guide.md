@@ -286,6 +286,60 @@ func GET(ctx *kit.Ctx) error {
 - `HEAD` falls back to `GET`, and unsupported methods get `405` with an `Allow` header.
 - A directory can have both a page and endpoints. Browser requests (`Accept: text/html`) and form posts go to the page; other requests go to the endpoint.
 
+
+### Typed endpoints
+
+An endpoint can declare its input and output types instead of writing the response itself. `tern gen` then describes it in an OpenAPI document, and in a typed client for your components:
+
+```go
+type ListQuery struct {
+	Search string `json:"q,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+func GET(ctx *kit.Ctx, in ListQuery) ([]Project, error) { ... }
+
+type NewProject struct {
+	Name string `json:"name"`
+}
+
+func (p *NewProject) Validate() error { // optional; its error becomes a 400
+	if p.Name == "" {
+		return errors.New("name is required")
+	}
+	return nil
+}
+
+func POST(ctx *kit.Ctx, in NewProject) (Project, error) { ... }
+```
+
+- **Signatures:** `func(ctx *kit.Ctx) (Out, error)` and `func(ctx *kit.Ctx, in In) (Out, error)` are typed. `func(ctx *kit.Ctx) error` stays a plain endpoint.
+- **Where input comes from:** query parameters for GET, HEAD and DELETE; a JSON body for other methods.
+  - Query fields are named by their `query` tag, else their `json` name.
+  - Supported query field types: strings, numbers, booleans, `time.Time`, pointers, and slices from repeated parameters.
+  - Fields tagged `path:"id"` come from the route's parameters.
+- **Failures:** invalid input is answered with 400, a body that isn't JSON with 415, and errors work as in other endpoints.
+- **Output:** written as JSON.
+
+Call them from components with `$api`. The endpoint, parameters, query, body and result are all type-checked:
+
+```svelte
+<script lang="ts">
+	import { ApiError } from '@ternkit/tern';
+	import { api } from '$api';
+
+	async function add(name: string) {
+		try {
+			const project = await api('POST /api/projects', { body: { name } });
+		} catch (e) {
+			if (e instanceof ApiError) alert(e.message); // the server's message; e.status has the code
+		}
+	}
+</script>
+```
+
+`kit.WithOpenAPI("/api/openapi.json", "Acme API", "1.0.0")` serves the OpenAPI 3.1 document. It has paths, parameters, request bodies and response schemas, with components for your Go structs, so you can generate clients for other languages or browse it with any OpenAPI tool.
+
 ## Hooks, middleware and configuration
 
 `main.go` creates the app with the generated `ternApp` function and configures it with options:

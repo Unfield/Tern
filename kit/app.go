@@ -229,6 +229,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if a.opts.openAPI != nil && r.URL.Path == a.withBase(a.opts.openAPI.path) && r.Method == http.MethodGet {
+		a.serveOpenAPI(w)
+		return
+	}
 	if a.dev != nil && strings.HasPrefix(r.URL.Path, "/__tern/emails") {
 		a.emailPreviews(w, r)
 		return

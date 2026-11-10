@@ -24,6 +24,7 @@ func main() {
 	app, err := ternApp(
 		kit.WithHook(session.Hook),
 		kit.WithLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))),
+		kit.WithOpenAPI("/api/openapi.json", "Acme Dashboard API", "1.0.0"),
 		kit.WithPlugins(
 			health.New(health.Check("database", store.Ping)),
 			requestlog.New(requestlog.SkipAssets()),

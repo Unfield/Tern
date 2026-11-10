@@ -31,10 +31,17 @@ type routePackage struct {
 	failures   []types.Type
 	actionsAny bool // Actions is not a literal we can inspect
 	methods    []string
-	noSSR      bool // const SSR = false
-	prerender  bool // const Prerender = true
-	entries    bool // func Entries([ctx *kit.Ctx]) ([]map[string]string, error)
-	entriesCtx bool // Entries takes a *kit.Ctx
+	endpoints  map[string]endpointSig // typed endpoints by method
+	noSSR      bool                   // const SSR = false
+	prerender  bool                   // const Prerender = true
+	entries    bool                   // func Entries([ctx *kit.Ctx]) ([]map[string]string, error)
+	entriesCtx bool                   // Entries takes a *kit.Ctx
+}
+
+// endpointSig is a typed endpoint's input and output; in is nil for
+// func(*kit.Ctx) (Out, error), and both are nil for plain handlers.
+type endpointSig struct {
+	in, out types.Type
 }
 
 // analyze type-checks the route packages and validates their exports.
@@ -171,9 +178,17 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 		if !ok {
 			continue
 		}
-		if !handlerSignature(obj.Type().(*types.Signature)) {
-			errs = append(errs, fmt.Sprintf("%s: %s must have the signature func(ctx *kit.Ctx) error", pos(obj), m))
-			continue
+		sig := obj.Type().(*types.Signature)
+		if !handlerSignature(sig) {
+			in, out, ok := typedSignature(sig)
+			if !ok {
+				errs = append(errs, fmt.Sprintf("%s: %s must be func(ctx *kit.Ctx) error, func(ctx *kit.Ctx) (Out, error) or func(ctx *kit.Ctx, in In) (Out, error) with a struct In", pos(obj), m))
+				continue
+			}
+			if rp.endpoints == nil {
+				rp.endpoints = map[string]endpointSig{}
+			}
+			rp.endpoints[m] = endpointSig{in: in, out: out}
 		}
 		rp.methods = append(rp.methods, m)
 	}
@@ -227,6 +242,28 @@ func entriesSignature(sig *types.Signature) bool {
 func handlerSignature(sig *types.Signature) bool {
 	return sig.TypeParams().Len() == 0 && sig.Params().Len() == 1 && sig.Results().Len() == 1 &&
 		isCtxPtr(sig.Params().At(0).Type()) && isError(sig.Results().At(0).Type())
+}
+
+// typedSignature checks func(*kit.Ctx[, In]) (Out, error), with In a
+// struct, and returns In (or nil) and Out.
+func typedSignature(sig *types.Signature) (in, out types.Type, ok bool) {
+	if sig.TypeParams().Len() > 0 || sig.Results().Len() != 2 || !isError(sig.Results().At(1).Type()) {
+		return nil, nil, false
+	}
+	switch sig.Params().Len() {
+	case 1:
+	case 2:
+		in = sig.Params().At(1).Type()
+		if _, isStruct := types.Unalias(in).Underlying().(*types.Struct); !isStruct {
+			return nil, nil, false
+		}
+	default:
+		return nil, nil, false
+	}
+	if !isCtxPtr(sig.Params().At(0).Type()) {
+		return nil, nil, false
+	}
+	return in, sig.Results().At(0).Type(), true
 }
 
 func isCtxPtr(t types.Type) bool {

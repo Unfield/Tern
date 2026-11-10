@@ -245,7 +245,7 @@ func TestGenerateSignatureErrors(t *testing.T) {
 	}{
 		{"load without ctx", "func Load() (map[string]int, error) { return nil, nil }", "Load must have the signature func(ctx *kit.Ctx) (T, error)"},
 		{"load returning a scalar", "func Load(ctx *kit.Ctx) (int, error) { return 0, nil }", "where T is a struct or map"},
-		{"handler without error", "func GET(ctx *kit.Ctx) {}", "GET must have the signature func(ctx *kit.Ctx) error"},
+		{"handler without error", "func GET(ctx *kit.Ctx) {}", "GET must be func(ctx *kit.Ctx) error"},
 		{"actions of the wrong type", "var Actions = map[string]int{}", "Actions must be a kit.Actions"},
 		{"prerender of the wrong type", "const Prerender = 1", "Prerender must be a boolean constant"},
 		{"entries with a bad signature", "func Entries() []string { return nil }", "Entries must have the signature func(ctx *kit.Ctx) ([]map[string]string, error)"},

@@ -15,6 +15,7 @@ export { enhance } from './runtime/forms.js';
 export type { SubmitFunction, SubmitInput, SubmitResult } from './runtime/forms.js';
 export type { ActionResult, GotoOptions, Navigation, NavigationTarget, NavigationType } from './runtime/types.js';
 
+export { ApiError, createApi } from './runtime/api.js';
 export { stream, socket, EventStreamState, SocketState } from './runtime/realtime.svelte.js';
 export type { ConnectionStatus, StreamOptions, SocketOptions } from './runtime/realtime.svelte.js';
 export { default as Image } from './image/Image.svelte';

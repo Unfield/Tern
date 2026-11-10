@@ -70,6 +70,9 @@ type Manifest struct {
 	Locales fs.FS
 	// Content holds src/content, or nil if the app has none. See Ctx.Content.
 	Content fs.FS
+	// OpenAPI is the OpenAPI description of the typed endpoints, served
+	// with WithOpenAPI.
+	OpenAPI []byte
 	// DefaultLocale is the fallback locale; "" picks "en" or the first.
 	DefaultLocale string
 }
@@ -127,6 +130,7 @@ type options struct {
 	matchers        map[string]func(string) bool
 	trustedOrigins  []string
 	crossOriginOK   []string
+	openAPI         *openAPIOptions
 	csrf            bool
 	bodyLimit       int64
 	multipartMemory int64

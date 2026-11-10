@@ -63,7 +63,8 @@ export function tern(options: TernOptions = {}): Plugin[] {
 				resolve: {
 					alias: {
 						$lib: path.join(root, 'src/lib'),
-						$routes: path.join(root, '.tern/generated/routes.js')
+						$routes: path.join(root, '.tern/generated/routes.js'),
+						$api: path.join(root, '.tern/generated/api.js')
 					}
 				}
 			};

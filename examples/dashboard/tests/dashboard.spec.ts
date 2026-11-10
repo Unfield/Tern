@@ -312,3 +312,35 @@ test('responsive images are served as AVIF and WebP with their size', async ({ p
 	expect(res.headers()['content-type']).toBe('image/avif');
 	expect(res.headers()['cache-control']).toContain('immutable');
 });
+
+test('typed endpoints have an OpenAPI description and a typed client', async ({ page, request }) => {
+	const problems = watchConsole(page);
+	await signIn(page);
+	await page.goto('/projects');
+	const quick = page.getByTestId('quick-add');
+	await quick.getByLabel('Quick add a project').fill('From the API');
+	await quick.getByRole('button', { name: 'Add' }).click();
+	await expect(page.getByText('Created From the API')).toBeVisible();
+	await expect(page.getByTestId('projects')).toContainText('From the API');
+
+	// Validate() errors come back as 400 with the message.
+	await quick.getByLabel('Quick add a project').fill('   ');
+	await quick.getByRole('button', { name: 'Add' }).click();
+	await expect(page.getByText('name must be 1 to 80 characters')).toBeVisible();
+
+	// Query parameters and path parameters are decoded into the input.
+	const list = await page.evaluate(() => fetch('/api/projects?q=From').then((r) => r.json()));
+	expect(list.map((p: { name: string }) => p.name)).toEqual(['From the API']);
+	const one = await page.evaluate((id) => fetch(`/api/projects/${id}`).then((r) => r.json()), list[0].id);
+	expect(one.name).toBe('From the API');
+	expect(await page.evaluate(() => fetch('/api/projects/999999').then((r) => r.status))).toBe(404);
+	expect(await page.evaluate(() => fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: 'x' }).then((r) => r.status))).toBe(415);
+
+	const doc = await (await request.get('/api/openapi.json')).json();
+	expect(doc.openapi).toBe('3.1.0');
+	expect(doc.info.title).toBe('Acme Dashboard API');
+	expect(doc.paths['/api/projects'].post.requestBody.content['application/json'].schema.$ref).toBe('#/components/schemas/NewProject');
+	expect(doc.paths['/api/projects/{id}'].get.parameters[0]).toMatchObject({ name: 'id', in: 'path', schema: { type: 'integer' } });
+	expect(doc.components.schemas.Project.required).toContain('name');
+	expect(problems.filter((p) => !p.startsWith('Failed to load resource'))).toEqual([]); // the failures above are on purpose
+});

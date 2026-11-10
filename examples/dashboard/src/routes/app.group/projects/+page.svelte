@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance, goto, t } from '@ternkit/tern';
+	import { ApiError, enhance, goto, invalidateAll, t } from '@ternkit/tern';
+	import { api } from '$api';
 	import { toast } from 'svelte-sonner';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -91,6 +92,27 @@
 			{#each filters as f (f.value)}<Tabs.Trigger value={f.value}>{f.label}</Tabs.Trigger>{/each}
 		</Tabs.List>
 	</Tabs.Root>
+
+	<form
+		class="flex gap-2"
+		data-testid="quick-add"
+		onsubmit={async (e) => {
+			e.preventDefault();
+			const input = e.currentTarget.elements.namedItem('quick') as HTMLInputElement;
+			try {
+				// A typed call: the body and the result are checked against the Go types.
+				const project = await api('POST /api/projects', { body: { name: input.value } });
+				toast.success(`Created ${project.name}`);
+				input.value = '';
+				await invalidateAll();
+			} catch (err) {
+				toast.error(err instanceof ApiError ? err.message : 'Could not create the project');
+			}
+		}}
+	>
+		<Input name="quick" placeholder="Quick add…" aria-label="Quick add a project" class="w-40" />
+		<Button type="submit" variant="outline" size="icon" aria-label="Add"><Plus /></Button>
+	</form>
 
 	<form method="GET" class="relative w-full max-w-xs" role="search">
 		<Search class="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />

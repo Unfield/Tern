@@ -1,20 +1,18 @@
-// Package stats serves GET /api/stats as JSON.
+// Package stats serves GET /api/stats as JSON, a typed endpoint: tern gen
+// describes it in the OpenAPI document and the $api client.
 package stats
 
 import (
 	"github.com/Unfield/Tern/kit"
 
 	"dashboard/internal/app"
+	"dashboard/internal/db"
 )
 
-func GET(ctx *kit.Ctx) error {
+func GET(ctx *kit.Ctx) (db.Stats, error) {
 	user, store, err := app.User(ctx)
 	if err != nil {
-		return err
+		return db.Stats{}, err
 	}
-	stats, err := store.Stats(ctx, user)
-	if err != nil {
-		return err
-	}
-	return ctx.JSON(200, stats)
+	return store.Stats(ctx, user)
 }

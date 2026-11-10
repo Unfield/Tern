@@ -87,6 +87,8 @@ func Generate(root string) (*Result, error) {
 	g.tsconfig()
 	g.files[".tern/ambient.d.ts"] = []byte(ambientTypes)
 	g.linksModule()
+	g.openAPI()
+	g.apiModule()
 	g.serverEntry()
 	g.files[ClientOut+"/.keep"] = []byte("Placeholder so the client directory can be embedded before the first build.\n")
 	g.files[ServerOut+"/.keep"] = []byte("Placeholder so the server directory can be embedded before the first build.\n")
@@ -194,9 +196,10 @@ func (g *generator) goFile() error {
 	if g.hasContent() {
 		fmt.Fprintf(&b, "//go:embed %s\nvar ternContentFS embed.FS\n\n", ContentDir)
 	}
+	fmt.Fprintf(&b, "//go:embed %s\nvar ternOpenAPI []byte\n\n", OpenAPIFile)
 
 	b.WriteString("var ternManifest = &kit.Manifest{\n")
-	fmt.Fprintf(&b, "\tAppHTML: ternAppHTML,\n\tClientEntry: %q,\n", ClientEntry)
+	fmt.Fprintf(&b, "\tAppHTML: ternAppHTML,\n\tClientEntry: %q,\n\tOpenAPI: ternOpenAPI,\n", ClientEntry)
 	if g.cfg.BasePath != "" {
 		fmt.Fprintf(&b, "\tBasePath: %q,\n", g.cfg.BasePath)
 	}
@@ -250,7 +253,15 @@ func (g *generator) goFile() error {
 		if rp != nil && len(rp.methods) > 0 {
 			b.WriteString("\t\t\tEndpoint: map[string]kit.HandlerFunc{\n")
 			for _, m := range rp.methods {
-				fmt.Fprintf(&b, "\t\t\t\t%q: %s.%s,\n", m, rp.alias, m)
+				sig, typed := rp.endpoints[m]
+				switch {
+				case !typed:
+					fmt.Fprintf(&b, "\t\t\t\t%q: %s.%s,\n", m, rp.alias, m)
+				case sig.in == nil:
+					fmt.Fprintf(&b, "\t\t\t\t%q: kit.OutputEndpoint(%s.%s),\n", m, rp.alias, m)
+				default:
+					fmt.Fprintf(&b, "\t\t\t\t%q: kit.TypedEndpoint(%q, %s.%s),\n", m, m, rp.alias, m)
+				}
 			}
 			b.WriteString("\t\t\t},\n")
 		}
@@ -508,7 +519,8 @@ func (g *generator) tsconfig() {
 		"paths": {
 			"$lib": ["../src/lib"],
 			"$lib/*": ["../src/lib/*"],
-			"$routes": ["./generated/routes"]
+			"$routes": ["./generated/routes"],
+			"$api": ["./generated/api"]
 		},
 		"rootDirs": ["..", "./types"],
 		"verbatimModuleSyntax": true,

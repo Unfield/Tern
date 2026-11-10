@@ -31,3 +31,7 @@ packages/*/dist/
 
 # Docs site build output
 /website/dist/
+
+# go build ./cmd/tern output
+/tern
+/cmd/tern/tern

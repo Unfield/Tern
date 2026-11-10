@@ -1361,7 +1361,13 @@ Write links with `route()` from `$routes` and `href="%tern.assets%/favicon.svg"`
 
 ## Commands
 
-`tern new <dir>` starts a project; `-template blog` adds Markdown posts with an RSS feed, and `-template api` typed JSON endpoints with OpenAPI.
+`tern new` starts a project. Without a directory, it asks its questions; with one, it uses flags:
+
+- **`-template`:** `minimal` (the default), `blog` for Markdown posts with an RSS feed, or `api` for typed JSON endpoints with OpenAPI.
+- **`-ui`:** styles the starter with [Tern UI](ui.md).
+- **`-git`:** creates a git repository with a first commit.
+- **`-install`:** runs `npm install`.
+- **`npm create tern@latest`:** runs the matching `tern new`, for people who start from npm.
 
 Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 
@@ -1373,7 +1379,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
 | `tern routes [dir]` | list routes |
-| `tern new [-module path] <dir>` | create a project |
+| `tern new [-template name] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |
 | `tern version` | print the version |
 
 For deployment, see [deployment.md](deployment.md).

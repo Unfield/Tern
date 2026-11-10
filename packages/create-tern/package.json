@@ -1,0 +1,28 @@
+{
+  "name": "create-tern",
+  "version": "0.0.0",
+  "description": "Create a Tern app: npm create tern@latest",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-tern": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Unfield/Tern.git",
+    "directory": "packages/create-tern"
+  },
+  "homepage": "https://github.com/Unfield/Tern",
+  "keywords": [
+    "tern",
+    "svelte",
+    "go",
+    "create"
+  ]
+}

@@ -5,12 +5,13 @@
 set -euo pipefail
 
 template="${1:-minimal}"
+shift || true # the rest are flags for tern new, such as -ui
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'kill "${server:-0}" 2>/dev/null || true; rm -rf "$work"' EXIT
 
-echo "==> tern new -template $template"
-(cd "$repo" && go run ./cmd/tern new -skip-go-get -template "$template" "$work/app")
+echo "==> tern new -template $template $*"
+(cd "$repo" && go run ./cmd/tern new -skip-go-get -template "$template" "$@" "$work/app")
 cd "$work/app"
 
 echo "==> use this checkout"

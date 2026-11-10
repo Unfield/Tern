@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"embed"
 	"errors"
@@ -39,6 +40,15 @@ type templateData struct {
 	ClientVersion string
 }
 
+// stdin is where the interactive tern new reads answers; tests replace it.
+var stdin io.Reader = os.Stdin
+
+// stdinIsTerminal reports whether tern new may ask questions.
+var stdinIsTerminal = func() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
 // cmdNew scaffolds a new project.
 func cmdNew(args []string, stdout, stderr io.Writer) int {
 	fl := flag.NewFlagSet("new", flag.ContinueOnError)
@@ -46,18 +56,42 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 	module := fl.String("module", "", "Go module path (default: the directory name)")
 	skipInstall := fl.Bool("skip-go-get", false, "do not run go get for the Tern module")
 	tmpl := fl.String("template", "minimal", "starter template: minimal, blog or api")
-	if err := fl.Parse(args); err != nil {
-		return 2
+	withUI := fl.Bool("ui", false, "style the starter with Tern UI")
+	withGit := fl.Bool("git", false, "create a git repository with a first commit")
+	npmInstall := fl.Bool("install", false, "run npm install")
+	// Flags may come before or after the directory, as in
+	// `npm create tern my-app -- -ui`.
+	var positional []string
+	for {
+		if err := fl.Parse(args); err != nil {
+			return 2
+		}
+		if fl.NArg() == 0 {
+			break
+		}
+		positional = append(positional, fl.Arg(0))
+		args = fl.Args()[1:]
 	}
-	if fl.NArg() != 1 {
-		fmt.Fprintln(stderr, "usage: tern new [-module path] [-template minimal|blog|api] <directory>")
+	var dir string
+	interactive := false
+	switch {
+	case len(positional) == 1:
+		dir = positional[0]
+	case len(positional) == 0 && stdinIsTerminal():
+		a, ok := askNew(stdout, stdin)
+		if !ok {
+			return 1
+		}
+		dir, *tmpl, *withUI, *withGit, *npmInstall = a.dir, a.template, a.ui, a.git, a.install
+		interactive = true
+	default:
+		fmt.Fprintln(stderr, "usage: tern new [-template minimal|blog|api] [-ui] [-git] [-install] [-module path] <directory>")
 		return 2
 	}
 	if _, ok := templates[*tmpl]; !ok {
 		fmt.Fprintf(stderr, "tern new: unknown template %q; choose minimal, blog or api\n", *tmpl)
 		return 2
 	}
-	dir := fl.Arg(0)
 	name := strings.ToLower(filepath.Base(filepath.Clean(dir)))
 	if !nameRe.MatchString(name) {
 		fmt.Fprintf(stderr, "tern new: %q is not a valid project name; use lowercase letters, digits, '.', '-' and '_'\n", name)
@@ -71,11 +105,13 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	p := ui.New(stdout)
-	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern new")), p.Dim(version.String()))
+	if !interactive {
+		p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern new")), p.Dim(version.String()))
+	}
 
 	data := templateData{Name: name, Module: *module, ClientVersion: clientVersion()}
 	s := p.Spin("Creating " + dir)
-	if err := writeTemplate(dir, data, *tmpl); err != nil {
+	if err := writeTemplate(dir, data, *tmpl, *withUI); err != nil {
 		s.Fail()
 		ui.New(stderr).Error(err)
 		return 1
@@ -102,11 +138,142 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	installed := false
+	if *npmInstall {
+		s := p.Spin("Installing npm packages")
+		if out, err := runIn(dir, "npm", "install"); err != nil {
+			s.Fail()
+			p.Warn("npm install failed; run it yourself once the problem is fixed:\n%s", out)
+		} else {
+			s.Done("")
+			installed = true
+		}
+	}
+	if *withGit {
+		s := p.Spin("Creating a git repository")
+		var out []byte
+		var err error
+		for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}, {"commit", "-q", "-m", "Create a Tern app"}} {
+			if out, err = runIn(dir, "git", args...); err != nil {
+				break
+			}
+		}
+		if err != nil {
+			s.Fail()
+			p.Warn("git failed:\n%s", out)
+		} else {
+			s.Done("")
+		}
+	}
+
 	p.Printf("\n  %s\n\n", p.Bold("Next steps"))
-	p.Printf("    %s %s\n", p.Dim("1."), p.Cyan("cd "+dir))
-	p.Printf("    %s %s\n", p.Dim("2."), p.Cyan("npm install"))
-	p.Printf("    %s %s\n\n", p.Dim("3."), p.Cyan("npm run dev"))
+	steps := []string{"cd " + dir}
+	if !installed {
+		steps = append(steps, "npm install")
+	}
+	steps = append(steps, "npm run dev")
+	for i, step := range steps {
+		p.Printf("    %s %s\n", p.Dim(fmt.Sprintf("%d.", i+1)), p.Cyan(step))
+	}
+	p.Printf("\n")
 	return 0
+}
+
+func runIn(dir, name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	return cmd.CombinedOutput()
+}
+
+type newAnswers struct {
+	dir, template    string
+	ui, git, install bool
+}
+
+// askNew asks for tern new's settings. It returns false if input ends
+// before every question is answered.
+func askNew(stdout io.Writer, in io.Reader) (newAnswers, bool) {
+	p := ui.New(stdout)
+	r := bufio.NewReader(in)
+	a := newAnswers{}
+	p.Printf("\n  %s %s\n\n", p.Brand(p.Bold("tern new")), p.Dim(version.String()))
+	ask := func(question, def string) (string, bool) {
+		p.Printf("  %s %s ", p.Bold(question), p.Dim("("+def+")"))
+		line, err := r.ReadString('\n')
+		if err != nil && line == "" {
+			p.Printf("\n")
+			return "", false
+		}
+		if line = strings.TrimSpace(line); line == "" {
+			return def, true
+		}
+		return line, true
+	}
+	yes := func(question string, def bool) (bool, bool) {
+		d := "Y/n"
+		if !def {
+			d = "y/N"
+		}
+		for {
+			ans, ok := ask(question, d)
+			if !ok {
+				return false, false
+			}
+			if ans == d {
+				return def, true // nothing typed
+			}
+			switch strings.ToLower(ans) {
+			case "y", "yes":
+				return true, true
+			case "n", "no":
+				return false, true
+			}
+		}
+	}
+	var ok bool
+	for {
+		if a.dir, ok = ask("Where should the project go?", "my-app"); !ok {
+			return a, false
+		}
+		name := strings.ToLower(filepath.Base(filepath.Clean(a.dir)))
+		if !nameRe.MatchString(name) {
+			p.Printf("  %s\n", p.Dim("Use lowercase letters, digits, '.', '-' and '_'."))
+			continue
+		}
+		if err := checkEmpty(a.dir); err != nil {
+			p.Printf("  %s\n", p.Dim(err.Error()+"; pick another directory."))
+			continue
+		}
+		break
+	}
+	names := []string{"minimal", "blog", "api"}
+	p.Printf("\n")
+	for i, n := range names {
+		p.Printf("    %s %-8s %s\n", p.Dim(fmt.Sprintf("%d.", i+1)), n, p.Dim(templates[n]))
+	}
+	for a.template == "" {
+		ans, ok := ask("Which template?", "1")
+		if !ok {
+			return a, false
+		}
+		for i, n := range names {
+			if ans == n || ans == fmt.Sprint(i+1) {
+				a.template = n
+			}
+		}
+	}
+	p.Printf("\n")
+	if a.ui, ok = yes("Style it with Tern UI?", true); !ok {
+		return a, false
+	}
+	if a.git, ok = yes("Create a git repository?", true); !ok {
+		return a, false
+	}
+	if a.install, ok = yes("Run npm install?", true); !ok {
+		return a, false
+	}
+	p.Printf("\n")
+	return a, true
 }
 
 func checkEmpty(dir string) error {
@@ -123,7 +290,7 @@ func checkEmpty(dir string) error {
 	return nil
 }
 
-func writeTemplate(dir string, data templateData, name string) error {
+func writeTemplate(dir string, data templateData, name string, withUI bool) error {
 	gomod := fmt.Sprintf("module %s\n\ngo 1.26\n", data.Module)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -141,10 +308,21 @@ func writeTemplate(dir string, data templateData, name string) error {
 	if err := writeTree(dir, data, "template", skip); err != nil {
 		return err
 	}
-	if name == "minimal" {
-		return nil // the base template alone
+	if name != "minimal" {
+		if err := writeTree(dir, data, overlay, map[string]bool{"_remove": true}); err != nil {
+			return err
+		}
 	}
-	return writeTree(dir, data, overlay, map[string]bool{"_remove": true})
+	if !withUI {
+		return nil
+	}
+	if err := writeTree(dir, data, "templates/ui", nil); err != nil {
+		return err
+	}
+	if name == "minimal" {
+		return writeTree(dir, data, "templates/ui-minimal", nil)
+	}
+	return nil
 }
 
 // writeTree writes the files under root in templateFS, rendering .tmpl

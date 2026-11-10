@@ -63,3 +63,28 @@ jobs:
           tag=latest
           case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac
           npm publish --provenance --access public --tag "$tag"
+
+  create-tern:
+    name: Publish create-tern to npm
+    # A separate job, so the main package still publishes if this one isn't
+    # set up yet. npm trusts this workflow for create-tern too.
+    if: vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    needs: cli
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - name: Publish
+        working-directory: packages/create-tern
+        run: |
+          npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+          tag=latest
+          case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac
+          npm publish --provenance --access public --tag "$tag"

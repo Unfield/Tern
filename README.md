@@ -35,9 +35,13 @@
 You need Go 1.26+ and Node.js 22+.
 
 ```sh
-go run github.com/Unfield/Tern/cmd/tern@latest new my-app
+go run github.com/Unfield/Tern/cmd/tern@latest new
+```
+
+It asks where to put the project, which template to start from (`minimal`, `blog` or `api`), whether to style it with [Tern UI](docs/ui.md), and whether to create a git repository and install packages. From v1.4, `npm create tern@latest` does the same. Then:
+
+```sh
 cd my-app
-npm install
 npm run dev
 ```
 

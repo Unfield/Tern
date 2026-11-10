@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `tern new` without a directory asks where to create the project, which template to use, whether to style it with Tern UI, and whether to create a git repository and run `npm install`. The flags `-ui`, `-git` and `-install` do the same without questions, and flags may now follow the directory.
+- `npm create tern@latest` (the new `create-tern` package) runs the matching `tern new`.
+
 - `ctx.ClientIP()` and `kit.ClientIP(r)` return the client's address. `kit.WithTrustedProxies` names the reverse proxies whose `X-Forwarded-For` is believed, read from the right so clients can't spoof it. The rate limiting plugin uses it.
 - The server renderer's `Intl.NumberFormat` supports `signDisplay` and `compactDisplay: 'long'`, matching Node's `en-US` output.
 - The guide has a recipe for signing in with a password: sessions, a sign-in action, a hook, guarded pages and signing out.
@@ -19,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Two compiled `tern` binaries had been committed to the repository by accident; they are removed and ignored.
 - The guide's hook example called `sessions.User`, which doesn't exist.
 
 ## [1.3.0] - 2026-11-10

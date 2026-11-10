@@ -36,3 +36,54 @@ func TestNew(t *testing.T) {
 		t.Errorf("invalid name exit code = %d", code)
 	}
 }
+
+func TestNewInteractive(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	oldIn, oldTTY := stdin, stdinIsTerminal
+	t.Cleanup(func() { stdin, stdinIsTerminal = oldIn, oldTTY })
+	stdinIsTerminal = func() bool { return true }
+	// A bad name, then a good one; an unknown template, then blog; Tern UI
+	// yes; git and npm install no.
+	stdin = strings.NewReader("Bad Name\nsite\nnope\n2\n\nn\nno\n")
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"new", "-skip-go-get"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d: %s\n%s", code, stderr.String(), stdout.String())
+	}
+	for _, f := range []string{"site/src/routes/posts", "site/src/routes/+layout.svelte"} {
+		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
+			t.Errorf("missing %s", f)
+		}
+	}
+	layout, _ := os.ReadFile(filepath.Join(root, "site/src/routes/+layout.svelte"))
+	if !strings.Contains(string(layout), "@ternkit/tern/ui/theme.css") {
+		t.Error("the blog with Tern UI should import the theme")
+	}
+	if _, err := os.Stat(filepath.Join(root, "site/.git")); err == nil {
+		t.Error("git was declined")
+	}
+	if !strings.Contains(stdout.String(), "npm install") {
+		t.Error("next steps should still say npm install")
+	}
+
+	stdin = strings.NewReader("other\n")
+	if code := run([]string{"new", "-skip-go-get"}, &stdout, &stderr); code != 1 {
+		t.Errorf("input ending early should fail, got %d", code)
+	}
+}
+
+func TestNewUI(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "app")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"new", "-skip-go-get", dir, "-ui", "-git"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d: %s", code, stderr.String())
+	}
+	page, _ := os.ReadFile(filepath.Join(dir, "src/routes/+page.svelte"))
+	if !strings.Contains(string(page), "@ternkit/tern/ui") {
+		t.Errorf("the minimal page should use Tern UI:\n%s", page)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		t.Errorf("no git repository: %s", stdout.String())
+	}
+}

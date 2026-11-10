@@ -118,11 +118,17 @@ jobs:
           TERN_REQUIRE_COMPAT=1 go test -count=1 -run TestCompat -v ./internal/ssr/
 
   template:
-    name: Starter template (${{ matrix.template }})
+    name: Starter template (${{ matrix.template }}${{ matrix.flags && format(' {0}', matrix.flags) || '' }})
     strategy:
       fail-fast: false
       matrix:
         template: [minimal, blog, api]
+        flags: ['']
+        include:
+          - template: minimal
+            flags: -ui
+          - template: blog
+            flags: -ui
     runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
@@ -136,7 +142,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: tern new, check, build and run
-        run: scripts/test-template.sh ${{ matrix.template }}
+        run: scripts/test-template.sh ${{ matrix.template }} ${{ matrix.flags }}
 
   dev:
     name: tern dev integration

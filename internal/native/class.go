@@ -48,6 +48,25 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 	ifn := &fnCtx{parent: s.fn, this: "th" + id, superProto: parentProto}
 	is := newScope(cs, ifn)
 	var ctorNode *Node
+	// Private methods and accessors come first: field initializers may
+	// call them. Their functions are made once, here, and shared by every
+	// instance, as the spec has it.
+	for _, m := range members {
+		if m.Type != "MethodDefinition" || m.Bool("static") || m.Child("key").Type != "PrivateIdentifier" {
+			continue
+		}
+		keyName := "#" + m.Child("key").Str("name")
+		fv := "pm" + strconv.Itoa(c.site())
+		w.line("%s := %s", fv, c.methodFunction(cs, m.Child("value"), keyName, "", parentProto))
+		switch m.Str("kind") {
+		case "get":
+			iw.line("js.PrivateAccessor(%s, %s, %s, nil)", ifn.this, cs.lookup(keyName).expr, fv)
+		case "set":
+			iw.line("js.PrivateAccessor(%s, %s, nil, %s)", ifn.this, cs.lookup(keyName).expr, fv)
+		default:
+			iw.line("js.PrivateDefine(%s, %s, %s)", ifn.this, cs.lookup(keyName).expr, fv)
+		}
+	}
 	for _, m := range members {
 		switch {
 		case m.Type == "MethodDefinition" && m.Str("kind") == "constructor":
@@ -62,17 +81,6 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 				iw.line("js.PrivateDefine(%s, %s, %s)", ifn.this, cs.lookup(keyName).expr, v)
 			} else {
 				iw.line("js.DefineField(%s, %s, %s)", ifn.this, key, v)
-			}
-		case m.Type == "MethodDefinition" && !m.Bool("static") && m.Child("key").Type == "PrivateIdentifier":
-			keyName := "#" + m.Child("key").Str("name")
-			fn := c.methodFunction(cs, m.Child("value"), keyName, "", parentProto)
-			switch m.Str("kind") {
-			case "get":
-				iw.line("js.PrivateAccessor(%s, %s, %s, nil)", ifn.this, cs.lookup(keyName).expr, fn)
-			case "set":
-				iw.line("js.PrivateAccessor(%s, %s, nil, %s)", ifn.this, cs.lookup(keyName).expr, fn)
-			default:
-				iw.line("js.PrivateDefine(%s, %s, %s)", ifn.this, cs.lookup(keyName).expr, fn)
 			}
 		}
 	}
@@ -112,6 +120,7 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 		}
 	}
 	w.line("%s = js.NewConstructor(%s, %d, nil, func(args []js.Value, newTarget *js.Object) js.Value {\n%s}, %s)", ctor, quote(name), length, cw.String(), proto)
+	w.line("js.AsObject(%s).SetInfo(&%s)", ctor, c.fnInfo(name, length, n))
 	if parent != "" {
 		w.line("js.InheritStatics(%s, %s)", ctor, parent)
 	}

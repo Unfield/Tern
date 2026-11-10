@@ -78,7 +78,7 @@ func (rt *Realm) GetV(v Value, k Value) Value {
 	if o, ok := v.(*Object); ok && o.array != nil {
 		if n, ok := k.(float64); ok {
 			if i := int(n); float64(i) == n && i >= 0 {
-				if a := *o.array; i < len(a) {
+				if a := *o.array; i < len(a) && a[i] != hole {
 					return a[i]
 				}
 				return o.proto.Get(NumberToString(n))

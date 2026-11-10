@@ -40,7 +40,8 @@ func internalize(reviver *Object, holder *Object, key string) Value {
 				k := Itoa(i)
 				nv := internalize(reviver, o, k)
 				if nv == Undefined {
-					(*o.array)[i] = Undefined
+					(*o.array)[i] = hole // the reviver deleted it
+					o.holes = true
 				} else {
 					(*o.array)[i] = nv
 				}
@@ -69,7 +70,7 @@ func (rt *Realm) Stringify(v, replacer, space Value) (string, bool) {
 			seen := map[string]bool{}
 			for _, e := range *r.array {
 				var k string
-				switch x := e.(type) {
+				switch x := unhole(e).(type) {
 				case string:
 					k = x
 				case float64:
@@ -187,7 +188,7 @@ func (st *stringifier) property(b *strings.Builder, holder *Object, key string, 
 				if st.gap != "" {
 					b.WriteString("\n" + st.indent)
 				}
-				if !st.property(b, x, Itoa(i), e) {
+				if !st.property(b, x, Itoa(i), unhole(e)) {
 					b.WriteString("null")
 				}
 			}

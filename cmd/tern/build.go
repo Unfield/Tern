@@ -82,10 +82,25 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	native := cfg.NativeEnabled() && os.Getenv("TERN_NATIVE") != "0"
 	var gen *codegen.Result
 	compile := func(log io.Writer) (string, error) {
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
-		cmd.Stdout, cmd.Stderr = log, log
-		if err := cmd.Run(); err != nil {
-			return "", errors.New("go build failed")
+		goBuild := func(w io.Writer) error {
+			cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
+			cmd.Stdout, cmd.Stderr = w, w
+			return cmd.Run()
+		}
+		var first bytes.Buffer
+		if err := goBuild(&first); err != nil {
+			if _, statErr := os.Stat(nativeFile); statErr != nil || !bytes.Contains(first.Bytes(), []byte(nativeFile)) {
+				_, _ = log.Write(first.Bytes())
+				return "", errors.New("go build failed")
+			}
+			// The compiled renderer doesn't compile: a bug in Tern's
+			// compiler, not the app. Build without it; pages render with the
+			// JavaScript engine.
+			_ = os.Rename(nativeFile, nativeReport+".go.txt")
+			if err := goBuild(log); err != nil {
+				return "", errors.New("go build failed")
+			}
+			return "without native rendering: the compiled renderer didn't build (please report it; it's kept in " + nativeReport + ".go.txt)", nil
 		}
 		return "", nil
 	}

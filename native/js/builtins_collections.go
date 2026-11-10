@@ -142,7 +142,7 @@ func (rt *Realm) setupCollections() {
 					return Undefined
 				}
 				kv := *e.(*Object).array
-				f.invoke(Arg(args, 1), kv[1], kv[0], t)
+				f.invoke(Arg(args, 1), unhole(kv[1]), unhole(kv[0]), t)
 			}
 		})
 		rt.method(proto, "keys", 0, func(t Value, _ []Value) Value { return rt.NewIterator(this(t).iterate(rt, "keys")) })

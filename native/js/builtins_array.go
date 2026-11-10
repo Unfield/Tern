@@ -25,6 +25,13 @@ func (o *Object) Elems() []Value {
 	if o.array == nil {
 		return nil
 	}
+	if o.holes {
+		out := make([]Value, len(*o.array))
+		for i, v := range *o.array {
+			out[i] = unhole(v)
+		}
+		return out
+	}
 	return *o.array
 }
 
@@ -35,10 +42,46 @@ func (o *Object) Push(v ...Value) { *o.array = append(*o.array, v...) }
 func (rt *Realm) elems(this Value) []Value {
 	o := rt.ToObject(this)
 	if o.array != nil {
+		if o.holes {
+			out := make([]Value, len(*o.array))
+			for i, v := range *o.array {
+				out[i] = unhole(v)
+			}
+			return out
+		}
 		return *o.array
 	}
 	return ListFromArrayLike(o)
 }
+
+// rawElems is elems with holes kept, for the methods that skip missing
+// elements.
+func (rt *Realm) rawElems(this Value) []Value {
+	o := rt.ToObject(this)
+	if o.array != nil {
+		return *o.array
+	}
+	return ListFromArrayLike(o)
+}
+
+// newHoley makes an array whose elements may include holes.
+func (rt *Realm) newHoley(elems []Value) *Object {
+	a := rt.NewArray(elems)
+	for _, v := range elems {
+		if v == hole {
+			a.holes = true
+			break
+		}
+	}
+	return a
+}
+
+// NewArrayWithHoles makes an array literal with elisions, like [1, , 3]:
+// Hole marks each missing element.
+func (rt *Realm) NewArrayWithHoles(elems []Value) *Object { return rt.newHoley(elems) }
+
+// Hole is the element of an elision in an array literal.
+var Hole = hole
 
 func callback(args []Value, name string) *Object {
 	f, ok := Arg(args, 0).(*Object)
@@ -76,9 +119,11 @@ func (rt *Realm) setupArray() {
 				}
 				out := make([]Value, l)
 				for i := range out {
-					out[i] = Undefined
+					out[i] = hole
 				}
-				return rt.NewArray(out)
+				a := rt.NewArray(out)
+				a.holes = l > 0
+				return a
 			}
 		}
 		return rt.NewArray(append([]Value(nil), args...))
@@ -130,7 +175,7 @@ func (rt *Realm) setupArray() {
 		return a[i]
 	})
 	rt.method(p, "concat", 1, func(this Value, args []Value) Value {
-		out := append([]Value(nil), rt.elems(this)...)
+		out := append([]Value(nil), rt.rawElems(this)...)
 		for _, a := range args {
 			if IsArray(a) {
 				out = append(out, *a.(*Object).array...)
@@ -138,49 +183,71 @@ func (rt *Realm) setupArray() {
 				out = append(out, a)
 			}
 		}
-		return rt.NewArray(out)
+		return rt.newHoley(out)
 	})
 	iterating := func(name string, fn func(f *Object, thisArg Value, a []Value, arr Value) Value) {
 		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			return fn(callback(args, name), Arg(args, 1), rt.elems(this), this)
 		})
 	}
-	iterating("every", func(f *Object, t Value, a []Value, arr Value) Value {
+	// skipping is iterating for the methods that skip missing elements:
+	// their callbacks never see a hole.
+	skipping := func(name string, fn func(f *Object, thisArg Value, a []Value, arr Value) Value) {
+		rt.method(p, name, 1, func(this Value, args []Value) Value {
+			return fn(callback(args, name), Arg(args, 1), rt.rawElems(this), this)
+		})
+	}
+	skipping("every", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
+			if a[i] == hole {
+				continue
+			}
 			if !Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return false
 			}
 		}
 		return true
 	})
-	iterating("some", func(f *Object, t Value, a []Value, arr Value) Value {
+	skipping("some", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
+			if a[i] == hole {
+				continue
+			}
 			if Truthy(f.invoke(t, a[i], float64(i), arr)) {
 				return true
 			}
 		}
 		return false
 	})
-	iterating("filter", func(f *Object, t Value, a []Value, arr Value) Value {
+	skipping("filter", func(f *Object, t Value, a []Value, arr Value) Value {
 		var out []Value
 		for i := 0; i < len(a); i++ {
 			v := a[i]
+			if v == hole {
+				continue
+			}
 			if Truthy(f.invoke(t, v, float64(i), arr)) {
 				out = append(out, v)
 			}
 		}
 		return rt.NewArray(out)
 	})
-	iterating("map", func(f *Object, t Value, a []Value, arr Value) Value {
+	skipping("map", func(f *Object, t Value, a []Value, arr Value) Value {
 		out := make([]Value, len(a))
 		for i := 0; i < len(a); i++ {
+			if a[i] == hole {
+				out[i] = hole // map keeps the holes
+				continue
+			}
 			out[i] = f.invoke(t, a[i], float64(i), arr)
 		}
-		return rt.NewArray(out)
+		return rt.newHoley(out)
 	})
-	iterating("forEach", func(f *Object, t Value, a []Value, arr Value) Value {
+	skipping("forEach", func(f *Object, t Value, a []Value, arr Value) Value {
 		for i := 0; i < len(a); i++ {
-			f.invoke(t, a[i], float64(i), arr)
+			if a[i] != hole {
+				f.invoke(t, a[i], float64(i), arr)
+			}
 		}
 		return Undefined
 	})
@@ -216,12 +283,15 @@ func (rt *Realm) setupArray() {
 		}
 		return -1.0
 	})
-	iterating("flatMap", func(f *Object, t Value, a []Value, arr Value) Value {
+	skipping("flatMap", func(f *Object, t Value, a []Value, arr Value) Value {
 		var out []Value
 		for i := 0; i < len(a); i++ {
+			if a[i] == hole {
+				continue
+			}
 			r := f.invoke(t, a[i], float64(i), arr)
 			if IsArray(r) {
-				out = append(out, *r.(*Object).array...)
+				out = append(out, rt.elems(r)...)
 			} else {
 				out = append(out, r)
 			}
@@ -231,7 +301,7 @@ func (rt *Realm) setupArray() {
 	reduce := func(name string, right bool) {
 		rt.method(p, name, 1, func(this Value, args []Value) Value {
 			f := callback(args, name)
-			a := rt.elems(this)
+			a := rt.rawElems(this)
 			i, end, step := 0, len(a), 1
 			if right {
 				i, end, step = len(a)-1, -1, -1
@@ -240,14 +310,19 @@ func (rt *Realm) setupArray() {
 			if len(args) >= 2 {
 				acc = args[1]
 			} else {
-				if len(a) == 0 {
+				for i != end && a[i] == hole {
+					i += step
+				}
+				if i == end {
 					panic(TypeErrorf("Reduce of empty array with no initial value"))
 				}
 				acc = a[i]
 				i += step
 			}
 			for ; i != end; i += step {
-				acc = f.invoke(Undefined, acc, a[i], float64(i), this)
+				if a[i] != hole {
+					acc = f.invoke(Undefined, acc, a[i], float64(i), this)
+				}
 			}
 			return acc
 		})
@@ -267,6 +342,9 @@ func (rt *Realm) setupArray() {
 	var flatten func(out, a []Value, depth float64) []Value
 	flatten = func(out, a []Value, depth float64) []Value {
 		for _, v := range a {
+			if v == hole {
+				continue
+			}
 			if depth >= 1 && IsArray(v) {
 				out = flatten(out, *v.(*Object).array, depth-1)
 			} else {
@@ -280,7 +358,7 @@ func (rt *Realm) setupArray() {
 		if d := Arg(args, 0); d != Undefined {
 			depth = ToIntegerOrInfinity(d)
 		}
-		return rt.NewArray(flatten(nil, rt.elems(this), depth))
+		return rt.NewArray(flatten(nil, rt.rawElems(this), depth))
 	})
 	rt.method(p, "includes", 1, func(this Value, args []Value) Value {
 		a := rt.elems(this)
@@ -292,7 +370,7 @@ func (rt *Realm) setupArray() {
 		return false
 	})
 	rt.method(p, "indexOf", 1, func(this Value, args []Value) Value {
-		a := rt.elems(this)
+		a := rt.rawElems(this) // a hole matches nothing
 		for i := relIndex(Arg(args, 1), len(a), 0); i < len(a); i++ {
 			if StrictEquals(a[i], Arg(args, 0)) {
 				return float64(i)
@@ -301,7 +379,7 @@ func (rt *Realm) setupArray() {
 		return -1.0
 	})
 	rt.method(p, "lastIndexOf", 1, func(this Value, args []Value) Value {
-		a := rt.elems(this)
+		a := rt.rawElems(this) // a hole matches nothing
 		from := len(a) - 1
 		if len(args) > 1 {
 			from = relIndex(args[1], len(a), 0)
@@ -364,13 +442,13 @@ func (rt *Realm) setupArray() {
 		return float64(len(*o.array))
 	})
 	rt.method(p, "slice", 2, func(this Value, args []Value) Value {
-		a := rt.elems(this)
+		a := rt.rawElems(this)
 		start := relIndex(Arg(args, 0), len(a), 0)
 		end := relIndex(Arg(args, 1), len(a), len(a))
 		if start >= end {
 			return rt.NewArray(nil)
 		}
-		return rt.NewArray(append([]Value(nil), a[start:end]...))
+		return rt.newHoley(append([]Value(nil), a[start:end]...))
 	})
 	splice := func(a []Value, args []Value) (kept, removed []Value) {
 		start := relIndex(Arg(args, 0), len(a), 0)
@@ -411,7 +489,26 @@ func (rt *Realm) setupArray() {
 	})
 	rt.method(p, "sort", 1, func(this Value, args []Value) Value {
 		o := rt.ToObject(this)
-		rt.sortValues(*o.array, Arg(args, 0))
+		a := *o.array
+		if o.holes {
+			// Holes go last, after undefined.
+			kept := a[:0:0]
+			n := 0
+			for _, v := range a {
+				if v != hole {
+					kept = append(kept, v)
+				} else {
+					n++
+				}
+			}
+			rt.sortValues(kept, Arg(args, 0))
+			for range n {
+				kept = append(kept, hole)
+			}
+			copy(a, kept)
+			return o
+		}
+		rt.sortValues(a, Arg(args, 0))
 		return o
 	})
 	rt.method(p, "toSorted", 1, func(this Value, args []Value) Value {
@@ -558,7 +655,7 @@ func (rt *Realm) iteratorFor(v Value) (func() (Value, bool), bool) {
 					return Undefined, false
 				}
 				i++
-				return a[i-1], true
+				return unhole(a[i-1]), true
 			}, true
 		}
 		if next, ok := x.Internal.(func() (Value, bool)); ok && x.proto == rt.IteratorPrototype {
@@ -614,6 +711,9 @@ func (rt *Realm) ForOf(v Value, fn func(Value) bool) {
 // Spread collects the values of v, for [...v] and f(...v).
 func (rt *Realm) Spread(v Value) []Value {
 	if o, ok := v.(*Object); ok && o.array != nil && o.Get(SymbolIterator) == rt.ArrayValues() {
+		if o.holes {
+			return rt.elems(o)
+		}
 		return append([]Value(nil), *o.array...)
 	}
 	var out []Value

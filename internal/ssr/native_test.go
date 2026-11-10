@@ -94,8 +94,14 @@ func TestNativeVerify(t *testing.T) {
 }
 
 func TestNativeBrokenModules(t *testing.T) {
-	_, err := NewNative(func(func(*js.Realm)) *js.Realm { panic(js.TypeErrorf("module init failed")) }, engineBundle, Options{}, NativeOptions{})
-	if err == nil || !strings.Contains(err.Error(), "module init failed") {
-		t.Fatalf("got %v", err)
+	r, err := NewNative(func(func(*js.Realm)) *js.Realm { panic(js.TypeErrorf("module init failed")) }, engineBundle, Options{Logger: slog.New(slog.DiscardHandler)}, NativeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := r.(*Pool); !ok {
+		t.Fatalf("got a %T, want the engine's pool", r)
+	}
+	if res, err := r.Render(context.Background(), []byte("x"), "http://x/"); err != nil || res.Body != "engine x" {
+		t.Fatalf("got %q, %v", res.Body, err)
 	}
 }

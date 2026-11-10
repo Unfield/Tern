@@ -37,12 +37,16 @@ type Object struct {
 	call      func(this Value, args []Value) Value
 	construct func(args []Value, newTarget *Object) Value
 
-	// Arrays keep their elements here, not in properties.
+	// Arrays keep their elements here, not in properties. holes is set
+	// once an element may be missing (see hole).
 	array *[]Value
+	holes bool
 	// Typed arrays read and write their buffer.
 	typed *typedArray
 	// The private members of class instances.
 	privates []privateSlot
+	// A proxy's target and handler.
+	proxy *proxyData
 
 	// Internal slots: Map and Set data, a RegExp, a Date's time, a boxed primitive.
 	Internal any
@@ -54,8 +58,7 @@ type Object struct {
 	// Functions get their name, length and prototype properties when first
 	// asked for: most closures never are.
 	fnLazy uint8 // lazyNameLength, or lazyPrototype for that and prototype
-	fnLen  int32
-	fnName string
+	fn     *FnInfo
 }
 
 const (
@@ -78,8 +81,8 @@ func (o *Object) sh() *Shape {
 func (o *Object) materialize() {
 	lazy := o.fnLazy
 	o.fnLazy = 0
-	o.add(prop{key: "length", value: float64(o.fnLen), configurable: true})
-	o.add(prop{key: "name", value: o.fnName, configurable: true})
+	o.add(prop{key: "length", value: Box(float64(o.fn.Length)), configurable: true})
+	o.add(prop{key: "name", value: o.fn.Name, configurable: true})
 	if lazy == lazyPrototype {
 		proto := o.realm.NewPlainObject()
 		proto.DefineHidden("constructor", o)
@@ -225,6 +228,13 @@ func arrayIndex(key PropKey) (int, bool) {
 
 // GetOwn returns an own data property's value without running getters.
 func (o *Object) GetOwn(key PropKey) (Value, bool) {
+	if o.proxy != nil {
+		d, ok := o.proxy.ownDescriptor(key).(*Object)
+		if !ok || d.HasOwn("get") || d.HasOwn("set") {
+			return Undefined, false
+		}
+		return d.Get("value"), true
+	}
 	if o.typed != nil {
 		if i, num, idx := canonicalIndex(key); num {
 			if idx && i < o.typed.length {
@@ -236,7 +246,7 @@ func (o *Object) GetOwn(key PropKey) (Value, bool) {
 	if o.array != nil {
 		if i, ok := arrayIndex(key); ok {
 			a := *o.array
-			if i < len(a) {
+			if i < len(a) && a[i] != hole {
 				return a[i], true
 			}
 			return Undefined, false
@@ -268,6 +278,9 @@ func (o *Object) Get(key PropKey) Value { return o.GetFrom(key, o) }
 // for primitives' methods.
 func (o *Object) GetFrom(key PropKey, receiver Value) Value {
 	for p := o; p != nil; p = p.proto {
+		if p.proxy != nil {
+			return p.proxy.get(key, receiver)
+		}
 		if p.typed != nil {
 			if i, num, idx := canonicalIndex(key); num {
 				if idx && i < p.typed.length {
@@ -278,7 +291,7 @@ func (o *Object) GetFrom(key PropKey, receiver Value) Value {
 		}
 		if p.array != nil {
 			if i, ok := arrayIndex(key); ok {
-				if a := *p.array; i < len(a) {
+				if a := *p.array; i < len(a) && a[i] != hole {
 					return a[i]
 				}
 				continue
@@ -304,6 +317,9 @@ func (o *Object) GetFrom(key PropKey, receiver Value) Value {
 // Has is the in operator.
 func (o *Object) Has(key PropKey) bool {
 	for p := o; p != nil; p = p.proto {
+		if p.proxy != nil {
+			return p.proxy.has(key)
+		}
 		if p.HasOwn(key) {
 			return true
 		}
@@ -313,6 +329,9 @@ func (o *Object) Has(key PropKey) bool {
 
 // HasOwn is Object.hasOwn.
 func (o *Object) HasOwn(key PropKey) bool {
+	if o.proxy != nil {
+		return o.proxy.hasOwn(key)
+	}
 	if o.typed != nil {
 		if i, num, idx := canonicalIndex(key); num {
 			return idx && i < o.typed.length
@@ -320,7 +339,7 @@ func (o *Object) HasOwn(key PropKey) bool {
 	}
 	if o.array != nil {
 		if i, ok := arrayIndex(key); ok {
-			return i < len(*o.array)
+			return i < len(*o.array) && (*o.array)[i] != hole
 		}
 		if key == "length" {
 			return true
@@ -335,6 +354,10 @@ func (o *Object) Set(key PropKey, v Value) { o.SetFrom(key, v, o) }
 
 // SetFrom is [[Set]] with a receiver.
 func (o *Object) SetFrom(key PropKey, v Value, receiver Value) {
+	if o.proxy != nil {
+		o.proxy.set(key, v, receiver)
+		return
+	}
 	if o.typed != nil && receiver == Value(o) {
 		if i, num, idx := canonicalIndex(key); num {
 			if !idx {
@@ -350,8 +373,11 @@ func (o *Object) SetFrom(key PropKey, v Value, receiver Value) {
 				panic(TypeErrorf("Cannot assign to read only property '%d' of object", i))
 			}
 			a := o.array
+			if len(*a) < i {
+				o.holes = true
+			}
 			for len(*a) <= i {
-				*a = append(*a, Undefined)
+				*a = append(*a, hole)
 			}
 			(*a)[i] = v
 			return
@@ -362,6 +388,10 @@ func (o *Object) SetFrom(key PropKey, v Value, receiver Value) {
 		}
 	}
 	for p := o; p != nil; p = p.proto {
+		if p.proxy != nil && p != o {
+			p.proxy.set(key, v, receiver)
+			return
+		}
 		if i := p.find(key); i >= 0 {
 			a := p.shape.attrs[i]
 			if a&attrAccessor != 0 {
@@ -406,8 +436,9 @@ func setLength(o *Object, v Value) {
 	case l < len(*a):
 		*a = (*a)[:l]
 	case l > len(*a):
+		o.holes = true
 		for len(*a) < l {
-			*a = append(*a, Undefined)
+			*a = append(*a, hole)
 		}
 	}
 }
@@ -415,6 +446,10 @@ func setLength(o *Object, v Value) {
 // Define makes an own, enumerable, writable data property, as an object
 // literal does.
 func (o *Object) Define(key PropKey, v Value) {
+	if o.proxy != nil {
+		o.proxy.set(key, v, o)
+		return
+	}
 	if o.array != nil {
 		if _, ok := arrayIndex(key); ok {
 			o.Set(key, v)
@@ -462,6 +497,10 @@ func (o *Object) DefineAccessor(key PropKey, get, set *Object, enumerable bool) 
 
 // DefineProperty is Object.defineProperty with a parsed descriptor.
 func (o *Object) DefineProperty(key PropKey, desc *Object) {
+	if o.proxy != nil {
+		o.proxy.defineProperty(key, desc)
+		return
+	}
 	get, hasGet := desc.GetOwn("get")
 	set, hasSet := desc.GetOwn("set")
 	enumerable := Truthy(desc.Get("enumerable"))
@@ -504,6 +543,9 @@ func (o *Object) DefineProperty(key PropKey, desc *Object) {
 
 // Delete is the delete operator.
 func (o *Object) Delete(key PropKey) bool {
+	if o.proxy != nil {
+		return o.proxy.deleteProperty(key)
+	}
 	if o.frozen {
 		panic(TypeErrorf("Cannot delete property '%s'", keyName(key)))
 	}
@@ -518,7 +560,8 @@ func (o *Object) Delete(key PropKey) bool {
 	if o.array != nil {
 		if i, ok := arrayIndex(key); ok {
 			if a := *o.array; i < len(a) {
-				a[i] = Undefined // holes read as undefined
+				a[i] = hole
+				o.holes = true
 			}
 			return true
 		}
@@ -540,6 +583,9 @@ func (o *Object) Delete(key PropKey) bool {
 // OwnKeys lists own property keys in JavaScript's order: array indexes
 // ascending, then strings in creation order, then symbols.
 func (o *Object) OwnKeys(onlyEnumerable, withSymbols bool) []PropKey {
+	if o.proxy != nil {
+		return o.proxy.ownKeys(onlyEnumerable, withSymbols)
+	}
 	s := o.sh()
 	n := len(s.keys)
 	if o.array != nil {
@@ -555,6 +601,9 @@ func (o *Object) OwnKeys(onlyEnumerable, withSymbols bool) []PropKey {
 		elements = o.typed.length
 	}
 	for i := range elements {
+		if o.holes && (*o.array)[i] == hole {
+			continue
+		}
 		out = append(out, indexKey(i))
 	}
 	// Integer keys among the properties come first, in order; then the

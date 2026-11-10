@@ -158,14 +158,14 @@ func (c *Compiler) functionWith(s *scope, n *Node, name string, setup func(*fnCt
 	if f.generator != "" {
 		// The parameters are bound when the generator function is called,
 		// the body runs on the first next().
-		fn := fmt.Sprintf("js.NewGeneratorFunction(%s, %d, func(%s js.Value, %s []js.Value) func(*js.Gen) js.Value {\n%s%s\treturn func(%s *js.Gen) js.Value {\n%s\t}\n})",
-			quote(name), length, thisParam, f.args, prelude, body.String(), f.generator, main.String())
+		fn := fmt.Sprintf("js.WithInfo(js.NewGeneratorFunction(%s, %d, func(%s js.Value, %s []js.Value) func(*js.Gen) js.Value {\n%s%s\treturn func(%s *js.Gen) js.Value {\n%s\t}\n}), &%s)",
+			quote(name), length, thisParam, f.args, prelude, body.String(), f.generator, main.String(), c.fnInfo(name, length, n))
 		if selfName != "" {
 			return iife(fmt.Sprintf("var %s js.Value\n%s = %s\nreturn %s\n", selfName, selfName, fn, selfName))
 		}
 		return "js.Value(" + fn + ")"
 	}
-	fn := fmt.Sprintf("js.NewFunction(%s, %d, func(%s js.Value, %s []js.Value) js.Value {\n%s%s%s})", quote(name), length, thisParam, f.args, prelude, body.String(), main.String())
+	fn := fmt.Sprintf("js.NewFunctionOf(&%s, func(%s js.Value, %s []js.Value) js.Value {\n%s%s%s})", c.fnInfo(name, length, n), thisParam, f.args, prelude, body.String(), main.String())
 	if !arrow {
 		fn = fmt.Sprintf("js.NonArrow(%s)", fn)
 	}

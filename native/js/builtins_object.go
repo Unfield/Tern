@@ -303,7 +303,22 @@ func (rt *Realm) setupFunction() {
 		}
 		return f
 	})
-	rt.method(p, "toString", 0, func(Value, []Value) Value { return "function () { [native code] }" })
+	rt.method(p, "toString", 0, func(this Value, _ []Value) Value {
+		f, ok := this.(*Object)
+		if !ok || f.call == nil {
+			panic(TypeErrorf("Function.prototype.toString requires that 'this' be a Function"))
+		}
+		if f.fn != nil {
+			if src := f.fn.Source(); src != "" {
+				return src // a compiled function: its source text
+			}
+		}
+		name := ""
+		if n, ok := f.Get("name").(string); ok {
+			name = n
+		}
+		return "function " + name + "() {\n    [native code]\n}"
+	})
 }
 
 // ListFromArrayLike turns an array or array-like object into arguments.
@@ -313,7 +328,13 @@ func ListFromArrayLike(v Value) []Value {
 		return nil
 	case *Object:
 		if x.array != nil {
-			return append([]Value(nil), *x.array...)
+			out := append([]Value(nil), *x.array...)
+			if x.holes {
+				for i, v := range out {
+					out[i] = unhole(v)
+				}
+			}
+			return out
 		}
 		n := int(ToIntegerOrInfinity(x.Get("length")))
 		out := make([]Value, n)

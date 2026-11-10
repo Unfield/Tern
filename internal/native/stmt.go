@@ -295,8 +295,21 @@ func (c *Compiler) loop(w *writer, s *scope, n *Node, labels []string) {
 				values = append(values, v)
 			}
 			header()
+			initExpr := join(values)
+			if len(names) > 1 {
+				// Later declarators may read earlier ones, and Go evaluates
+				// all of a for's initializers first: evaluate them in order.
+				types := strings.TrimSuffix(strings.Repeat("js.Value, ", len(names)), ", ")
+				var b strings.Builder
+				fmt.Fprintf(&b, "func() (%s) {\nvar %s js.Value\n", types, join(names))
+				for i, g := range names {
+					fmt.Fprintf(&b, "%s = %s\n", g, values[i])
+				}
+				fmt.Fprintf(&b, "return %s\n}()", join(names))
+				initExpr = b.String()
+			}
 			out.line("%s", mark)
-			out.open("for %s := %s; %s; %s {", join(names), join(values), test, post)
+			out.open("for %s := %s; %s; %s {", join(names), initExpr, test, post)
 			out.line("r.Tick()")
 			for _, g := range names {
 				out.line("_ = %s", g)
@@ -507,11 +520,14 @@ func (c *Compiler) tryStatement(w *writer, s *scope, n *Node) {
 // replayControl continues a return, break or continue that left a try.
 func (c *Compiler) replayControl(w *writer, s *scope, ctl, val string) {
 	f := s.fn
+	w.line("_ = %s", val)
 	w.open("switch %s {", ctl)
-	w.line("case js.CtlReturn:")
-	if f.tryDepth > 0 {
+	switch {
+	case f.tryDepth > 0:
+		w.line("case js.CtlReturn:")
 		w.line("\treturn %s, %s", ctl, val)
-	} else {
+	case !f.module: // a module's top level has nothing to return from
+		w.line("case js.CtlReturn:")
 		w.line("\treturn %s", val)
 	}
 	for _, t := range f.targets {

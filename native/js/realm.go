@@ -101,6 +101,7 @@ func (rt *Realm) setup() {
 	rt.setupTypedArrays()
 	rt.setupGenerators()
 	rt.setupPromise()
+	rt.setupProxy()
 	rt.setupGlobals()
 	rt.Global.sh()
 	rt.Global.reshape() // globals change; reads of them have their own cache

@@ -3,6 +3,7 @@ package native
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -262,6 +263,9 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 		c.problem(n, "dynamic import()")
 		return "js.Fail(\"import()\")"
 	case "MetaProperty":
+		if n.Child("meta").Str("name") == "import" && n.Child("property").Str("name") == "meta" {
+			return c.importMeta()
+		}
 		c.problem(n, "%s.%s", n.Child("meta").Str("name"), n.Child("property").Str("name"))
 		return "js.Fail(\"meta property\")"
 	case "ParenthesizedExpression":
@@ -269,6 +273,43 @@ func (c *Compiler) expr(s *scope, n *Node) string {
 	}
 	c.problem(n, "the %s expression", n.Type)
 	return "js.Fail(" + quote(n.Type) + ")"
+}
+
+// importMeta is import.meta as the server bundle has it: the build's env
+// and the final URLs of the assets the module references.
+func (c *Compiler) importMeta() string {
+	lit := func(v any) string {
+		switch x := v.(type) {
+		case string:
+			return quote(x)
+		case bool:
+			return strconv.FormatBool(x)
+		case float64:
+			return "float64(" + strconv.FormatFloat(x, 'g', -1, 64) + ")"
+		}
+		return "js.Undefined"
+	}
+	keys := func(m map[string]any) []string {
+		out := make([]string, 0, len(m))
+		for k := range m {
+			out = append(out, k)
+		}
+		sort.Strings(out)
+		return out
+	}
+	var env []string
+	for _, k := range keys(c.ir.Env) {
+		env = append(env, quote(k), lit(c.ir.Env[k]))
+	}
+	parts := []string{`"url"`, quote("file:///" + c.cur.id), `"env"`, "r.Obj(" + strings.Join(env, ", ") + ")"}
+	urls := map[string]any{}
+	for k, v := range c.ir.FileURLs {
+		urls[k] = v
+	}
+	for _, k := range keys(urls) {
+		parts = append(parts, quote(k), lit(urls[k]))
+	}
+	return "js.Value(r.Obj(" + strings.Join(parts, ", ") + "))"
 }
 
 // globalRead reads an undeclared name from globalThis, with a cache.
@@ -346,11 +387,12 @@ func (c *Compiler) thisExpr(s *scope, _ *Node) string {
 
 func (c *Compiler) array(s *scope, elems []*Node) string {
 	var parts []string
-	spread := false
+	spread, holes := false, false
 	for _, e := range elems {
 		switch {
 		case e == nil:
-			parts = append(parts, "js.Undefined")
+			parts = append(parts, "js.Hole")
+			holes = true
 		case e.Type == "SpreadElement":
 			spread = true
 			parts = append(parts, "...")
@@ -358,8 +400,12 @@ func (c *Compiler) array(s *scope, elems []*Node) string {
 			parts = append(parts, c.expr(s, e))
 		}
 	}
+	newArray := "js.NewArray"
+	if holes {
+		newArray = "js.NewArrayWithHoles"
+	}
 	if !spread {
-		return "js.Value(js.NewArray([]js.Value{" + join(parts) + "}))"
+		return "js.Value(" + newArray + "([]js.Value{" + join(parts) + "}))"
 	}
 	expr := "[]js.Value{}"
 	for i, e := range elems {
@@ -369,7 +415,7 @@ func (c *Compiler) array(s *scope, elems []*Node) string {
 			expr = fmt.Sprintf("append(%s, %s)", expr, parts[i])
 		}
 	}
-	return "js.Value(js.NewArray(" + expr + "))"
+	return "js.Value(" + newArray + "(" + expr + "))"
 }
 
 func propKey(c *Compiler, s *scope, p *Node) (string, string) {

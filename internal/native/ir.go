@@ -17,10 +17,17 @@ type IR struct {
 	Version int    `json:"version"`
 	Svelte  string `json:"svelte"`
 	Entry   string `json:"entry"`
-	Modules []struct {
+	// Env is import.meta.env in the server build.
+	Env map[string]any `json:"env"`
+	// FileURLs maps import.meta's asset URL placeholders to the URLs
+	// the bundle has.
+	FileURLs map[string]string `json:"fileUrls"`
+	Modules  []struct {
 		ID      string             `json:"id"`
 		Imports map[string]*string `json:"imports"`
 		AST     *Node              `json:"ast"`
+		// Code is the module's source, for functions' toString.
+		Code string `json:"code"`
 	} `json:"modules"`
 }
 
@@ -44,6 +51,7 @@ func LoadIR(path string) (*IR, error) {
 type Node struct {
 	Type   string
 	Start  int
+	End    int
 	fields map[string]json.RawMessage
 	cache  map[string]any
 }
@@ -58,6 +66,9 @@ func (n *Node) UnmarshalJSON(b []byte) error {
 	}
 	if s, ok := n.fields["start"]; ok {
 		_ = json.Unmarshal(s, &n.Start)
+	}
+	if e, ok := n.fields["end"]; ok {
+		_ = json.Unmarshal(e, &n.End)
 	}
 	return nil
 }

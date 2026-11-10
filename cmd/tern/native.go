@@ -16,6 +16,9 @@ const nativeFile = "tern_native.gen.go"
 // nativeIR is where the Vite plugin records the server build's modules.
 const nativeIR = ".tern/native/ir.json"
 
+// nativeSources is the modules' code, embedded for functions' toString.
+const nativeSources = ".tern/native/sources.gz"
+
 // nativeReport lists what native rendering leaves to the JavaScript engine.
 const nativeReport = ".tern/native/report.txt"
 
@@ -27,10 +30,13 @@ func compileNative(log io.Writer) (string, error) {
 	if err != nil {
 		return "skipped: " + err.Error(), nil //nolint:nilerr // the engine renders instead
 	}
-	res, err := native.Compile(ir, native.Options{Package: "main", Prefix: "tern", Register: "ternManifest.Native"})
+	res, err := native.Compile(ir, native.Options{Package: "main", Prefix: "tern", Register: "ternManifest.Native", EmbedSources: nativeSources})
 	if err != nil {
 		fmt.Fprintln(log, err)
 		return "skipped: the compiler failed, see " + nativeReport, writeReport(res, err)
+	}
+	if err := os.WriteFile(nativeSources, res.Sources, 0o644); err != nil {
+		return "", err
 	}
 	if err := os.WriteFile(nativeFile, res.Source, 0o644); err != nil {
 		return "", err

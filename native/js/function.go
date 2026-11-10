@@ -1,9 +1,38 @@
 package js
 
-// NewFunction makes a function object. length is the number of declared
-// parameters, as fn.length reports it.
+// FnInfo is what a function knows about itself: its name, its length (the
+// number of declared parameters) and, for compiled functions, its source
+// text, which toString returns. Compiled code has one per function in its
+// source, shared by every closure made from it.
+type FnInfo struct {
+	Name   string
+	Length int
+	// Src, Module, Start and End locate the source text: UTF-16 offsets
+	// into one module of Src.
+	Src                *Sources
+	Module, Start, End int
+}
+
+// Source is the function's source text, or "" for a built-in.
+func (f *FnInfo) Source() string {
+	if f.Src == nil {
+		return ""
+	}
+	u := Units(f.Src.Module(f.Module))
+	if f.Start < 0 || f.End > len(u) || f.Start > f.End {
+		return ""
+	}
+	return FromUnits(u[f.Start:f.End])
+}
+
+// NewFunction makes a function object.
 func (rt *Realm) NewFunction(name string, length int, fn func(this Value, args []Value) Value) *Object {
-	return &Object{proto: rt.FunctionPrototype, call: fn, Class: "Function", realm: rt, fnLazy: lazyNameLength, fnLen: int32(length), fnName: name}
+	return rt.NewFunctionOf(&FnInfo{Name: name, Length: length}, fn)
+}
+
+// NewFunctionOf makes a function object described by info.
+func (rt *Realm) NewFunctionOf(info *FnInfo, fn func(this Value, args []Value) Value) *Object {
+	return &Object{proto: rt.FunctionPrototype, call: fn, Class: "Function", realm: rt, fnLazy: lazyNameLength, fn: info}
 }
 
 // NewConstructor makes a function that new can call, with a prototype

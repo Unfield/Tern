@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/url"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -65,8 +66,8 @@ type NativeOptions struct {
 }
 
 // NewNative returns a native renderer. bundle is the server bundle, for
-// the QuickJS fallback. It makes one realm up front, so an app whose
-// modules fail to evaluate fails at startup.
+// the QuickJS fallback. It makes one realm up front: if the compiled
+// modules can't be evaluated, every page renders with the engine.
 func NewNative(newRealm NewRealm, bundle string, opts Options, nopts NativeOptions) (Renderer, error) {
 	if opts.Workers <= 0 {
 		opts.Workers = runtime.GOMAXPROCS(0)
@@ -83,7 +84,8 @@ func NewNative(newRealm NewRealm, bundle string, opts Options, nopts NativeOptio
 	n := &Native{opts: opts, newRealm: newRealm, bundle: bundle, slots: make(chan *realmSlot, opts.Workers), closed: make(chan struct{})}
 	first, err := n.newSlot()
 	if err != nil {
-		return nil, err
+		opts.Logger.Warn("ssr: rendering every page with the JavaScript engine: native rendering can't start", "err", err)
+		return NewPool(bundle, opts)
 	}
 	n.slots <- first
 	for range opts.Workers - 1 {
@@ -351,6 +353,8 @@ func (v *verifying) Render(ctx context.Context, payload []byte, href string) (Re
 		nerr = json.Unmarshal([]byte(out), &got)
 	}
 	switch {
+	case nerr != nil && strings.Contains(nerr.Error(), "not compiled to Go"):
+		n.opts.Logger.Info("ssr: page uses what isn't compiled to Go; the engine renders it", "url", href, "err", nerr)
 	case nerr != nil:
 		n.opts.Logger.Error("ssr: native rendering failed where the engine didn't", "url", href, "err", nerr)
 	case got != want:

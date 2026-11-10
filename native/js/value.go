@@ -20,6 +20,22 @@ type Value = any
 type undefinedType struct{}
 type nullType struct{}
 
+// hole marks a missing element of an array, as new Array(3) has: it reads
+// as undefined, but the element isn't there, so in, Object.keys and the
+// array methods that skip missing elements see that. It never leaves the
+// array's storage.
+type holeType struct{}
+
+var hole Value = holeType{}
+
+// unhole is v as JavaScript sees an element: undefined for a hole.
+func unhole(v Value) Value {
+	if v == hole {
+		return Undefined
+	}
+	return v
+}
+
 // The two values that aren't objects or primitives of a Go type.
 var (
 	Undefined Value = undefinedType{}

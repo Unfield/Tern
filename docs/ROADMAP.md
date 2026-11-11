@@ -241,8 +241,8 @@ Every page rendered by Go, and smaller binaries.
 
 - [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: most of what a render still costs ([ADR 0013](adr/0013-native-rendering-phase-2.md))
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
-- [ ] `tern build` leaves the JavaScript engine out of apps that don't need it, for smaller binaries
-- [ ] Native rendering for emails and live components too
+- [x] `tern build` leaves the JavaScript engine out of apps that don't need it, for smaller binaries
+- [x] Native rendering for emails and live components too
 
 ## Later
 

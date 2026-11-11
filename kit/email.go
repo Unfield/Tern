@@ -68,6 +68,9 @@ func (a *App) emailRenderer() (ssr.EmailRenderer, error) {
 		case *ssr.Pool:
 			a.emails = r
 			return
+		case ssr.EmailRenderer:
+			a.emails = r // the native renderer: compiled emails, the engine when it must
+			return
 		case *ssr.Cache:
 			if p, ok := r.Next().(ssr.EmailRenderer); ok {
 				a.emails = p

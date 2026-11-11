@@ -22,10 +22,15 @@ const nativeSources = ".tern/native/sources.gz"
 // nativeReport lists what native rendering leaves to the JavaScript engine.
 const nativeReport = ".tern/native/report.txt"
 
+// engineFree is whether the compiler left nothing to the JavaScript
+// engine, so the binary can be built without it.
+var engineFree bool
+
 // compileNative compiles the server build to Go. It doesn't fail the
 // build: without the file, pages render with the JavaScript engine as
 // before.
 func compileNative(log io.Writer) (string, error) {
+	engineFree = false
 	ir, err := native.LoadIR(nativeIR)
 	if err != nil {
 		return "skipped: " + err.Error(), nil //nolint:nilerr // the engine renders instead
@@ -45,6 +50,7 @@ func compileNative(log io.Writer) (string, error) {
 		return "", err
 	}
 	if len(res.Problems) == 0 {
+		engineFree = true
 		return fmt.Sprintf("%d modules", res.Modules), nil
 	}
 	return fmt.Sprintf("%d modules; %d constructs use the JavaScript engine, see %s", res.Modules, len(res.Problems), nativeReport), nil

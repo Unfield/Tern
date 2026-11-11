@@ -18,6 +18,8 @@ test: ## Run Go tests with the race detector
 .PHONY: vet
 vet: ## Run go vet
 	go vet ./...
+	# Binaries tern build makes without the JavaScript engine.
+	go vet -tags tern_nojs ./internal/ssr/ ./kit/
 
 .PHONY: lint
 lint: ## Run golangci-lint and the TypeScript typecheck

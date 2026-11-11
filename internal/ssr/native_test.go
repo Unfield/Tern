@@ -115,3 +115,47 @@ func TestNativeBrokenModules(t *testing.T) {
 		t.Fatalf("got %q, %v", res.Body, err)
 	}
 }
+
+func TestNativeEmails(t *testing.T) {
+	bundle := engineBundle + `
+globalThis.__tern_email = (name, props) => JSON.stringify({ subject: "engine " + name, html: "<p>" + props + "</p>" })`
+	newRealm := func(setup func(*js.Realm)) *js.Realm {
+		rt := fakeRealm(func(*js.Realm, string) js.Value { return `{"head":"","body":""}` })(setup)
+		rt.Global.DefineHidden("__tern_email", rt.NewFunction("__tern_email", 2, func(_ js.Value, args []js.Value) js.Value {
+			name := js.ToString(js.Arg(args, 0))
+			if name == "Unsupported" {
+				panic(js.NotSupported("a BigInt typed array"))
+			}
+			if name == "" {
+				return `{"Welcome":{}}`
+			}
+			return `{"subject":"native ` + name + `","html":"<p>` + strings.ReplaceAll(js.ToString(js.Arg(args, 1)), `"`, `\"`) + `</p>"}`
+		}))
+		return rt
+	}
+	r, err := NewNative(newRealm, bundle, Options{Workers: 1, Logger: slog.New(slog.DiscardHandler)}, NativeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.(*Native).Close() }()
+	em := r.(EmailRenderer)
+	if res, _, err := em.Email(context.Background(), "Welcome", []byte(`{"name":"Ada"}`)); err != nil || res.Subject != "native Welcome" || res.HTML != `<p>{"name":"Ada"}</p>` {
+		t.Fatalf("native: %+v %v", res, err)
+	}
+	if res, _, err := em.Email(context.Background(), "Unsupported", []byte(`{}`)); err != nil || res.Subject != "engine Unsupported" {
+		t.Fatalf("fallback: %+v %v", res, err)
+	}
+	if _, list, err := em.Email(context.Background(), "", nil); err != nil || string(list) != `{"Welcome":{}}` {
+		t.Fatalf("the list: %s %v", list, err)
+	}
+
+	// Without templates, natively as with the engine.
+	plain, err := NewNative(fakeRealm(func(*js.Realm, string) js.Value { return `{"head":"","body":""}` }), engineBundle, Options{Workers: 1, Logger: slog.New(slog.DiscardHandler)}, NativeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = plain.(*Native).Close() }()
+	if _, _, err := plain.(EmailRenderer).Email(context.Background(), "Welcome", nil); !errors.Is(err, ErrNoEmails) {
+		t.Fatalf("no templates: %v", err)
+	}
+}

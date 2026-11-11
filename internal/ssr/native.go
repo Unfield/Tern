@@ -329,6 +329,98 @@ func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href str
 	return res, nil
 }
 
+// Email renders an email template natively, or with the JavaScript
+// engine when the realm can't, as Render does for pages.
+func (n *Native) Email(ctx context.Context, name string, props []byte) (EmailResult, []byte, error) {
+	out, err := n.callNative(ctx, "__tern_email", name, string(props))
+	var fe *fallbackError
+	if errors.As(err, &fe) {
+		if _, seen := n.reasons.LoadOrStore(fe.reason, true); !seen {
+			n.opts.Logger.Warn("ssr: rendering an email with the JavaScript engine: native rendering failed", "reason", fe.reason, "email", name)
+		}
+		p, perr := n.fallbackPool()
+		if perr != nil {
+			return EmailResult{}, nil, perr
+		}
+		return p.Email(ctx, name, props)
+	}
+	if err != nil {
+		return EmailResult{}, nil, err
+	}
+	return decodeEmail(name, out)
+}
+
+// callNative runs a global function of the compiled modules that returns
+// a string, in a free realm.
+func (n *Native) callNative(ctx context.Context, fn string, args ...string) (string, error) {
+	var s *realmSlot
+	select {
+	case s = <-n.slots:
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-n.closed:
+		return "", errors.New("ssr: renderer closed")
+	}
+	if s == nil {
+		var err error
+		if s, err = n.newSlot(); err != nil {
+			n.slots <- nil
+			return "", &fallbackError{reason: err.Error()}
+		}
+	}
+	f, ok := s.rt.Global.Get(fn).(*js.Object)
+	if !ok || !f.IsCallable() {
+		n.slots <- s
+		if fn == "__tern_email" {
+			return "", ErrNoEmails
+		}
+		return "", &fallbackError{reason: fn + " isn't defined"}
+	}
+	out, err := n.call(ctx, s, f, args)
+	if err != nil {
+		n.slots <- nil
+		return "", err
+	}
+	n.slots <- s
+	return out, nil
+}
+
+func (n *Native) call(ctx context.Context, s *realmSlot, f *js.Object, args []string) (out string, err error) {
+	ctx, cancel := context.WithTimeout(ctx, n.opts.Timeout)
+	defer cancel()
+	stop := context.AfterFunc(ctx, s.rt.Interrupt)
+	defer stop()
+	s.ctx = ctx
+	defer func() {
+		s.ctx = nil
+		r := recover()
+		if r == nil {
+			return
+		}
+		if r == any(js.ErrInterrupted) {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				err = ErrTimeout
+			} else {
+				err = ctx.Err()
+			}
+			return
+		}
+		_, thrown := r.(*js.Throw)
+		err = &fallbackError{reason: describePanic(r), thrown: thrown}
+	}()
+	vals := make([]js.Value, len(args))
+	for i, a := range args {
+		vals[i] = a
+	}
+	v := js.Call(f, js.Undefined, vals...)
+	s.rt.DropJobs()
+	str, ok := v.(string)
+	if !ok {
+		return "", &fallbackError{reason: fmt.Sprintf("%s returned %s", f.Get("name"), js.Typeof(v))}
+	}
+	return str, nil
+}
+
 // pathOf is href without its origin, query and fragment.
 func pathOf(href string) string {
 	u, err := url.Parse(href)
@@ -407,6 +499,11 @@ func (v *verifying) Render(ctx context.Context, payload []byte, href string) (Re
 }
 
 func (v *verifying) Close() error { return v.native.Close() }
+
+// Email renders emails natively; verify mode checks pages.
+func (v *verifying) Email(ctx context.Context, name string, props []byte) (EmailResult, []byte, error) {
+	return v.native.Email(ctx, name, props)
+}
 
 // firstDiff describes where two results first differ.
 func firstDiff(a, b Result) string {

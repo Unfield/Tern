@@ -93,10 +93,14 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 			// compiler, not the app. Build without it; pages render with the
 			// JavaScript engine.
 			_ = os.Rename(nativeFile, nativeReport+".go.txt")
+			engineFree = false
 			if err := goBuild(log); err != nil {
 				return "", errors.New("go build failed")
 			}
 			return "without native rendering: the compiled renderer didn't build (please report it; it's kept in " + nativeReport + ".go.txt)", nil
+		}
+		if withoutEngine(native) {
+			return "without the JavaScript engine: every page compiles to Go", nil
 		}
 		return "", nil
 	}
@@ -189,10 +193,27 @@ func goBuildTo(w io.Writer, out string, native bool, env []string) error {
 		// the hot paths are in native/js.
 		args = append(args, "-gcflags=-l")
 	}
+	if withoutEngine(native) {
+		args = append(args, "-tags=tern_nojs")
+	}
 	cmd := exec.Command("go", append(args, "-o", out, ".")...)
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout, cmd.Stderr = w, w
 	return cmd.Run()
+}
+
+// withoutEngine is whether the binary leaves the JavaScript engine out:
+// everything compiled to Go, and nothing asks to keep it. TERN_KEEP_ENGINE=1
+// keeps it, and so do build tags of the app's own in GOFLAGS, which
+// -tags would replace.
+func withoutEngine(native bool) bool {
+	if !native || !engineFree || os.Getenv("TERN_KEEP_ENGINE") == "1" {
+		return false
+	}
+	if _, err := os.Stat(nativeFile); err != nil {
+		return false
+	}
+	return !strings.Contains(os.Getenv("GOFLAGS"), "-tags")
 }
 
 // crossBuild reports whether GOOS or GOARCH name another system than this

@@ -57,7 +57,7 @@ func Setup(c *goscript.Component) {
 	for _, want := range []string{
 		"export interface Todo {",
 		"\tdone?: boolean;",
-		"\ttodos: Array<Todo> | null;",
+		"\ttodos: Array<Todo>;",
 		"\tdraft: string;",
 		"\tcount: number;",
 		"\tonline: number;",

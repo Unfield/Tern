@@ -34,6 +34,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"time"
+
+	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 // Component is one mounted instance of a component. Its methods, and the
@@ -132,7 +134,7 @@ func (c *Component) Emit(name string, v any) {
 	if c.rendering || c.closed || c.hooks.event == nil {
 		return
 	}
-	b, err := json.Marshal(v)
+	b, err := json.Marshal(nilslices.Remove(v))
 	if err != nil {
 		b = []byte("null")
 	}
@@ -209,7 +211,7 @@ func (c *Component) publish(name string, v any) {
 	if c.closed || name == "" {
 		return
 	}
-	b, err := json.Marshal(v)
+	b, err := json.Marshal(nilslices.Remove(v))
 	if err != nil {
 		b = []byte("null")
 	}
@@ -353,7 +355,7 @@ func (c *Component) call(name string, argsJSON []byte) ([]byte, error) {
 		}
 		result = o.Interface()
 	}
-	return json.Marshal(result)
+	return json.Marshal(nilslices.Remove(result))
 }
 
 // bind sets a State declared with Bind from the page.

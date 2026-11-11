@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
@@ -18,6 +19,7 @@
 </script>
 
 <button
+	use:announce={pressed}
 	type="button"
 	class="tern-toggle {variant} {size} {klass}"
 	aria-pressed={pressed}

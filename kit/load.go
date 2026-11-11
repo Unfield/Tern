@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 	"slices"
 	"sync"
+
+	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 type loadResult struct {
@@ -142,7 +144,7 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 
 // encodeNode marshals a load result, which must encode to a JSON object.
 func encodeNode(v any) (json.RawMessage, error) {
-	b, err := json.Marshal(v)
+	b, err := json.Marshal(nilslices.Remove(v))
 	if err != nil {
 		return nil, fmt.Errorf("kit: encoding load data: %w", err)
 	}

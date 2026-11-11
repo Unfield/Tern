@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import { tb } from '../runtime/i18n.svelte.js';
 	import { getField } from './field.js';
 	import { float } from './floating.js';
@@ -204,7 +205,7 @@
 	<span class="icon" aria-hidden="true">
 		{#if searching}<Spinner size="0.875rem" label="Searching" />{:else}<svg viewBox="0 0 16 16" width="14" height="14"><path d="M5 6.5l3-3 3 3M5 9.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>{/if}
 	</span>
-	{#if name}<input type="hidden" {name} value={value ?? ''} />{/if}
+	{#if name}<input type="hidden" {name} value={value ?? ''} use:announce={value} />{/if}
 	<div bind:this={list} id="{id}-list" class="list" role="listbox" aria-label={label} aria-labelledby={field?.labelId} popover="manual" class:open>
 		{#if open}
 			{#each grouped(shown) as g, gi (gi)}

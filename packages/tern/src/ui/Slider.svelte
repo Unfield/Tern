@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import { getField } from './field.js';
 
 	type Props = {
@@ -88,7 +89,7 @@
 	}
 </script>
 
-<div class="tern-slider {klass}" class:disabled={off}>
+<div class="tern-slider {klass}" class:disabled={off} use:announce={value}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={track}

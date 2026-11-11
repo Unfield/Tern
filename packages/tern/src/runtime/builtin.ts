@@ -33,6 +33,7 @@ export const builtin: Record<string, string> = {
 	"tern.ui.datePicker.placeholderRange": "Pick dates",
 	"tern.ui.dialog.close": "Close",
 	"tern.ui.donutChart.total": "total",
+	"tern.ui.form.summary": "{n, plural, one {# field needs attention.} other {# fields need attention.}}",
 	"tern.ui.navigationMenu.label": "Main",
 	"tern.ui.pagination.label": "Pagination",
 	"tern.ui.pagination.next": "Next ›",

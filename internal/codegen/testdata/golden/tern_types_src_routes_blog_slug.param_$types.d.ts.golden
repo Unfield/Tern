@@ -23,7 +23,7 @@ export interface Session {
 /** Go type example.com/app/src/routes/blog/slug.param.Comment */
 export interface Comment {
 	body: string;
-	replies: Array<Comment> | null;
+	replies: Array<Comment>;
 }
 
 /** Go type example.com/app/src/routes/blog/slug.param.Base */
@@ -36,16 +36,16 @@ export interface Post {
 	title: string;
 	slug: string;
 	views: string;
-	tags: Array<string> | null;
+	tags: Array<string>;
 	meta: Record<string, unknown> | null;
-	comments: Array<Comment> | null;
+	comments: Array<Comment>;
 	draft?: boolean | null;
 	raw: string;
 	scores: Array<number>;
 	by_id: Record<string, string> | null;
 	"odd-name": string;
 	Untagged: boolean;
-	related: Promise<Array<Base> | null>;
+	related: Promise<Array<Base>>;
 }
 
 /** Go type example.com/app/src/routes/blog/slug.param.Saved */

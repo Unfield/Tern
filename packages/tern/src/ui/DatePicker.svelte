@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import { tb } from '../runtime/i18n.svelte.js';
 	import Calendar, { type DateRange } from './Calendar.svelte';
 	import Popover from './Popover.svelte';
@@ -91,9 +92,9 @@
 </Popover>
 {#if name}
 	{#if mode === 'single'}
-		<input type="hidden" {name} value={(value as ISODate | null) ?? ''} />
+		<input type="hidden" {name} value={(value as ISODate | null) ?? ''} use:announce={value} />
 	{:else}
-		<input type="hidden" {name} value={(value as DateRange | null)?.start ?? ''} />
+		<input type="hidden" {name} value={(value as DateRange | null)?.start ?? ''} use:announce={value} />
 		<input type="hidden" name="{name}_end" value={(value as DateRange | null)?.end ?? ''} />
 	{/if}
 {/if}

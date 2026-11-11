@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 // Broker carries messages between server processes, so live components on
@@ -189,7 +191,7 @@ func deliverLocal(topic string, raw []byte) {
 // Func saves a change to the database, then publishes that it happened, and
 // every subscribed component reloads what it shows.
 func Publish(ctx context.Context, topic string, v any) error {
-	raw, err := json.Marshal(v)
+	raw, err := json.Marshal(nilslices.Remove(v))
 	if err != nil {
 		return err
 	}
@@ -260,7 +262,7 @@ func (s *SharedSignal[T]) connect(ctx context.Context, b Broker) {
 }
 
 func (s *SharedSignal[T]) encode() json.RawMessage {
-	b, _ := json.Marshal(s.g.Get())
+	b, _ := json.Marshal(nilslices.Remove(s.g.Get()))
 	return b
 }
 
@@ -288,7 +290,7 @@ func (s *SharedSignal[T]) Update(fn func(T) T) {
 	s.owner = replicaID
 	clock := s.clock
 	s.g.Set(v)
-	data, _ := json.Marshal(v)
+	data, _ := json.Marshal(nilslices.Remove(v))
 	s.mu.Unlock()
 	if b, ctx := currentBroker(); b != nil {
 		go func() { _ = s.send(ctx, b, clock, data) }()

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
@@ -32,7 +33,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<span class="label" id="tern-switch-{uid}" onclick={() => !disabled && (checked = !checked)}>{@render children()}</span>
 	{/if}
-	{#if name}<input type="hidden" {name} value={checked ? 'on' : 'off'} />{/if}
+	{#if name}<input type="hidden" {name} value={checked ? 'on' : 'off'} use:announce={checked} />{/if}
 </span>
 
 <style>

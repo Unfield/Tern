@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { announce } from './announce.js';
 	import type { Snippet } from 'svelte';
 	import { getField } from './field.js';
 
@@ -58,6 +59,7 @@
 </script>
 
 <div
+	use:announce={value}
 	class="tern-toggle-group {size} {klass}"
 	role={type === 'single' ? 'radiogroup' : 'group'}
 	aria-label={field ? undefined : label}

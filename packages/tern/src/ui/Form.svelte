@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { tick, type Snippet } from 'svelte';
 	import type { HTMLFormAttributes } from 'svelte/elements';
 	import { enhance as enhanceAction } from '../runtime/forms.js';
@@ -67,14 +68,18 @@
 	// A field and the fields that must match it, such as a password and its confirmation.
 	const related = (name: string) => [name, ...rules.filter((f) => f.rules?.some((r) => r.name === 'same' && r.arg === name)).map((f) => f.name)];
 
+	// A control's name: its own, or for controls posting through hidden
+	// inputs, its Field's.
+	const nameOf = (t: EventTarget | null) => (t as HTMLInputElement | null)?.name || (t as HTMLElement | null)?.closest?.('[data-tern-field]')?.getAttribute('data-tern-field') || '';
+
 	function oninput(e: Event) {
-		const name = (e.target as HTMLInputElement | null)?.name;
+		const name = nameOf(e.target);
 		if (!name) return;
 		edited = { ...edited, [name]: true };
 		if (touched[name] || submitted) check(related(name).filter((n) => touched[n] || submitted || n === name));
 	}
 	function onfocusout(e: FocusEvent) {
-		const name = (e.target as HTMLInputElement | null)?.name;
+		const name = nameOf(e.target);
 		// Don't complain about a field the user only passed through.
 		if (!name || !byName.has(name) || (!edited[name] && !submitted)) return;
 		touched = { ...touched, [name]: true };
@@ -91,7 +96,7 @@
 			summary = '';
 			return true;
 		}
-		summary = names.length === 1 ? '1 field needs attention.' : `${names.length} fields need attention.`;
+		summary = tb('tern.ui.form.summary', { n: names.length });
 		void tick().then(() => el?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
 		return false;
 	}

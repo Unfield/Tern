@@ -54,7 +54,7 @@
 	});
 </script>
 
-<div class="tern-field {klass}" class:disabled>
+<div class="tern-field {klass}" class:disabled data-tern-field={name}>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<label for={custom ? undefined : id} id="{id}-label" onclick={custom ? () => document.getElementById(id)?.focus() : undefined}>
 		{label}

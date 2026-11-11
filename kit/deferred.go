@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 // Deferred is a value that a load starts computing but does not wait for.
@@ -120,7 +122,7 @@ func (a *App) streamDeferred(c *Ctx, write func(chunk []byte)) {
 				}
 				chunk.Error = &errorBody{Message: msg}
 			} else {
-				chunk.Data = d.value
+				chunk.Data = nilslices.Remove(d.value)
 			}
 			b, err := json.Marshal(chunk)
 			if err != nil {

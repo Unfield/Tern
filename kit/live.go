@@ -12,6 +12,7 @@ import (
 
 	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/internal/jsondiff"
+	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 // LivePath is the WebSocket that live Go components (<script lang="go"
@@ -397,6 +398,6 @@ func liveInitial(ctx context.Context, args []any) (any, error) {
 		b, _ := json.Marshal(map[string]string{"__tern_error": msg})
 		return string(b), nil
 	}
-	b, _ := json.Marshal(state)
+	b, _ := json.Marshal(nilslices.Remove(state))
 	return string(b), nil
 }

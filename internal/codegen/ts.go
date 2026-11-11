@@ -86,7 +86,7 @@ func (e *tsEmitter) typeOf(t types.Type) string {
 		if isByte(u.Elem()) {
 			return "string" // base64
 		}
-		return orNull("Array<" + e.typeOf(u.Elem()) + ">")
+		return "Array<" + e.typeOf(u.Elem()) + ">" // kit sends a nil slice as []
 	case *types.Array:
 		return "Array<" + e.typeOf(u.Elem()) + ">"
 	case *types.Map:

@@ -14,6 +14,8 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0008](0008-oauth-and-oidc.md) | OAuth 2.0 and OpenID Connect, as a client and as a provider | Accepted |
 | [0009](0009-experimental-go-script.md) | Experimental `<script lang="go">` | Accepted (experimental) |
 | [0010](0010-live-components.md) | Live components | Accepted |
+| [0011](0011-native-rendering.md) | Native rendering | Accepted |
+| [0012](0012-accounts.md) | User accounts | Accepted |
 
 ## Template
 

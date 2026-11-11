@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **User accounts.** The new `accounts` package signs users up and in with a password or a passkey, and keeps their accounts in your database (SQLite or PostgreSQL). See [docs/accounts.md](docs/accounts.md) and [ADR 0012](docs/adr/0012-accounts.md).
+  - Email verification and password reset links, sent with `accounts.SendWith(mailer, queue)` or your own `Send`, in the user's language.
+  - Sessions in the database: `acc.Sessions` lists the devices a user is signed in on, and `acc.Revoke` and `acc.SignOutOthers` sign them out. Changing or resetting a password signs out the others.
+  - Passkeys (WebAuthn, ES256, EdDSA and RS256): `registerPasskey()` and `signInWithPasskey()` from `@ternkit/tern`, over endpoints the plugin mounts.
+  - Passwords hashed with argon2id. bcrypt hashes from another system still work and are rehashed at the next sign-in.
+  - `accounts.Current(ctx)` and `acc.Require(ctx)` in loads and actions. `accounts.FormError` turns a wrong password or a taken email into a form error.
+  - Tern UI blocks for each screen: `ForgotPassword`, `ResetPassword`, `Devices` and `Passkeys`, and a passkey button on `SignIn`.
+  - [examples/accounts](examples/accounts) runs every flow, passkeys included, in browser tests.
+- **Tern's own texts through `src/locales`.** Tern UI's labels and the validation messages are messages with keys starting with `tern.`, with English built in. Translate them in your locale files like your own messages; what a locale leaves out stays English. `kit.FormAction` and `validate()` translate validation messages for the request's locale, so the server and the browser agree. The guide lists every key.
+- Native rendering compiles everything that was left to the JavaScript engine: dynamic `import()`, BigInt, async generators, `for await` and `new.target`. It also has every built-in QuickJS has: `Object.groupBy` and `Map.groupBy`, the Set methods, iterator helpers and `Iterator`, `WeakRef` and `FinalizationRegistry`, `Array.prototype.copyWithin`, `String.prototype.isWellFormed` and `toWellFormed`, `Symbol.keyFor`, `escape` and `unescape`, and the RegExp `d` (match indices) and `v` flags. No example leaves anything to the engine.
+
+### Changed
+
+- A nil Go slice is sent as `[]` instead of `null` in load data, action results, deferred values, typed endpoint output and live component state, so slices are typed `T[]` instead of `T[] | null`.
+- `Combobox`, `SelectMenu`, `DatePicker`, `Slider`, `Switch`, `Toggle` and `ToggleGroup` are checked as the user changes them inside a `Form`, like inputs.
+- A page whose render throws an error that the JavaScript engine throws too keeps rendering natively. Only a page native rendering can't do goes to the engine from then on.
+- Renders are faster: the benchmark table renders in 259 µs, from 320. The page data is only searched for deferred values when it has some, and native renders return their result without encoding it as JSON.
+
 ## [1.5.0] - 2026-11-11
 
 ### Added

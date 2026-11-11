@@ -1,0 +1,27 @@
+package verifyemail
+
+import (
+	"errors"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"accounts/internal/auth"
+)
+
+type Result struct {
+	Verified bool   `json:"verified"`
+	Email    string `json:"email"`
+}
+
+// Load verifies the address from the email's link.
+func Load(ctx *kit.Ctx) (Result, error) {
+	u, err := auth.Acc.VerifyEmail(ctx, ctx.URL().Query().Get("token"))
+	if errors.Is(err, accounts.ErrInvalidToken) {
+		return Result{}, nil
+	}
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Verified: true, Email: u.Email}, nil
+}

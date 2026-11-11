@@ -712,7 +712,32 @@ Libraries that inject inline scripts during server rendering (for example a dark
 
 ## Authentication
 
-Tern's building blocks for sign-in work together: `plugins/sessions` remembers who is signed in, `plugins/oauth` signs users in with other providers, `plugins/oidc` lets other apps sign in with yours, and `rbac` checks permissions.
+Tern's building blocks for sign-in work together: `accounts` keeps user accounts, `plugins/sessions` remembers who is signed in, `plugins/oauth` signs users in with other providers, `plugins/oidc` lets other apps sign in with yours, and `rbac` checks permissions.
+
+### User accounts
+
+The `accounts` package is user accounts, done: sign-up and sign-in with a password or a passkey, email verification, password resets, and the devices a user is signed in on, each of which they can sign out. It keeps users and sessions in your database, SQLite or PostgreSQL, and Tern UI has a screen for each step.
+
+```go
+acc, err := accounts.New(db, accounts.Options{Send: accounts.SendWith(mailer, queue)})
+if err := acc.Migrate(ctx); err != nil { ... }
+app, err := ternApp(kit.WithPlugins(acc))
+```
+
+In loads and actions, `accounts.Current(ctx)` is the signed-in user, `acc.Require(ctx)` redirects signed-out users to `/login?next=…`, and `acc.SignIn`, `acc.SignUp` and the rest change who's signed in. `accounts.FormError` turns a wrong password or a taken email into a form error in the user's language:
+
+```go
+var Actions = kit.Actions{
+	"default": kit.FormAction(func(ctx *kit.Ctx, in Credentials) (struct{}, error) {
+		if _, err := acc.SignIn(ctx, in.Email, in.Password, in.Remember); err != nil {
+			return struct{}{}, accounts.FormError(ctx, err)
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/account")
+	}),
+}
+```
+
+See [docs/accounts.md](accounts.md) for every page an app needs, and [examples/accounts](../examples/accounts) for a working app. The rest of this section builds sign-in from smaller pieces, for apps that keep users elsewhere.
 
 ### Sign in with a password
 

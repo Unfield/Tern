@@ -141,8 +141,12 @@ Whole screens, wired to Tern's plugins:
 
 | Block | |
 |---|---|
-| `SignIn` | buttons for `plugins/oauth` providers, an email and password `Form` for your own action, "Keep me signed in", and the error `plugins/oauth` sends back in `?error=` |
+| `SignIn` | buttons for `plugins/oauth` providers, a "Sign in with a passkey" button for the `accounts` package (`passkey`), an email and password `Form` for your own action, "Keep me signed in", and the error `plugins/oauth` sends back in `?error=` |
 | `SignUp` | name, email, password (its hint comes from the action's `min` rule), an optional confirmation and terms checkbox |
+| `ForgotPassword` | asks for the email to send a reset link to, then says it's on its way |
+| `ResetPassword` | a new password, and its confirmation, for the token in the email's link; or, for an expired link, a way to ask for another |
+| `Devices` | the devices a user is signed in on, from `acc.Sessions`, with a sign-out button on each and one for all the others |
+| `Passkeys` | a user's passkeys, from `acc.Passkeys`: add one (the browser asks for a fingerprint, face or screen lock), see when each was last used, remove one |
 | `ConsentScreen` | the approval page for `plugins/oidc`, showing who is signed in and what the app may do. It posts the decision back to the plugin, which checks the request again |
 
 ```svelte

@@ -13,6 +13,7 @@ require (
 	github.com/yuin/goldmark v1.8.7
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	go.yaml.in/yaml/v3 v3.0.6
+	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.48.0
 	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.38.0

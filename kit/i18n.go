@@ -65,8 +65,11 @@ func (c *Ctx) T(key string, params ...map[string]any) string {
 	return c.app.i18n.T(c.Locale(), key, p)
 }
 
-// tb translates one of Tern's own texts, such as a validation message:
-// the app's message for its key in src/locales, else Tern's English.
+// TB translates one of Tern's own texts, whose keys start with "tern.",
+// such as a validation message or an accounts email: the app's message
+// for its key in src/locales, else Tern's English.
+func (c *Ctx) TB(key string, params map[string]any) string { return c.tb(key, params) }
+
 func (c *Ctx) tb(key string, params map[string]any) string {
 	if c == nil {
 		var none *i18n.Catalog

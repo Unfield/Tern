@@ -1,0 +1,12 @@
+node_modules/
+/build/
+.tern/
+tern.gen.go
+tern_native.gen.go
+.env
+.env.*
+!.env.example
+.DS_Store
+*.db
+*.db-*
+test-results/

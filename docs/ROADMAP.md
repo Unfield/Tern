@@ -107,19 +107,26 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [ ] Typed fast paths from the loads' Go structs (phase 2)
 - [ ] Smaller binaries for large apps, and the vs-sveltekit benchmark tracked in CI
 
-## v1.6: Every app's next questions
+## v1.6: Fully native rendering, and accounts (released)
+
+**Native rendering, complete**
+- [x] Compile what was left to the JavaScript engine: dynamic `import()`, BigInt, async generators and `for await`, `new.target`
+- [x] Every built-in QuickJS has: grouping, Set methods, iterator helpers, `WeakRef`, the RegExp `d` and `v` flags, and the rest
+- [x] A page's own errors keep it native; only what native rendering can't do sends a page to the engine
+- [x] Less work per render: the payload says when it has deferred values, and the result isn't encoded as JSON
 
 **Translations for everything built in**
-- [ ] Tern UI's texts ("Show password", "Previous page", …) and the validation messages through `src/locales` and `t()`, in Go and in the browser, with English as the default
+- [x] Tern UI's texts ("Show password", "Previous page", …) and the validation messages through `src/locales` and `t()`, in Go and in the browser, with English as the default
 
 **Type rough edges**
-- [ ] Go slices that are never nil, typed without `| null`: `nil` sent as `[]`, or a tag to say so
-- [ ] Controls that post through hidden inputs, such as `Combobox`, checked as the user types inside a `Form`
+- [x] Go slices that are never nil, typed without `| null`: `nil` sent as `[]`, or a tag to say so
+- [x] Controls that post through hidden inputs, such as `Combobox`, checked as the user types inside a `Form`
 
 **Accounts**
-- [ ] Password reset and email verification, with email and jobs
-- [ ] Passkeys (WebAuthn): sign-in without a password
-- [ ] Signed-in devices: a list of sessions, and signing out of the others
+- [x] Password reset and email verification, with email and jobs
+- [x] Passkeys (WebAuthn): sign-in without a password
+- [x] Signed-in devices: a list of sessions, and signing out of the others
+- [x] Tern UI screens for each, and [examples/accounts](../examples/accounts)
 
 ## Next
 

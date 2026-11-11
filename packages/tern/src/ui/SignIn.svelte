@@ -10,6 +10,8 @@
 	import Input from './Input.svelte';
 	import PasswordInput from './PasswordInput.svelte';
 	import Separator from './Separator.svelte';
+	import { goto } from '../runtime/router.svelte.js';
+	import { passkeysSupported, signInWithPasskey } from '../runtime/passkeys.js';
 
 	type Props = {
 		title?: string;
@@ -20,6 +22,10 @@
 		providers?: { name: string; label: string }[];
 		/** Where plugins/oauth lives. */
 		authPath?: string;
+		/** A "Sign in with a passkey" button, for the accounts package. */
+		passkey?: boolean;
+		/** Where the accounts package mounts its passkey endpoints. */
+		passkeyPath?: string;
 		/** Where to go after signing in, a path on this site. */
 		next?: string;
 		/** Show the email and password form, which posts to action. */
@@ -48,6 +54,8 @@
 		providers = [],
 		authPath = '/auth',
 		next,
+		passkey = false,
+		passkeyPath,
 		password = true,
 		action,
 		rules,
@@ -65,23 +73,49 @@
 	const errorText = $derived(
 		!error ? null : error === 'access_denied' ? tb('tern.ui.signIn.cancelled') : tb('tern.ui.signIn.failed')
 	);
+	let el = $state<HTMLElement>();
+	let passkeyBusy = $state(false);
+	let passkeyError = $state(false);
+	// Rendered on the server too, where passkeys can't be checked: shown
+	// once the browser says it can use them.
+	let canPasskey = $state(false);
+	$effect(() => {
+		canPasskey = passkey && passkeysSupported();
+	});
+	async function usePasskey() {
+		passkeyBusy = true;
+		passkeyError = false;
+		try {
+			const rememberMe = !!el?.querySelector<HTMLInputElement>('input[name="remember"]')?.checked;
+			await signInWithPasskey({ path: passkeyPath, remember: rememberMe });
+			await goto(next && next.startsWith('/') && !next.startsWith('//') ? next : '/', { invalidateAll: true, replaceState: true });
+		} catch (e) {
+			if (!(e as { cancelled?: boolean }).cancelled) passkeyError = true;
+		} finally {
+			passkeyBusy = false;
+		}
+	}
 	const login = (name: string) => `${authPath}/${encodeURIComponent(name)}/login${next ? `?next=${encodeURIComponent(next)}` : ''}`;
 </script>
 
-<section class="tern-auth {klass}" aria-labelledby="tern-signin-title">
+<section class="tern-auth {klass}" aria-labelledby="tern-signin-title" bind:this={el}>
 	<header>
 		<svelte:element this={`h${level}`} id="tern-signin-title">{title}</svelte:element>
 		{#if description}<p>{description}</p>{/if}
 	</header>
 	{#if errorText}<Alert tone="danger" live>{errorText}</Alert>{/if}
-	{#if providers.length}
+	{#if passkeyError}<Alert tone="danger" live>{tb('tern.ui.signIn.passkeyFailed')}</Alert>{/if}
+	{#if providers.length || canPasskey}
 		<div class="providers">
+			{#if canPasskey}
+				<Button variant="secondary" type="button" loading={passkeyBusy} onclick={usePasskey}>{tb('tern.ui.signIn.passkey')}</Button>
+			{/if}
 			{#each providers as p (p.name)}
 				<Button variant="secondary" href={login(p.name)}>{tb('tern.ui.signIn.continueWith', { provider: p.label })}</Button>
 			{/each}
 		</div>
 	{/if}
-	{#if providers.length && password}<div class="or"><Separator /><span>{tb('tern.ui.signIn.or')}</span><Separator /></div>{/if}
+	{#if (providers.length || canPasskey) && password}<div class="or"><Separator /><span>{tb('tern.ui.signIn.or')}</span><Separator /></div>{/if}
 	{#if password}
 		<Form {rules} {form} {action} bind:submitting reset={false}>
 			{#if next}<input type="hidden" name="next" value={next} />{/if}

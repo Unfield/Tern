@@ -1,0 +1,21 @@
+{
+  "name": "accounts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go tool tern dev",
+    "build": "go tool tern build",
+    "check": "go tool tern check",
+    "typecheck": "go tool tern check --fail-on-warnings",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.65.0",
+    "@ternkit/tern": "workspace:*",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.0",
+    "vite": "^8.3.7"
+  }
+}

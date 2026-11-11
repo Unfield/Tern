@@ -89,7 +89,7 @@ func Load(ctx *kit.Ctx) (Data, error) {
 <article>{data.body}</article>
 ```
 
-Dynamic directories use Go-safe names, because Go import paths cannot contain brackets: `slug.param` for `[slug]`, `lang.optional` for `[[lang]]`, `path.rest` for `[...path]`, and `app.group` for `(app)`. See [examples/todos](examples/todos) for a complete app with sessions, form actions, a protected route group and an API endpoint, [examples/dashboard](examples/dashboard) for a shadcn-svelte dashboard, and [examples/status](examples/status) for a self-hosted status page with live updates, background jobs and notifications.
+Dynamic directories use Go-safe names, because Go import paths cannot contain brackets: `slug.param` for `[slug]`, `lang.optional` for `[[lang]]`, `path.rest` for `[...path]`, and `app.group` for `(app)`. See [examples/todos](examples/todos) for a complete app with sessions, form actions, a protected route group and an API endpoint, [examples/dashboard](examples/dashboard) for a shadcn-svelte dashboard, [examples/status](examples/status) for a self-hosted status page with live updates, background jobs and notifications, and [examples/accounts](examples/accounts) for user accounts with passkeys.
 
 ## Status
 
@@ -105,10 +105,12 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.3** | Live components (Go component logic on the server, typed markup with `tern check`, several processes through a broker), the MCP server, Tern UI | Done |
 | **v1.4** | Form validation from Go struct tags, checked in the browser too; the complete Tern UI with charts, data tables and auth screens; `tern ui add`; `npm create tern`; an analytics example app | Done |
 | **v1.5** | Native rendering: `tern build` compiles the server renderer to Go, 12× faster than QuickJS on a 100-row table and faster than SvelteKit on a Node cluster | Done |
+| **v1.6** | Fully native rendering; user accounts with passkeys, email verification, password resets and signed-in devices; Tern's own texts translatable | Done |
 
 ## Documentation
 
 - [Guide](docs/guide.md): everything you need to build an app
+- [User accounts](docs/accounts.md): sign-up, sign-in with passwords and passkeys, email verification, password resets, devices
 - [Live components](docs/live-components.md): component logic in Go, on the server
 - [MCP server](docs/mcp.md): `tern mcp` for AI coding tools
 - [Tern UI](docs/ui.md): accessible components with Tern's own design

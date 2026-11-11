@@ -1,0 +1,11 @@
+<script lang="ts">
+	import { ForgotPassword } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+	import { forms } from './$forms';
+
+	let { form }: PageProps = $props();
+</script>
+
+<svelte:head><title>Reset your password · Accounts</title></svelte:head>
+
+<ForgotPassword rules={forms.default} {form} signInHref="/login" />

@@ -22,6 +22,7 @@ export type { ConnectionStatus, StreamOptions, SocketOptions } from './runtime/r
 export { default as Image } from './image/Image.svelte';
 export type { Picture } from './image/types.js';
 export { t, i18n, setLocale } from './runtime/i18n.svelte.js';
+export { passkeysSupported, registerPasskey, signInWithPasskey, PasskeyError, type PasskeyOptions } from './runtime/passkeys.js';
 export type { MessageKey } from './runtime/i18n.svelte.js';
 
 /**

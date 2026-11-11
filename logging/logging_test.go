@@ -234,7 +234,7 @@ func TestSamplingTick(t *testing.T) {
 func TestShipperRetries(t *testing.T) {
 	sink := &memSink{fail: 2}
 	sh := newShipper(sink, Batch{Interval: time.Millisecond}, nil)
-	sh.sleep = func(context.Context, time.Duration) bool { return true }
+	sh.Sleep = func(context.Context, time.Duration) bool { return true }
 	for i := range 3 {
 		sh.add(Entry{Message: string(rune('a' + i))})
 	}
@@ -248,7 +248,7 @@ func TestShipperRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	sh.add(Entry{})
-	if sh.dropped.Load() != 1 {
+	if sh.Dropped() != 1 {
 		t.Fatal("add after close kept")
 	}
 }
@@ -259,8 +259,8 @@ func TestShipperPermanent(t *testing.T) {
 	sh := newShipper(sink, Batch{Interval: time.Millisecond}, &report)
 	sh.add(Entry{Message: "x"})
 	_ = sh.flush(context.Background())
-	if sink.calls != 1 || sh.failed.Load() != 1 || !strings.Contains(report.String(), "bad request") {
-		t.Fatalf("calls %d failed %d report %q", sink.calls, sh.failed.Load(), report.String())
+	if sink.calls != 1 || sh.Failed() != 1 || !strings.Contains(report.String(), "bad request") {
+		t.Fatalf("calls %d failed %d report %q", sink.calls, sh.Failed(), report.String())
 	}
 	_ = sh.close(context.Background())
 }
@@ -274,7 +274,7 @@ func TestShipperQueueFull(t *testing.T) {
 	}
 	close(block)
 	_ = sh.close(context.Background())
-	if d := sh.dropped.Load(); d < 7 {
+	if d := sh.Dropped(); d < 7 {
 		t.Fatalf("dropped %d", d)
 	}
 }

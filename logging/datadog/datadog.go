@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Unfield/Tern/internal/telemetry"
 	"github.com/Unfield/Tern/logging"
-	"github.com/Unfield/Tern/logging/internal/push"
 )
 
 // Options configures the sink. Unset fields come from the environment
@@ -111,7 +111,7 @@ func (s *Sink) Export(ctx context.Context, entries []logging.Entry) error {
 		if err != nil {
 			return logging.Permanent(err)
 		}
-		if err := push.Do(ctx, push.Request{Client: s.client, URL: s.url, ContentType: "application/json", Header: s.header, Body: body, Gzip: s.gzip}); err != nil {
+		if err := telemetry.Do(ctx, telemetry.Request{Client: s.client, URL: s.url, ContentType: "application/json", Header: s.header, Body: body, Gzip: s.gzip}); err != nil {
 			return err
 		}
 		entries = entries[n:]

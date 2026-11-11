@@ -11,6 +11,7 @@ import (
 
 	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/native/js"
+	"github.com/Unfield/Tern/tracing"
 )
 
 // LoadFunc is a Load or LayoutLoad function with its result type erased.
@@ -156,6 +157,7 @@ type options struct {
 	helloHooks      []func(*tls.ClientHelloInfo)
 	connWraps       []func(net.Conn) net.Conn
 	connContexts    []func(context.Context, net.Conn) context.Context
+	tracer          *tracing.Tracer
 	plugins         []Plugin
 	csp             string
 	cspReportOnly   bool

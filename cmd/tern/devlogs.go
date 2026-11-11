@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/tracing"
 )
 
 // devLogs is tern dev's log view: the app's log records, which the logging
@@ -35,7 +36,7 @@ type devLogs struct {
 // devLogItem is one row of the view.
 type devLogItem struct {
 	Seq   int64          `json:"seq"`
-	Kind  string         `json:"kind"` // log, request or event
+	Kind  string         `json:"kind"` // log, request, event or span
 	Time  time.Time      `json:"time"`
 	Level string         `json:"level,omitempty"`
 	Msg   string         `json:"msg"`
@@ -46,12 +47,14 @@ type devLogItem struct {
 	Status    int     `json:"status,omitempty"`
 	Millis    float64 `json:"ms,omitempty"`
 	RequestID string  `json:"request_id,omitempty"`
+	// Spans only: the tracing package's DevSpan.
+	Span *tracing.DevSpan `json:"span,omitempty"`
 }
 
 func newDevLogs() *devLogs {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
-	return &devLogs{token: hex.EncodeToString(b[:]), max: 5000, clients: map[chan struct{}]bool{}}
+	return &devLogs{token: hex.EncodeToString(b[:]), max: 20000, clients: map[chan struct{}]bool{}}
 }
 
 // listen starts the ingest endpoint on a free loopback port.
@@ -75,13 +78,26 @@ func (l *devLogs) env() []string {
 }
 
 func (l *devLogs) ingest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost || r.URL.Path != "/ingest" {
+	if r.Method != http.MethodPost || (r.URL.Path != "/ingest" && r.URL.Path != "/ingest-spans") {
 		http.NotFound(w, r)
 		return
 	}
 	got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if subtle.ConstantTimeCompare([]byte(got), []byte(l.token)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == "/ingest-spans" {
+		var spans []tracing.DevSpan
+		if err := json.NewDecoder(io.LimitReader(r.Body, 16<<20)).Decode(&spans); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		for i := range spans {
+			s := spans[i]
+			l.add(devLogItem{Kind: "span", Time: s.Start, Msg: s.Name, RequestID: s.RequestID, Span: &s})
+		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	var entries []struct {

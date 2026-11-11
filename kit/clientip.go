@@ -106,11 +106,19 @@ func (ps proxySet) resolve(r *http.Request) clientInfo {
 	return clientInfo{ip: ip, trusted: true, proxied: true}
 }
 
-func (ps proxySet) handler(next http.Handler) http.Handler {
+func (ps proxySet) handler(a *App, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		info := ps.resolve(r)
 		r = r.WithContext(context.WithValue(r.Context(), clientKey{}, info))
-		next.ServeHTTP(w, requestContext(w, r, info.trusted))
+		r = requestContext(w, r, info.trusted)
+		r, span := a.startRequest(r, info.trusted)
+		if !span.IsRecording() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rec := &statusRecorder{ResponseWriter: w}
+		defer func() { endRequest(span, rec.status) }()
+		next.ServeHTTP(rec, r)
 	})
 }
 

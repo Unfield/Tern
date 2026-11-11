@@ -81,7 +81,15 @@ var errParentFailed = errors.New("kit: a parent layout failed")
 // page) concurrently. A load that calls Parent waits only for the nodes
 // above it. Nodes in skip are not run unless a child's Parent call needs
 // their data; the client reuses what it already has for them.
-func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
+// loadName names a load's span: "load", then what it loads for.
+func loadName(names []string, i int) string {
+	if i < len(names) && names[i] != "" {
+		return "load " + names[i]
+	}
+	return "load"
+}
+
+func (a *App) runLoads(c *Ctx, fns []LoadFunc, names []string, skip map[int]bool) loadOutcome {
 	results := make([]*loadResult, len(fns))
 	for i, fn := range fns {
 		res := &loadResult{done: make(chan struct{})}
@@ -110,10 +118,12 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 			fork := c.fork(parent)
 			fork.uses = res.uses
 			var v any
-			res.err = a.safely(func() error {
-				var err error
-				v, err = fn(fork)
-				return err
+			res.err = inSpan(fork, loadName(names, i), func() error {
+				return a.safely(func() error {
+					var err error
+					v, err = fn(fork)
+					return err
+				})
 			})
 			if res.err == nil {
 				res.data, res.err = encodeNode(v)

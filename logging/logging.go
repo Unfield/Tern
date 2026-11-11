@@ -209,8 +209,8 @@ func StatsOf(l *slog.Logger) Stats {
 		s.Sampled = h.c.sample.dropped.Load()
 	}
 	for _, sh := range h.c.ships {
-		s.Dropped += sh.dropped.Load()
-		s.Failed += sh.failed.Load()
+		s.Dropped += sh.Dropped()
+		s.Failed += sh.Failed()
 	}
 	return s
 }

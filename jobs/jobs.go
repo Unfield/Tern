@@ -35,6 +35,7 @@ import (
 
 	"github.com/Unfield/Tern/kit"
 	"github.com/Unfield/Tern/sqldb"
+	"github.com/Unfield/Tern/tracing"
 )
 
 // Options configure a Queue.
@@ -77,6 +78,8 @@ type Job struct {
 	RunAt       time.Time       `json:"runAt"`
 	CreatedAt   time.Time       `json:"createdAt"`
 	FinishedAt  *time.Time      `json:"finishedAt,omitempty"`
+	// trace is the traceparent of the request that queued the job.
+	trace string
 }
 
 // Queue stores and runs jobs. It is a kit.Plugin: added to an app, its
@@ -211,14 +214,21 @@ func (q *Queue) enqueue(ctx context.Context, kind string, payload any, opts ...E
 	if e.unique != "" {
 		unique = e.unique
 	}
+	// The job continues the trace it was queued in.
+	ctx, span := tracing.Start(ctx, "enqueue "+kind, tracing.WithKind(tracing.Producer), tracing.WithAttrs(slog.String("messaging.destination.name", kind)))
+	defer span.End()
+	var trace any
+	if sc := span.Context(); sc.IsValid() {
+		trace = sc.Traceparent()
+	}
 	now := time.Now().UnixMilli()
-	query := q.d.Rebind(`INSERT INTO tern_jobs (kind, payload, state, attempts, max_attempts, run_at, created_at, unique_key)
-		VALUES (?, ?, 'queued', 0, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING id`)
+	query := q.d.Rebind(`INSERT INTO tern_jobs (kind, payload, state, attempts, max_attempts, run_at, created_at, unique_key, trace)
+		VALUES (?, ?, 'queued', 0, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING id`)
 	var row *sql.Row
 	if e.tx != nil {
-		row = e.tx.QueryRowContext(ctx, query, kind, string(raw), h.maxAttempts, e.runAt.UnixMilli(), now, unique)
+		row = e.tx.QueryRowContext(ctx, query, kind, string(raw), h.maxAttempts, e.runAt.UnixMilli(), now, unique, trace)
 	} else {
-		row = q.db.QueryRowContext(ctx, query, kind, string(raw), h.maxAttempts, e.runAt.UnixMilli(), now, unique)
+		row = q.db.QueryRowContext(ctx, query, kind, string(raw), h.maxAttempts, e.runAt.UnixMilli(), now, unique, trace)
 	}
 	var id int64
 	if err := row.Scan(&id); err != nil {
@@ -269,7 +279,24 @@ func (q *Queue) Migrate(ctx context.Context) error {
 			return fmt.Errorf("jobs: creating tables: %w", err)
 		}
 	}
+	// Added in v1.10: the traceparent of the request that queued the job.
+	if err := q.addColumn(ctx, "trace", "TEXT"); err != nil {
+		return fmt.Errorf("jobs: updating tables: %w", err)
+	}
 	return nil
+}
+
+// addColumn adds a column to tern_jobs if it isn't there.
+func (q *Queue) addColumn(ctx context.Context, name, typ string) error {
+	if q.d == sqldb.Postgres {
+		_, err := q.db.ExecContext(ctx, `ALTER TABLE tern_jobs ADD COLUMN IF NOT EXISTS `+name+` `+typ)
+		return err
+	}
+	_, err := q.db.ExecContext(ctx, `ALTER TABLE tern_jobs ADD COLUMN `+name+` `+typ)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return nil
+	}
+	return err
 }
 
 // Name implements kit.Plugin.
@@ -393,7 +420,7 @@ func (q *Queue) claim(ctx context.Context) (*Job, *handler, error) {
 			  AND ((state = 'queued' AND run_at <= ?) OR (state = 'running' AND locked_until < ?))
 			ORDER BY run_at, id LIMIT 1` + lock + `
 		)
-		RETURNING id, kind, payload, attempts, max_attempts, run_at, created_at`)
+		RETURNING id, kind, payload, attempts, max_attempts, run_at, created_at, trace`)
 	args := []any{int64(0)} // locked_until, set below per kind
 	for _, n := range names {
 		args = append(args, n)
@@ -412,7 +439,8 @@ func (q *Queue) claim(ctx context.Context) (*Job, *handler, error) {
 	var j Job
 	var payload string
 	var runAt, created int64
-	err := q.db.QueryRowContext(ctx, query, args...).Scan(&j.ID, &j.Kind, &payload, &j.Attempts, &j.MaxAttempts, &runAt, &created)
+	var trace sql.NullString
+	err := q.db.QueryRowContext(ctx, query, args...).Scan(&j.ID, &j.Kind, &payload, &j.Attempts, &j.MaxAttempts, &runAt, &created, &trace)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
@@ -421,6 +449,7 @@ func (q *Queue) claim(ctx context.Context) (*Job, *handler, error) {
 	}
 	j.Payload = json.RawMessage(payload)
 	j.RunAt, j.CreatedAt = time.UnixMilli(runAt), time.UnixMilli(created)
+	j.trace = trace.String
 	q.mu.RLock()
 	h := q.kinds[j.Kind]
 	q.mu.RUnlock()
@@ -461,10 +490,21 @@ func Backoff(attempt int) time.Duration {
 func (q *Queue) call(_ context.Context, h *handler, j *Job) (err error) {
 	ctx, cancel := context.WithTimeout(q.jobCtx, h.timeout)
 	defer cancel()
+	opts := []tracing.StartOption{tracing.WithKind(tracing.Consumer), tracing.WithAttrs(
+		slog.String("messaging.destination.name", j.Kind),
+		slog.Int64("tern.job.id", j.ID),
+		slog.Int("tern.job.attempt", j.Attempts),
+	)}
+	if sc, ok := tracing.ParseTraceparent(j.trace); ok {
+		opts = append(opts, tracing.WithRemoteParent(sc))
+	}
+	ctx, span := tracing.Start(ctx, "job "+j.Kind, opts...)
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v\n%s", r, debug.Stack())
 		}
+		span.RecordError(err)
+		span.End()
 	}()
 	return h.run(ctx, j.Payload)
 }

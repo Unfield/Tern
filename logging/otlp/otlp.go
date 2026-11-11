@@ -15,17 +15,12 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"math"
 	"net/http"
-	"os"
-	"path/filepath"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/Unfield/Tern/internal/telemetry"
 	"github.com/Unfield/Tern/logging"
-	"github.com/Unfield/Tern/logging/internal/push"
 )
 
 // Options configures the sink. Unset fields come from the environment.
@@ -52,71 +47,20 @@ type Options struct {
 type Sink struct {
 	endpoint string
 	headers  http.Header
-	resource []keyValue
+	resource telemetry.Resource
 	gzip     bool
 	client   *http.Client
 }
 
 // New returns an OTLP sink.
 func New(o Options) *Sink {
-	s := &Sink{endpoint: o.Endpoint, headers: http.Header{}, gzip: !o.NoGzip, client: o.Client}
-	if s.endpoint == "" {
-		s.endpoint = os.Getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+	return &Sink{
+		endpoint: telemetry.Endpoint(o.Endpoint, "logs"),
+		headers:  telemetry.Headers("logs", o.Headers),
+		resource: telemetry.NewResource(o.ServiceName, o.Resource),
+		gzip:     !o.NoGzip,
+		client:   o.Client,
 	}
-	if s.endpoint == "" {
-		if base := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); base != "" {
-			s.endpoint = strings.TrimRight(base, "/") + "/v1/logs"
-		}
-	}
-	if s.endpoint == "" {
-		s.endpoint = "http://localhost:4318/v1/logs"
-	}
-	env := os.Getenv("OTEL_EXPORTER_OTLP_LOGS_HEADERS")
-	if env == "" {
-		env = os.Getenv("OTEL_EXPORTER_OTLP_HEADERS")
-	}
-	for k, vs := range push.ParseHeaders(env) {
-		s.headers[k] = vs
-	}
-	for k, vs := range o.Headers {
-		s.headers[k] = vs
-	}
-
-	res := map[string]string{}
-	var order []string
-	set := func(k, v string) {
-		if _, ok := res[k]; !ok {
-			order = append(order, k)
-		}
-		res[k] = v
-	}
-	for _, p := range push.ParsePairs(os.Getenv("OTEL_RESOURCE_ATTRIBUTES")) {
-		set(p.Key, p.Value)
-	}
-	keys := make([]string, 0, len(o.Resource))
-	for k := range o.Resource {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	for _, k := range keys {
-		set(k, o.Resource[k])
-	}
-	name := o.ServiceName
-	if name == "" {
-		name = os.Getenv("OTEL_SERVICE_NAME")
-	}
-	if name == "" {
-		name = res["service.name"]
-	}
-	if name == "" {
-		name = strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
-	}
-	set("service.name", name)
-	slices.Sort(order)
-	for _, k := range order {
-		s.resource = append(s.resource, keyValue{Key: k, Value: anyValue{StringValue: ptr(res[k])}})
-	}
-	return s
 }
 
 // Name implements the name logging reports errors with.
@@ -128,7 +72,7 @@ func (s *Sink) Export(ctx context.Context, entries []logging.Entry) error {
 	if err != nil {
 		return logging.Permanent(err)
 	}
-	return push.Do(ctx, push.Request{Client: s.client, URL: s.endpoint, ContentType: "application/json", Header: s.headers, Body: body, Gzip: s.gzip})
+	return telemetry.Do(ctx, telemetry.Request{Client: s.client, URL: s.endpoint, ContentType: "application/json", Header: s.headers, Body: body, Gzip: s.gzip})
 }
 
 func (s *Sink) request(entries []logging.Entry) exportRequest {
@@ -140,7 +84,7 @@ func (s *Sink) request(entries []logging.Entry) exportRequest {
 			ObservedTimeUnixNano: now,
 			SeverityNumber:       Severity(e.Level),
 			SeverityText:         e.Level.String(),
-			Body:                 anyValue{StringValue: ptr(e.Message)},
+			Body:                 telemetry.String(e.Message),
 		}
 		if e.Time.IsZero() {
 			r.TimeUnixNano = "0"
@@ -158,20 +102,20 @@ func (s *Sink) request(entries []logging.Entry) exportRequest {
 					continue
 				}
 			}
-			r.Attributes = append(r.Attributes, keyValue{Key: a.Key, Value: value(a.Value)})
+			r.Attributes = append(r.Attributes, telemetry.KeyValue{Key: a.Key, Value: telemetry.Value(a.Value)})
 		}
 		if src := e.Source; src != nil {
 			r.Attributes = append(r.Attributes,
-				keyValue{Key: "code.file.path", Value: anyValue{StringValue: ptr(src.File)}},
-				keyValue{Key: "code.line.number", Value: anyValue{IntValue: ptr(strconv.Itoa(src.Line))}},
-				keyValue{Key: "code.function.name", Value: anyValue{StringValue: ptr(src.Function)}},
+				telemetry.KeyValue{Key: "code.file.path", Value: telemetry.String(src.File)},
+				telemetry.KeyValue{Key: "code.line.number", Value: telemetry.Value(slog.IntValue(src.Line))},
+				telemetry.KeyValue{Key: "code.function.name", Value: telemetry.String(src.Function)},
 			)
 		}
 		recs[i] = r
 	}
 	return exportRequest{ResourceLogs: []resourceLogs{{
-		Resource:  resource{Attributes: s.resource},
-		ScopeLogs: []scopeLogs{{Scope: scope{Name: "github.com/Unfield/Tern/logging"}, LogRecords: recs}},
+		Resource:  s.resource,
+		ScopeLogs: []scopeLogs{{Scope: telemetry.Scope{Name: "github.com/Unfield/Tern/logging"}, LogRecords: recs}},
 	}}}
 }
 
@@ -181,93 +125,27 @@ func Severity(l slog.Level) int {
 	return min(max(int(l)+9, 1), 24)
 }
 
-func value(v slog.Value) anyValue {
-	switch v.Kind() {
-	case slog.KindString:
-		return anyValue{StringValue: ptr(v.String())}
-	case slog.KindInt64:
-		return anyValue{IntValue: ptr(strconv.FormatInt(v.Int64(), 10))}
-	case slog.KindUint64:
-		u := v.Uint64()
-		if u > math.MaxInt64 {
-			return anyValue{StringValue: ptr(strconv.FormatUint(u, 10))}
-		}
-		return anyValue{IntValue: ptr(strconv.FormatUint(u, 10))}
-	case slog.KindFloat64:
-		f := v.Float64()
-		if math.IsNaN(f) || math.IsInf(f, 0) {
-			return anyValue{StringValue: ptr(strconv.FormatFloat(f, 'g', -1, 64))}
-		}
-		return anyValue{DoubleValue: &f}
-	case slog.KindBool:
-		b := v.Bool()
-		return anyValue{BoolValue: &b}
-	case slog.KindDuration:
-		return anyValue{StringValue: ptr(v.Duration().String())}
-	case slog.KindTime:
-		return anyValue{StringValue: ptr(v.Time().Format(time.RFC3339Nano))}
-	case slog.KindGroup:
-		var kv []keyValue
-		for _, a := range v.Group() {
-			kv = append(kv, keyValue{Key: a.Key, Value: value(a.Value)})
-		}
-		return anyValue{KvlistValue: &kvList{Values: kv}}
-	}
-	switch x := logging.ValueOf(v).(type) {
-	case string:
-		return anyValue{StringValue: &x}
-	default:
-		b, err := json.Marshal(x)
-		if err != nil {
-			return anyValue{StringValue: ptr(v.String())}
-		}
-		return anyValue{StringValue: ptr(string(b))}
-	}
-}
-
-func ptr[T any](v T) *T { return &v }
-
 // The OTLP/HTTP JSON shapes, from opentelemetry-proto's logs.proto.
 type (
 	exportRequest struct {
 		ResourceLogs []resourceLogs `json:"resourceLogs"`
 	}
 	resourceLogs struct {
-		Resource  resource    `json:"resource"`
-		ScopeLogs []scopeLogs `json:"scopeLogs"`
-	}
-	resource struct {
-		Attributes []keyValue `json:"attributes,omitempty"`
+		Resource  telemetry.Resource `json:"resource"`
+		ScopeLogs []scopeLogs        `json:"scopeLogs"`
 	}
 	scopeLogs struct {
-		Scope      scope       `json:"scope"`
-		LogRecords []logRecord `json:"logRecords"`
-	}
-	scope struct {
-		Name string `json:"name"`
+		Scope      telemetry.Scope `json:"scope"`
+		LogRecords []logRecord     `json:"logRecords"`
 	}
 	logRecord struct {
-		TimeUnixNano         string     `json:"timeUnixNano"`
-		ObservedTimeUnixNano string     `json:"observedTimeUnixNano"`
-		SeverityNumber       int        `json:"severityNumber"`
-		SeverityText         string     `json:"severityText"`
-		Body                 anyValue   `json:"body"`
-		Attributes           []keyValue `json:"attributes,omitempty"`
-		TraceID              string     `json:"traceId,omitempty"`
-		SpanID               string     `json:"spanId,omitempty"`
-	}
-	keyValue struct {
-		Key   string   `json:"key"`
-		Value anyValue `json:"value"`
-	}
-	anyValue struct {
-		StringValue *string  `json:"stringValue,omitempty"`
-		IntValue    *string  `json:"intValue,omitempty"`
-		DoubleValue *float64 `json:"doubleValue,omitempty"`
-		BoolValue   *bool    `json:"boolValue,omitempty"`
-		KvlistValue *kvList  `json:"kvlistValue,omitempty"`
-	}
-	kvList struct {
-		Values []keyValue `json:"values"`
+		TimeUnixNano         string               `json:"timeUnixNano"`
+		ObservedTimeUnixNano string               `json:"observedTimeUnixNano"`
+		SeverityNumber       int                  `json:"severityNumber"`
+		SeverityText         string               `json:"severityText"`
+		Body                 telemetry.AnyValue   `json:"body"`
+		Attributes           []telemetry.KeyValue `json:"attributes,omitempty"`
+		TraceID              string               `json:"traceId,omitempty"`
+		SpanID               string               `json:"spanId,omitempty"`
 	}
 )

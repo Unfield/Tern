@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Tracing** ([ADR 0017](docs/adr/0017-tracing.md), [docs/tracing.md](docs/tracing.md)):
+  - **Spans:** the `tracing` package records requests as trees of timed spans and exports them over OTLP to any OpenTelemetry backend.
+  - **kit:** `kit.WithTracer` makes kit trace each request, with spans for its loads, actions, endpoints and server render, and it continues a trusted `traceparent`.
+  - **HTTP and SQL:** `tracing.Transport` traces outgoing HTTP requests and passes the trace on. `tracing.OpenDB` traces SQL queries.
+  - **Jobs:** a job runs in the trace it was queued in.
+  - **Logs:** records logged inside a span carry its trace and span IDs.
+  - **Sampling:** `TERN_TRACE_SAMPLE` keeps a fraction of traces.
+- `tern dev` traces every request and shows each one's spans as a waterfall in the log view.
+
+### Changed
+
+- The `tern_jobs` table has a `trace` column, which `Migrate` adds to existing databases.
+
 ## [1.9.0] - 2026-11-11
 
 ### Added

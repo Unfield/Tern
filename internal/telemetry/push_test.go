@@ -1,4 +1,4 @@
-package push
+package telemetry
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/internal/batch"
 )
 
 func TestStatuses(t *testing.T) {
@@ -34,7 +34,7 @@ func TestStatuses(t *testing.T) {
 	} {
 		status, retry = tc.status, tc.retry
 		err := Do(context.Background(), Request{URL: srv.URL, ContentType: "application/json", Body: []byte("{}"), Gzip: true})
-		if (err == nil) != tc.ok || logging.IsPermanent(err) != tc.permanent {
+		if (err == nil) != tc.ok || batch.IsPermanent(err) != tc.permanent {
 			t.Errorf("%d: %v", tc.status, err)
 		}
 	}

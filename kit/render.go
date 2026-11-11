@@ -16,6 +16,7 @@ import (
 
 	"github.com/Unfield/Tern/internal/jsonenc"
 	"github.com/Unfield/Tern/internal/ssr"
+	"github.com/Unfield/Tern/tracing"
 )
 
 // payload is the data sent to the client, both inline in the HTML shell
@@ -225,7 +226,10 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			http.Error(c.writer, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if css := a.dev.styles(c.Request.Context(), a.components(def)); css != "" {
+		sctx, span := tracing.Start(c.Request.Context(), "dev: collect styles")
+		css := a.dev.styles(sctx, a.components(def))
+		span.End()
+		if css != "" {
 			fmt.Fprintf(&head, "\n\t\t<style data-tern-dev nonce=\"%s\">%s</style>", nonce, css)
 		}
 		for _, src := range a.dev.scripts(a.m.BasePath) {
@@ -268,7 +272,10 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		if v := p.asValue(); v != nil {
 			ctx = ssr.WithPayloadValue(ctx, v)
 		}
+		ctx, span := renderSpan(ctx)
 		res, err := a.ssr.Render(ctx, data, absoluteURL(c.Request, a.m.BasePath))
+		span.RecordError(err)
+		span.End()
 		switch {
 		case err != nil:
 			// Render on the client instead; the page still works.

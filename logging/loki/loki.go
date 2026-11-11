@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Unfield/Tern/internal/telemetry"
 	"github.com/Unfield/Tern/logging"
-	"github.com/Unfield/Tern/logging/internal/push"
 )
 
 // Options configures the sink.
@@ -104,7 +104,7 @@ func (s *Sink) Export(ctx context.Context, entries []logging.Entry) error {
 	if err != nil {
 		return logging.Permanent(err)
 	}
-	return push.Do(ctx, push.Request{Client: s.client, URL: s.url, ContentType: "application/json", Header: s.header, Body: body, Gzip: s.gzip})
+	return telemetry.Do(ctx, telemetry.Request{Client: s.client, URL: s.url, ContentType: "application/json", Header: s.header, Body: body, Gzip: s.gzip})
 }
 
 func (s *Sink) body(entries []logging.Entry) ([]byte, error) {

@@ -195,10 +195,10 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 
 Knowing what an app does in production, and that it still does it after a change.
 
-**Tracing**
-- [ ] OpenTelemetry spans for each request, and the loads, actions, renders, SQL queries, jobs and outgoing HTTP calls in it, exported over OTLP next to the logs
-- [ ] A waterfall of each request in `tern dev`'s log view
-- [ ] Trace context passed on to outgoing requests and jobs, so a trace follows work across services
+**Tracing** ([ADR 0017](adr/0017-tracing.md))
+- [x] OpenTelemetry spans for each request, and the loads, actions, renders, SQL queries, jobs and outgoing HTTP calls in it, exported over OTLP next to the logs
+- [x] A waterfall of each request in `tern dev`'s log view
+- [x] Trace context passed on to outgoing requests and jobs, so a trace follows work across services
 
 **Error reports**
 - [ ] Unexpected errors and panics grouped by cause, with stack traces, the request and the user, and sent to Sentry-compatible services

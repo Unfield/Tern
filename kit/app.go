@@ -24,6 +24,7 @@ import (
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
 	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/tracing"
 )
 
 // App serves a Tern application. It implements http.Handler, so it can be
@@ -226,7 +227,12 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.handler = proxies.handler(h)
+	a.handler = proxies.handler(a, h)
+	// Work outside requests, such as jobs and background queries, joins
+	// the App's tracer when nothing else is the default.
+	if t := a.tracer(); t != nil && tracing.Default() == nil {
+		tracing.SetDefault(t)
+	}
 	return a, nil
 }
 
@@ -242,6 +248,12 @@ func (a *App) Close() error {
 	}
 	a.closers = nil
 	errs = append(errs, logging.Flush(ctx, a.logger))
+	if t := a.tracer(); t != nil {
+		errs = append(errs, t.Flush(ctx))
+	}
+	if t := a.tracer(); t != nil && tracing.Default() == t {
+		tracing.SetDefault(nil)
+	}
 	return errors.Join(errs...)
 }
 
@@ -341,6 +353,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		def = a.defs[route]
 		c.routeID = def.ID
+		nameRequest(r, def.ID)
 		c.params = params
 	}
 	a.resolveLocale(c)
@@ -550,7 +563,7 @@ func (a *App) runEndpoint(c *Ctx, def *RouteDef) {
 		a.endpointError(c, Error(http.StatusMethodNotAllowed, method+" is not allowed"))
 		return
 	}
-	if err := a.safely(func() error { return h(c) }); err != nil {
+	if err := inSpan(c, "endpoint "+method, func() error { return a.safely(func() error { return h(c) }) }); err != nil {
 		a.endpointError(c, err)
 		return
 	}
@@ -623,10 +636,12 @@ func (a *App) runAction(c *Ctx, def *RouteDef) {
 	}
 
 	var result any
-	err := a.safely(func() error {
-		var err error
-		result, err = action(c)
-		return err
+	err := inSpan(c, "action "+name, func() error {
+		return a.safely(func() error {
+			var err error
+			result, err = action(c)
+			return err
+		})
 	})
 
 	var re *RedirectError
@@ -662,7 +677,7 @@ func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *f
 	if isData {
 		skip = a.reusable(c, def)
 	}
-	out := a.runLoads(c, a.loaders(def), skip)
+	out := a.runLoads(c, a.loaders(def), a.loadNames(def), skip)
 	if out.err != nil {
 		var re *RedirectError
 		if errors.As(out.err, &re) {
@@ -732,6 +747,21 @@ func (a *App) reusable(c *Ctx, def *RouteDef) map[int]bool {
 
 // loaders returns the load functions for a route's layouts and page, in
 // node order. Nodes without a load are nil.
+// loadNames names the loads of loaders(def), for their spans: "layout /",
+// "layout /blog", then "page".
+func (a *App) loadNames(def *RouteDef) []string {
+	var names []string
+	for _, li := range def.Layouts {
+		names = append(names, layoutName(a.m.Layouts[li].Dir))
+	}
+	if def.Page != nil {
+		names = append(names, "page")
+	}
+	return names
+}
+
+func layoutName(dir string) string { return "layout /" + dir }
+
 func (a *App) loaders(def *RouteDef) []LoadFunc {
 	var fns []LoadFunc
 	for _, li := range def.Layouts {
@@ -751,10 +781,12 @@ func (a *App) renderError(c *Ctx, def *RouteDef, isData bool, err error) {
 		layouts = def.Layouts
 	}
 	var fns []LoadFunc
+	var names []string
 	for _, li := range layouts {
 		fns = append(fns, a.m.Layouts[li].Load)
+		names = append(names, layoutName(a.m.Layouts[li].Dir))
 	}
-	out := a.runLoads(c, fns, nil)
+	out := a.runLoads(c, fns, names, nil)
 	nodes, values := out.nodes, out.values
 	if out.err != nil {
 		// A layout failed while rendering an error: render without layouts.

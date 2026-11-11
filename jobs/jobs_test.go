@@ -12,6 +12,7 @@ import (
 
 	"github.com/Unfield/Tern/internal/dbtest"
 	"github.com/Unfield/Tern/jobs"
+	"github.com/Unfield/Tern/tracing"
 )
 
 type email struct {
@@ -264,6 +265,33 @@ func TestStopWaitsForRunningJobs(t *testing.T) {
 		s, _ := q.Stats(context.Background())
 		if s[jobs.Done] != 1 {
 			t.Errorf("stats = %v", s)
+		}
+	})
+}
+
+func TestJobsContinueTraces(t *testing.T) {
+	dbtest.Each(t, func(t *testing.T, db *sql.DB) {
+		tr := tracing.New(tracing.Options{})
+		tracing.SetDefault(tr)
+		defer tracing.SetDefault(nil)
+		q := newQueue(t, db)
+		var mu sync.Mutex
+		var inJob tracing.SpanContext
+		send := jobs.Handle(q, "email", func(ctx context.Context, e email) error {
+			mu.Lock()
+			defer mu.Unlock()
+			inJob = tracing.FromContext(ctx).Context()
+			return nil
+		})
+		start(t, q)
+		ctx, span := tracing.Start(context.Background(), "request")
+		if _, err := send.Enqueue(ctx, email{To: "ada@example.com"}); err != nil {
+			t.Fatal(err)
+		}
+		span.End()
+		waitFor(t, "the job", func() bool { mu.Lock(); defer mu.Unlock(); return inJob.IsValid() })
+		if inJob.TraceID != span.Context().TraceID || inJob.SpanID == span.Context().SpanID {
+			t.Errorf("job in trace %s, request in %s", inJob.TraceID, span.Context().TraceID)
 		}
 	})
 }

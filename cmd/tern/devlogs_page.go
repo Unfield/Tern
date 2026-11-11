@@ -48,6 +48,16 @@ main { font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .rid { cursor: pointer; text-decoration: underline dotted; }
 .s2 { color: var(--ok); } .s3 { color: var(--info); } .s4 { color: var(--warn); } .s5 { color: var(--error); }
 .ms { color: var(--muted); margin-left: 8px; }
+.wf { grid-column: 1 / -1; margin: 6px 0 8px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.wf-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 11.5px; margin-bottom: 6px; }
+.wf-row { display: grid; grid-template-columns: minmax(160px, 34%) 1fr 72px; gap: 10px; align-items: center; height: 22px; }
+.wf-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-track { position: relative; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--muted) 12%, transparent); }
+.wf-bar { position: absolute; top: 0; bottom: 0; min-width: 2px; border-radius: 3px; background: var(--info); }
+.wf-bar.err { background: var(--error); }
+.wf-bar.client { background: var(--warn); }
+.wf-ms { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.has-trace .ms::after { content: ' · trace'; color: var(--info); }
 pre.detail { grid-column: 3; margin: 4px 0 6px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 #empty { padding: 48px 16px; text-align: center; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
 @media (max-width: 640px) { .row { grid-template-columns: 64px 44px 1fr; gap: 6px; padding: 3px 10px; } .time { font-size: 11px; } }
@@ -77,6 +87,64 @@ const rows = document.getElementById('rows'), empty = document.getElementById('e
 const q = document.getElementById('q'), level = document.getElementById('level'), showReq = document.getElementById('requests'), showAssets = document.getElementById('assets');
 const pauseBtn = document.getElementById('pause'), chip = document.getElementById('chip'), chipId = document.getElementById('chipid');
 const items = []; let paused = false, held = [], onlyRequest = '';
+// Spans, by trace, and the trace of each request: for the waterfalls.
+const traces = new Map(), requestTrace = new Map();
+function keepSpan(s) {
+	if (!traces.has(s.trace)) traces.set(s.trace, []);
+	traces.get(s.trace).push(s);
+	if (s.request_id && !s.parent) requestTrace.set(s.request_id, s.trace);
+	if (s.request_id && !requestTrace.has(s.request_id)) requestTrace.set(s.request_id, s.trace);
+	if (traces.size > 1000) traces.delete(traces.keys().next().value);
+}
+// Microseconds since the epoch from an RFC 3339 time with up to nine
+// decimals, which Date.parse would cut to milliseconds.
+function micros(iso) {
+	const m = /\.(\d+)/.exec(iso);
+	const frac = m ? (m[1] + '000000').slice(3, 6) : '000';
+	return Date.parse(iso) * 1000 + Number(frac);
+}
+// Requests whose spans have come in get a "trace" mark.
+function markTraced() {
+	for (const r of rows.querySelectorAll('.row.request:not(.has-trace)')) if (requestTrace.has(r.dataset.rid)) r.classList.add('has-trace');
+}
+function waterfall(reqId) {
+	const tid = requestTrace.get(reqId);
+	const spans = tid && traces.get(tid);
+	if (!spans || !spans.length) return null;
+	const starts = spans.map((s) => micros(s.start));
+	const t0 = Math.min(...starts);
+	const total = Math.max(...spans.map((s, i) => starts[i] + s.us)) - t0 || 1;
+	const kids = new Map();
+	const ids = new Set(spans.map((s) => s.span));
+	for (const s of spans) {
+		const p = s.parent && ids.has(s.parent) ? s.parent : '';
+		if (!kids.has(p)) kids.set(p, []);
+		kids.get(p).push(s);
+	}
+	for (const list of kids.values()) list.sort((a, b) => micros(a.start) - micros(b.start));
+	const box = el('div', 'wf');
+	const head = el('div', 'wf-head');
+	head.append(el('span', null, spans.length + ' spans · trace ' + tid.slice(0, 12)), el('span', null, (total / 1000).toFixed(2) + ' ms'));
+	box.append(head);
+	const walk = (parent, depth) => {
+		for (const s of kids.get(parent) || []) {
+			const row = el('div', 'wf-row');
+			const name = el('span', 'wf-name', s.name);
+			name.style.paddingLeft = depth * 14 + 'px';
+			name.title = s.name + (s.error ? ' — ' + s.error : '');
+			const track = el('span', 'wf-track');
+			const bar = el('span', 'wf-bar' + (s.error ? ' err' : s.kind === 'client' ? ' client' : ''));
+			bar.style.left = ((micros(s.start) - t0) / total) * 100 + '%';
+			bar.style.width = (s.us / total) * 100 + '%';
+			track.append(bar);
+			row.append(name, track, el('span', 'wf-ms', (s.us / 1000).toFixed(2) + ' ms'));
+			box.append(row);
+			walk(s.span, depth + 1);
+		}
+	};
+	walk('', 0);
+	return box;
+}
 const levels = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
 function rank(l) { const base = String(l || 'INFO').replace(/[+-]\d+$/, ''); return levels[base] ?? 1; }
 function isAsset(p) {
@@ -94,6 +162,7 @@ function flat(obj, prefix, out) {
 	return out;
 }
 function matches(it) {
+	if (it.kind === 'span') return false;
 	if (it.kind === 'request' && (!showReq.checked || (!showAssets.checked && isAsset(it.path)))) return false;
 	if (it.kind === 'log' && rank(it.level) < Number(level.value)) return false;
 	if (onlyRequest && it.request_id !== onlyRequest) return false;
@@ -127,9 +196,15 @@ function render(it) {
 		msg.append(r);
 	}
 	row.append(msg);
+	if (it.kind === 'request') {
+		row.dataset.rid = it.request_id || '';
+		if (requestTrace.has(it.request_id)) row.classList.add('has-trace');
+	}
 	row.onclick = () => {
-		const open = row.querySelector('pre.detail');
+		const open = row.querySelector('pre.detail, .wf');
 		if (open) { open.remove(); return; }
+		const wf = it.kind === 'request' && waterfall(it.request_id);
+		if (wf) { row.append(wf); return; }
 		const d = Object.assign({}, it); delete d.seq;
 		row.append(el('pre', 'detail', JSON.stringify(d, null, 2)));
 	};
@@ -139,9 +214,14 @@ function atBottom() { return window.innerHeight + window.scrollY >= document.bod
 function append(list) {
 	const stick = atBottom();
 	const frag = document.createDocumentFragment();
-	for (const it of list) { items.push(it); if (matches(it)) frag.append(render(it)); }
+	for (const it of list) {
+		if (it.kind === 'span') { keepSpan(it.span); continue; }
+		items.push(it);
+		if (matches(it)) frag.append(render(it));
+	}
 	while (items.length > 5000) items.shift();
 	rows.append(frag);
+	markTraced();
 	while (rows.childElementCount > 5000) rows.firstElementChild.remove();
 	empty.style.display = items.length ? 'none' : '';
 	if (stick) window.scrollTo(0, document.body.scrollHeight);

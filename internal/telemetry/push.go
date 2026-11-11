@@ -1,7 +1,7 @@
-// Package push sends a sink's batch over HTTP, the way the sinks that
-// talk to services share: gzip, status codes mapped to retries, and
-// Retry-After.
-package push
+// Package telemetry is what Tern's logging and tracing exporters share:
+// sending a batch over HTTP with gzip, status codes mapped to retries and
+// Retry-After, and OTLP's JSON encoding.
+package telemetry
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/internal/batch"
 )
 
 // Request is one push.
@@ -29,24 +29,24 @@ type Request struct {
 }
 
 // Do sends r. Errors that retrying can fix (connection errors, 408, 429
-// and 5xx) are returned as they are, or with [logging.RetryAfter]; the
-// rest are [logging.Permanent].
+// and 5xx) are returned as they are, or with [batch.RetryAfter]; the
+// rest are [batch.Permanent].
 func Do(ctx context.Context, r Request) error {
 	body := r.Body
 	if r.Gzip {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
 		if _, err := zw.Write(body); err != nil {
-			return logging.Permanent(err)
+			return batch.Permanent(err)
 		}
 		if err := zw.Close(); err != nil {
-			return logging.Permanent(err)
+			return batch.Permanent(err)
 		}
 		body = buf.Bytes()
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.URL, bytes.NewReader(body))
 	if err != nil {
-		return logging.Permanent(err)
+		return batch.Permanent(err)
 	}
 	for k, vs := range r.Header {
 		for _, v := range vs {
@@ -73,11 +73,11 @@ func Do(ctx context.Context, r Request) error {
 	err = fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(msg)))
 	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode >= 500 {
 		if d := retryAfter(resp.Header.Get("Retry-After")); d > 0 {
-			return logging.RetryAfter(err, d)
+			return batch.RetryAfter(err, d)
 		}
 		return err
 	}
-	return logging.Permanent(err)
+	return batch.Permanent(err)
 }
 
 func retryAfter(v string) time.Duration {

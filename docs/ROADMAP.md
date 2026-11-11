@@ -8,7 +8,7 @@ The plan, at a glance:
 
 | Version | Theme |
 |---|---|
-| [v1.9](#v19-logging-security-signals-and-deploying) | Logging, security signals, `tern deploy`, tern.land (done, to be released) |
+| [v1.9](#v19-logging-security-signals-and-deploying-released) | Logging, security signals, `tern deploy`, tern.land (released) |
 | [v1.10](#v110-production-confidence) | Production confidence: tracing, error reports, test helpers |
 | [v1.11](#v111-teams-and-billing) | Teams and billing, for SaaS apps |
 | [v1.12](#v112-rendering-on-demand-and-caching) | Rendering on demand, and caching |
@@ -170,7 +170,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] The document written in one buffer
 - [x] Typed fast paths from the loads' Go structs: profiled and set aside, as inline caches already make property reads cheap
 
-## v1.9: Logging, security signals, and deploying
+## v1.9: Logging, security signals, and deploying (released)
 
 **Logging** ([ADR 0014](adr/0014-logging.md))
 - [x] Structured logging on `log/slog` with request IDs, trace context, redaction and sampling
@@ -263,7 +263,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [ ] `tern add` for plugins, and a list of community plugins on tern.land
 
 **Hosting**
-- [ ] A managed platform made for Tern apps, as a `tern deploy` provider: previews per branch, logs and traces, and databases
+- [ ] Hosting platforms as `tern deploy` providers, with what they add: previews per branch, logs and traces in one place, and managed databases. Tern stays deployable anywhere; no feature depends on a platform
 
 **Learning**
 - [ ] A tutorial on tern.land that builds a complete app, one step per page

@@ -77,8 +77,8 @@
 <section class="hero">
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
-		<a class="announce" href="/docs/roadmap">
-			<span class="pill">Next</span>
+		<a class="announce" href="/docs/changelog">
+			<span class="pill">New in 1.9</span>
 			<span class="long">Logging, security signals and <code>tern deploy</code></span>
 			<span class="short">Logging, signals, deploy</span>
 			<Icon name="arrow-right" size={14} />

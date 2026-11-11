@@ -108,6 +108,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.6** | Fully native rendering; user accounts with passkeys, email verification, password resets and signed-in devices; Tern's own texts translatable | Done |
 | **v1.7** | Two-step sign-in, sign-in with GitHub, Google or OIDC into accounts, email changes and rate limits; a faster JSON encoder and smaller binaries; render benchmarks in CI | Done |
 | **v1.8** | A full app to start from (`tern new` asks bare or full); native rendering phase 2: page data as Go values and Svelte's renderer and helpers in Go, 272 µs for the 100-row table | Done |
+| **v1.9** | Structured logging with sinks and a log view in `tern dev`; HTTPS from the app itself; security signals with TLS and HTTP fingerprints; `tern deploy` to servers, Fly.io and registries with zero-downtime restarts; tern.land | Done |
 
 ## Documentation
 

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { nativePlugin } from './native.js';
-import type { Plugin, UserConfig, ViteDevServer } from 'vite';
+import { searchForWorkspaceRoot, type Plugin, type UserConfig, type ViteDevServer } from 'vite';
 import { goScriptPlugin, goScriptPreprocessor } from './goscript.js';
 import { imagePlugin } from './image.js';
 
@@ -141,7 +141,10 @@ export function tern(options: TernOptions = {}): Plugin[] {
 					strictPort: vitePort !== undefined,
 					// The browser talks to the Go app, which proxies HMR to Vite.
 					ws: appPort ? { clientPort: appPort } : undefined,
-					fs: { allow: [root] }
+					// The app, and the workspace it is in: in a pnpm or npm
+					// workspace, dependencies (and their fonts and images) live in
+					// the workspace's node_modules, outside the app.
+					fs: { allow: [root, searchForWorkspaceRoot(root)] }
 				},
 				optimizeDeps: {
 					entries: [CLIENT_ENTRY, 'src/**/*.svelte'],

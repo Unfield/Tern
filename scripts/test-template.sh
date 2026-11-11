@@ -71,7 +71,7 @@ saas)
 	curl -fs -b "$jar" -H "$origin" -d 'name=From+CI&description=made+by+the+template+test' "http://localhost:$port/projects?/create" >/dev/null || { echo "creating a project failed"; exit 1; }
 	curl -fs -b "$jar" "http://localhost:$port/projects" | grep -q 'From CI' || { echo "the project isn't listed"; exit 1; }
 	curl -fs -b "$jar" "http://localhost:$port/settings/security" | grep -q 'Two-step sign-in' || { echo "the security page is missing"; exit 1; }
-	grep -qE 'link="?http' "$work/server.log" || { echo "the verification email's link wasn't logged"; exit 1; }
+	grep -qE 'link"?[=:]"?http' "$work/server.log" || { echo "the verification email's link wasn't logged"; exit 1; }
 	;;
 esac
 

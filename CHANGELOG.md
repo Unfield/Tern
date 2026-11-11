@@ -36,6 +36,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - kit adds the request's attributes to records from loggers it didn't make, and flushes the logger's sinks on shutdown. The saas template and the examples log with `logging.New`.
 
+### Fixed
+
+- `tern dev` serves files from the workspace's `node_modules`, such as fonts from `@fontsource`, in pnpm and npm workspaces. Tern's Vite plugin allowed only the app's own folder.
+- Scroll positions: a page opened in a new history entry, from a link elsewhere or the address bar, starts at the top instead of at a position saved for an earlier page. Moving between pages jumps there at once, even where the CSS sets `scroll-behavior: smooth`: the animation used to stop partway as the new page rendered.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added

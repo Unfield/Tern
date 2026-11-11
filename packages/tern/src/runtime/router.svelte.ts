@@ -72,8 +72,15 @@ export async function start(m: ClientManifest): Promise<void> {
 		scrollPositions = {};
 	}
 
-	historyIndex = history.state?.ternIndex ?? 0;
-	if (history.state?.ternIndex == null) {
+	// A page loaded into a new history entry (a link from elsewhere, the
+	// address bar) has no index yet. It takes its place in the tab's
+	// history, and starts at the top: a position saved for that place came
+	// from a page the browser has since left behind. A reload, or going
+	// back to the page, restores where the reader was.
+	const fresh = history.state?.ternIndex == null;
+	historyIndex = fresh ? history.length - 1 : history.state.ternIndex;
+	if (fresh) {
+		delete scrollPositions[historyIndex];
 		history.replaceState({ ...history.state, ternIndex: historyIndex, ternState: {} }, '');
 	}
 	history.scrollRestoration = 'manual';
@@ -98,11 +105,11 @@ export async function start(m: ClientManifest): Promise<void> {
 	runAfter({ from: null, to: current(), type: 'enter' });
 	registerServiceWorker();
 
-	const saved = scrollPositions[historyIndex];
+	const saved = fresh ? undefined : scrollPositions[historyIndex];
 	if (saved) {
-		scrollTo(saved.x, saved.y);
+		jump(saved.x, saved.y);
 	} else if (url.hash) {
-		scrollToHash(url.hash);
+		scrollToHash(url.hash, true);
 	}
 	listen();
 }
@@ -339,10 +346,10 @@ async function navigate(
 
 	if (type === 'popstate') {
 		const pos = popIndex != null ? scrollPositions[popIndex] : undefined;
-		scrollTo(pos?.x ?? 0, pos?.y ?? 0);
+		jump(pos?.x ?? 0, pos?.y ?? 0);
 	} else if (!opts.noScroll) {
-		if (url.hash) scrollToHash(url.hash);
-		else scrollTo(0, 0);
+		if (url.hash) scrollToHash(url.hash, true);
+		else jump(0, 0);
 	}
 	if (!opts.keepFocus) {
 		resetFocus();
@@ -438,11 +445,21 @@ function saveScroll() {
 	}
 }
 
-function scrollToHash(hash: string) {
+/**
+ * Scrolls to a position at once. A page change is a jump, even on pages
+ * whose CSS asks for smooth scrolling: an animation from the old page's
+ * position would be cut short by the new page's layout, and stop halfway.
+ */
+function jump(x: number, y: number) {
+	scrollTo({ left: x, top: y, behavior: 'instant' });
+}
+
+/** Scrolls to an anchor: smoothly within the page if the CSS says so, at once when arriving on a new page. */
+function scrollToHash(hash: string, instant = false) {
 	const id = decodeURIComponent(hash.slice(1));
 	const el = document.getElementById(id) ?? document.getElementsByName(id)[0];
-	if (el) el.scrollIntoView();
-	else scrollTo(0, 0);
+	if (el) el.scrollIntoView(instant ? { behavior: 'instant' } : undefined);
+	else jump(0, 0);
 }
 
 /** Moves focus to the document and announces the new page to screen readers. */

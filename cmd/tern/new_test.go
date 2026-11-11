@@ -43,9 +43,9 @@ func TestNewInteractive(t *testing.T) {
 	oldIn, oldTTY := stdin, stdinIsTerminal
 	t.Cleanup(func() { stdin, stdinIsTerminal = oldIn, oldTTY })
 	stdinIsTerminal = func() bool { return true }
-	// A bad name, then a good one; an unknown template, then blog; Tern UI
-	// yes; git and npm install no.
-	stdin = strings.NewReader("Bad Name\nsite\nnope\n2\n\nn\nno\n")
+	// A bad name, then a good one; an unknown answer, then a bare app; an
+	// unknown template, then blog; Tern UI yes; git and npm install no.
+	stdin = strings.NewReader("Bad Name\nsite\nsomething\n1\nnope\n2\n\nn\nno\n")
 
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"new", "-skip-go-get"}, &stdout, &stderr); code != 0 {
@@ -70,6 +70,35 @@ func TestNewInteractive(t *testing.T) {
 	stdin = strings.NewReader("other\n")
 	if code := run([]string{"new", "-skip-go-get"}, &stdout, &stderr); code != 1 {
 		t.Errorf("input ending early should fail, got %d", code)
+	}
+}
+
+func TestNewInteractiveFullApp(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	oldIn, oldTTY := stdin, stdinIsTerminal
+	t.Cleanup(func() { stdin, stdinIsTerminal = oldIn, oldTTY })
+	stdinIsTerminal = func() bool { return true }
+	// A full app asks no template or Tern UI question: git and npm no.
+	stdin = strings.NewReader("product\nfull\nn\nn\n")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"new", "-skip-go-get"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d: %s\n%s", code, stderr.String(), stdout.String())
+	}
+	for _, f := range []string{"product/src/routes/app.group/dashboard/+page.svelte", "product/internal/app/app.go", "product/migrations/0001_projects.sql", "product/.env.example"} {
+		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
+			t.Errorf("missing %s", f)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, "product/src/routes/about")); err == nil {
+		t.Error("the bare template's about page is in the full app")
+	}
+	main, _ := os.ReadFile(filepath.Join(root, "product/main.go"))
+	if !strings.Contains(string(main), `"product/internal/app"`) {
+		t.Errorf("main.go doesn't import the module's packages:\n%s", main)
+	}
+	if strings.Contains(stdout.String(), "Style it with Tern UI?") {
+		t.Error("a full app asked about Tern UI")
 	}
 }
 

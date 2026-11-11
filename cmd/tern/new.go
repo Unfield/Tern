@@ -30,7 +30,16 @@ var templates = map[string]string{
 	"minimal": "A page with a Go load and a form action",
 	"blog":    "Markdown posts from src/content, prerendered, with an RSS feed",
 	"api":     "Typed JSON endpoints with OpenAPI and a typed client",
+	"saas":    "A full app: accounts with passkeys and two-step sign-in, a dashboard, settings and per-user data",
 }
+
+// bareTemplates are the small starters; the others are full apps, styled
+// with Tern UI.
+var bareTemplates = []string{"minimal", "blog", "api"}
+
+// fullApp reports whether a template is a full app, which always uses
+// Tern UI and brings its own layouts.
+func fullApp(name string) bool { return name == "saas" }
 
 var nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
@@ -55,7 +64,7 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 	fl.SetOutput(stderr)
 	module := fl.String("module", "", "Go module path (default: the directory name)")
 	skipInstall := fl.Bool("skip-go-get", false, "do not run go get for the Tern module")
-	tmpl := fl.String("template", "minimal", "starter template: minimal, blog or api")
+	tmpl := fl.String("template", "minimal", "starter template: minimal, blog, api, or saas for a full app")
 	withUI := fl.Bool("ui", false, "style the starter with Tern UI")
 	withGit := fl.Bool("git", false, "create a git repository with a first commit")
 	npmInstall := fl.Bool("install", false, "run npm install")
@@ -85,11 +94,11 @@ func cmdNew(args []string, stdout, stderr io.Writer) int {
 		dir, *tmpl, *withUI, *withGit, *npmInstall = a.dir, a.template, a.ui, a.git, a.install
 		interactive = true
 	default:
-		fmt.Fprintln(stderr, "usage: tern new [-template minimal|blog|api] [-ui] [-git] [-install] [-module path] <directory>")
+		fmt.Fprintln(stderr, "usage: tern new [-template minimal|blog|api|saas] [-ui] [-git] [-install] [-module path] <directory>")
 		return 2
 	}
 	if _, ok := templates[*tmpl]; !ok {
-		fmt.Fprintf(stderr, "tern new: unknown template %q; choose minimal, blog or api\n", *tmpl)
+		fmt.Fprintf(stderr, "tern new: unknown template %q; choose minimal, blog, api or saas\n", *tmpl)
 		return 2
 	}
 	name := strings.ToLower(filepath.Base(filepath.Clean(dir)))
@@ -246,25 +255,46 @@ func askNew(stdout io.Writer, in io.Reader) (newAnswers, bool) {
 		}
 		break
 	}
-	names := []string{"minimal", "blog", "api"}
 	p.Printf("\n")
-	for i, n := range names {
-		p.Printf("    %s %-8s %s\n", p.Dim(fmt.Sprintf("%d.", i+1)), n, p.Dim(templates[n]))
-	}
-	for a.template == "" {
-		ans, ok := ask("Which template?", "1")
+	p.Printf("    %s %-6s %s\n", p.Dim("1."), "bare", p.Dim("A small starting point to build on"))
+	p.Printf("    %s %-6s %s\n", p.Dim("2."), "full", p.Dim(templates["saas"]))
+	full := false
+	for {
+		ans, ok := ask("Start with a bare app or a full one?", "1")
 		if !ok {
 			return a, false
 		}
-		for i, n := range names {
-			if ans == n || ans == fmt.Sprint(i+1) {
-				a.template = n
-			}
+		switch strings.ToLower(ans) {
+		case "1", "bare":
+		case "2", "full", "saas":
+			full = true
+		default:
+			continue
 		}
+		break
 	}
 	p.Printf("\n")
-	if a.ui, ok = yes("Style it with Tern UI?", true); !ok {
-		return a, false
+	if full {
+		a.template, a.ui = "saas", true
+	} else {
+		for i, n := range bareTemplates {
+			p.Printf("    %s %-8s %s\n", p.Dim(fmt.Sprintf("%d.", i+1)), n, p.Dim(templates[n]))
+		}
+		for a.template == "" {
+			ans, ok := ask("Which template?", "1")
+			if !ok {
+				return a, false
+			}
+			for i, n := range bareTemplates {
+				if ans == n || ans == fmt.Sprint(i+1) {
+					a.template = n
+				}
+			}
+		}
+		p.Printf("\n")
+		if a.ui, ok = yes("Style it with Tern UI?", true); !ok {
+			return a, false
+		}
 	}
 	if a.git, ok = yes("Create a git repository?", true); !ok {
 		return a, false
@@ -313,8 +343,8 @@ func writeTemplate(dir string, data templateData, name string, withUI bool) erro
 			return err
 		}
 	}
-	if !withUI {
-		return nil
+	if !withUI || fullApp(name) {
+		return nil // a full app has its own layouts, styled with Tern UI
 	}
 	if err := writeTree(dir, data, "templates/ui", nil); err != nil {
 		return err

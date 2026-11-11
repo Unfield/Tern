@@ -1,0 +1,39 @@
+<script lang="ts">
+	import { page } from '@ternkit/tern';
+	import { Button } from '@ternkit/tern/ui';
+</script>
+
+<svelte:head>
+	<title>{page.status} · {{.Name}}</title>
+</svelte:head>
+
+<main class="error">
+	<p class="status">{page.status}</p>
+	<h1>{page.status === 404 ? 'This page doesn’t exist' : 'Something went wrong'}</h1>
+	{#if page.error?.message && page.status !== 404}<p>{page.error.message}</p>{/if}
+	<Button href="/">Back to the home page</Button>
+</main>
+
+<style>
+	.error {
+		display: grid;
+		justify-items: center;
+		gap: 0.75rem;
+		min-height: 70vh;
+		align-content: center;
+		padding: 1rem;
+		text-align: center;
+	}
+	.status {
+		margin: 0;
+		color: var(--tern-muted);
+		font-weight: 600;
+	}
+	h1 {
+		margin: 0;
+		font-size: 1.5rem;
+	}
+	p {
+		margin: 0;
+	}
+</style>

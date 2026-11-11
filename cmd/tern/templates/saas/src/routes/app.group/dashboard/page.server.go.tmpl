@@ -1,0 +1,65 @@
+package dashboard
+
+import (
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Step struct {
+	Label string `json:"label"`
+	Href  string `json:"href"`
+	Done  bool   `json:"done"`
+}
+
+type Page struct {
+	Projects      int           `json:"projects"`
+	Devices       int           `json:"devices"`
+	Passkeys      int           `json:"passkeys"`
+	Recent        []app.Project `json:"recent"`
+	Steps         []Step        `json:"steps"`
+	EmailVerified bool          `json:"emailVerified"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	a := app.Current
+	u, err := a.Accounts.Require(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	c := ctx.Request.Context()
+	projects, err := a.Projects.List(c, u.ID)
+	if err != nil {
+		return Page{}, err
+	}
+	sessions, err := a.Accounts.Sessions(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	keys, err := a.Accounts.Passkeys(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	recent := projects
+	if len(recent) > 5 {
+		recent = recent[:5]
+	}
+	return Page{
+		Projects: len(projects), Devices: len(sessions), Passkeys: len(keys), Recent: recent, EmailVerified: u.EmailVerified,
+		Steps: []Step{
+			{Label: "Confirm your email address", Href: "/settings", Done: u.EmailVerified},
+			{Label: "Create a project", Href: "/projects", Done: len(projects) > 0},
+			{Label: "Add a passkey", Href: "/settings/security", Done: len(keys) > 0},
+			{Label: "Turn on two-step sign-in", Href: "/settings/security", Done: u.TwoStep},
+		},
+	}, nil
+}
+
+var Actions = kit.Actions{
+	"verify": func(ctx *kit.Ctx) (any, error) {
+		if err := app.Current.Accounts.SendVerification(ctx); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"sent": true}, nil
+	},
+}

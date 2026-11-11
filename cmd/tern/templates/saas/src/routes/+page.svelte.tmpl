@@ -1,0 +1,125 @@
+<script lang="ts">
+	import { Button, Card } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+	const features = [
+		{ title: 'Accounts that are done', text: 'Sign-up with email verification, password resets, passkeys and two-step sign-in, in your own database.' },
+		{ title: 'Every device in view', text: 'Users see where they’re signed in and sign out any device. Changing a password signs out the rest.' },
+		{ title: 'Sign in with GitHub and Google', text: 'Set two environment variables and the buttons appear, joined to the same accounts.' },
+		{ title: 'One binary', text: 'Go serves the pages, the data and the assets. Deploy it with SQLite next to it, or the Dockerfile.' }
+	];
+</script>
+
+<svelte:head>
+	<title>{{.Name}}</title>
+	<meta name="description" content="{{.Name}}: built with Tern." />
+</svelte:head>
+
+<header class="top">
+	<a class="brand" href="/">{{.Name}}</a>
+	<nav aria-label="Account">
+		{#if data.user}
+			<Button href="/dashboard" size="sm">Go to the dashboard</Button>
+		{:else}
+			<Button href="/login" variant="ghost" size="sm">Sign in</Button>
+			<Button href="/signup" size="sm">Get started</Button>
+		{/if}
+	</nav>
+</header>
+
+<main>
+	<section class="hero">
+		<h1>Your product, ready on day one</h1>
+		<p>This is the starting point of your app: accounts, settings and a dashboard are built. Replace the projects with what your app keeps, and this page with what it does.</p>
+		<div class="cta">
+			{#if data.user}
+				<Button href="/dashboard" size="lg">Go to the dashboard</Button>
+			{:else}
+				<Button href="/signup" size="lg">Create an account</Button>
+				<Button href="/login" variant="secondary" size="lg">Sign in</Button>
+			{/if}
+		</div>
+	</section>
+
+	<section class="features" aria-label="Features">
+		{#each features as f (f.title)}
+			<Card title={f.title} level={2}><p>{f.text}</p></Card>
+		{/each}
+	</section>
+</main>
+
+<footer>
+	<p>Built with <a href="https://github.com/Unfield/Tern">Tern</a>.</p>
+</footer>
+
+<style>
+	.top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 1rem;
+	}
+	.brand {
+		font-weight: 700;
+		font-size: 1.125rem;
+		color: var(--tern-fg);
+		text-decoration: none;
+	}
+	nav {
+		display: flex;
+		gap: 0.5rem;
+	}
+	main {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 0 1rem;
+	}
+	.hero {
+		padding: 4rem 0 3rem;
+		max-width: 40rem;
+	}
+	h1 {
+		margin: 0 0 1rem;
+		font-size: clamp(2rem, 5vw, 3rem);
+		line-height: 1.1;
+		letter-spacing: -0.03em;
+	}
+	.hero p {
+		margin: 0;
+		color: var(--tern-muted);
+		font-size: 1.125rem;
+		line-height: 1.6;
+	}
+	.cta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 2rem;
+	}
+	.features {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		gap: 1rem;
+		padding-bottom: 4rem;
+	}
+	.features p {
+		margin: 0;
+		color: var(--tern-muted);
+		line-height: 1.5;
+	}
+	footer {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 2rem 1rem;
+		border-top: 1px solid var(--tern-border);
+		color: var(--tern-muted);
+		font-size: 0.875rem;
+	}
+	footer a {
+		color: inherit;
+	}
+</style>

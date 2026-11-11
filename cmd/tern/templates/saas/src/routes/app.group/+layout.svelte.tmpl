@@ -1,0 +1,96 @@
+<script lang="ts">
+	import { Avatar, Button, Sidebar } from '@ternkit/tern/ui';
+	import type { LayoutProps } from './$types';
+
+	let { data, children }: LayoutProps = $props();
+	const groups = [
+		{
+			items: [
+				{ label: 'Dashboard', href: '/dashboard', icon: dashboardIcon },
+				{ label: 'Projects', href: '/projects', icon: projectsIcon }
+			]
+		},
+		{
+			label: 'Account',
+			items: [
+				{ label: 'Settings', href: '/settings', icon: settingsIcon },
+				{ label: 'Security', href: '/settings/security', icon: securityIcon }
+			]
+		}
+	];
+</script>
+
+{#snippet dashboardIcon()}
+	<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>
+{/snippet}
+{#snippet projectsIcon()}
+	<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+{/snippet}
+{#snippet settingsIcon()}
+	<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+{/snippet}
+{#snippet securityIcon()}
+	<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /></svg>
+{/snippet}
+
+<Sidebar {groups} label="App">
+	{#snippet header()}<a class="brand" href="/">{{.Name}}</a>{/snippet}
+	{#snippet footer()}
+		<div class="me">
+			<Avatar name={data.user.name || data.user.email} size="2rem" />
+			<div class="who">
+				<span class="name">{data.user.name || data.user.email}</span>
+				{#if data.user.name}<span class="email">{data.user.email}</span>{/if}
+			</div>
+		</div>
+		<form method="POST" action="/logout"><Button type="submit" variant="ghost" size="sm">Sign out</Button></form>
+	{/snippet}
+	<main id="main" class="content">
+		{@render children()}
+	</main>
+</Sidebar>
+
+<style>
+	.brand {
+		font-weight: 700;
+		color: var(--tern-fg);
+		text-decoration: none;
+	}
+	.me {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		min-width: 0;
+	}
+	.who {
+		display: grid;
+		min-width: 0;
+		font-size: 0.875rem;
+	}
+	.name {
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.email {
+		color: var(--tern-muted);
+		font-size: 0.8125rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.content {
+		max-width: 56rem;
+		padding: 2rem 1.5rem 4rem;
+	}
+	.content :global(h1) {
+		margin: 0 0 0.25rem;
+		font-size: 1.5rem;
+		letter-spacing: -0.02em;
+	}
+	.content :global(.lead) {
+		margin: 0 0 2rem;
+		color: var(--tern-muted);
+	}
+</style>

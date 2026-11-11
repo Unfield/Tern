@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **A full app to start from.** `tern new -template saas`, or "full" when `tern new` and `npm create tern` ask, creates an app with accounts built: sign-up, email verification, password resets, passkeys, two-step sign-in, and sign-in with GitHub or Google when their keys are set. It has a landing page, a dashboard with a getting-started checklist, projects as an example of per-user data in SQLite with a migration, settings for the profile, email address and password, and a security page for two-step sign-in, passkeys, devices and connected accounts. Emails go through SMTP in background jobs, or to the log, link included, in development. The bare templates are as before.
+- `tern dev` reads a `.env` file into the app's environment; variables already set win over it.
+
 ## [1.7.0] - 2026-11-11
 
 ### Added

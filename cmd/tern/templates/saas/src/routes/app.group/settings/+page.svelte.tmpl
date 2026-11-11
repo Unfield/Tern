@@ -1,0 +1,94 @@
+<script lang="ts">
+	import { Alert, AlertDialog, Badge, Button, Card, Field, Form, Input, PasswordInput } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+	import { forms } from './$forms';
+
+	let { data, form }: PageProps = $props();
+	const done = $derived((form as { done?: string } | null)?.done);
+	let deleteOpen = $state(false);
+	let deleteForm = $state<HTMLFormElement>();
+</script>
+
+<svelte:head><title>Settings · {{.Name}}</title></svelte:head>
+
+<h1>Settings</h1>
+<p class="lead">Your profile, email address and password.</p>
+
+<div class="sections">
+	<Card title="Profile" level={2}>
+		<Form action="?/name" rules={forms.name} {form} reset={false}>
+			<Field label="Name" name="name"><Input value={data.user.name} autocomplete="name" /></Field>
+			<div><Button type="submit" size="sm">Save</Button></div>
+		</Form>
+		{#if done === 'name'}<Alert tone="success" live>Saved.</Alert>{/if}
+	</Card>
+
+	<Card title="Email address" level={2}>
+		<p class="email">
+			{data.user.email}
+			{#if data.user.emailVerified}<Badge tone="success">Confirmed</Badge>{:else}<Badge tone="warning">Not confirmed</Badge>{/if}
+		</p>
+		{#if !data.user.emailVerified}
+			<Form action="?/verify" reset={false}>
+				<div><Button type="submit" variant="secondary" size="sm">Send the confirmation link again</Button></div>
+			</Form>
+			{#if done === 'verify'}<Alert tone="success" live>Sent: check your inbox.</Alert>{/if}
+		{/if}
+		<Form action="?/email" rules={forms.email} {form}>
+			<Field label="New email address" name="email" description="We’ll send a link to it; your address changes once you open it.">
+				<Input type="email" autocomplete="email" spellcheck="false" />
+			</Field>
+			<div><Button type="submit" size="sm">Change email address</Button></div>
+		</Form>
+		{#if done === 'email'}<Alert tone="success" live>Check the new address for a link to confirm it.</Alert>{/if}
+	</Card>
+
+	<Card title="Password" level={2}>
+		<Form action="?/password" rules={forms.password} {form}>
+			{#if data.user.hasPassword}
+				<Field label="Current password" name="current"><PasswordInput autocomplete="current-password" /></Field>
+			{/if}
+			<Field label="New password" name="password" description="At least 10 characters. Your other devices are signed out.">
+				<PasswordInput autocomplete="new-password" />
+			</Field>
+			<div><Button type="submit" size="sm">{data.user.hasPassword ? 'Change password' : 'Set a password'}</Button></div>
+		</Form>
+		{#if done === 'password'}<Alert tone="success" live>Password changed.</Alert>{/if}
+	</Card>
+
+	<Card title="Delete your account" level={2}>
+		<p>Your account, projects, passkeys and sessions are deleted for good.</p>
+		<form method="POST" action="?/delete" bind:this={deleteForm}>
+			<Button type="button" variant="danger" size="sm" onclick={() => (deleteOpen = true)}>Delete account</Button>
+		</form>
+	</Card>
+</div>
+
+<AlertDialog
+	bind:open={deleteOpen}
+	title="Delete your account?"
+	description="This can’t be undone."
+	confirmLabel="Delete account"
+	danger
+	onconfirm={() => deleteForm?.requestSubmit()}
+/>
+
+<style>
+	.sections {
+		display: grid;
+		gap: 1rem;
+	}
+	.sections :global(.tern-form) {
+		max-width: 26rem;
+		margin-block: 0.75rem;
+	}
+	.email {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+	}
+	p {
+		margin: 0;
+	}
+</style>

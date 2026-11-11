@@ -398,7 +398,11 @@ func (d *devRunner) startApp(bin string) error {
 	d.logTail = &tailBuffer{max: 8 << 10}
 	cmd := exec.Command(bin)
 	cmd.Dir = d.root
-	cmd.Env = append(os.Environ(),
+	file, err := readDotEnv(filepath.Join(d.root, ".env"))
+	if err != nil {
+		d.ui.Event(d.ui.Yellow("!"), ".env: %v", err)
+	}
+	cmd.Env = append(append(file, os.Environ()...), // set variables win over .env
 		"HOST=127.0.0.1",
 		"PORT="+strconv.Itoa(d.appPort),
 		"TERN_DEV_VITE_URL=http://127.0.0.1:"+strconv.Itoa(d.vitePort),

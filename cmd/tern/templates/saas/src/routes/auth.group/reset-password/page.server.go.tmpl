@@ -1,0 +1,38 @@
+package resetpassword
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	Token string `json:"token"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	return Page{Token: ctx.URL().Query().Get("token")}, nil
+}
+
+type NewPassword struct {
+	Token    string `form:"token" validate:"required"`
+	Password string `form:"password" validate:"required,min=10,max=200"`
+	Confirm  string `form:"confirm" validate:"required,same=password" label:"Confirm new password"`
+}
+
+var Actions = kit.Actions{
+	"default": kit.FormAction(func(ctx *kit.Ctx, in NewPassword) (struct{}, error) {
+		_, err := app.Current.Accounts.ResetPassword(ctx, in.Token, in.Password)
+		if errors.Is(err, accounts.ErrTwoStepRequired) {
+			return struct{}{}, kit.Redirect(http.StatusSeeOther, "/login/code?next=/dashboard")
+		}
+		if err != nil {
+			return struct{}{}, accounts.FormError(ctx, err)
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+	}),
+}

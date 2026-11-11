@@ -1,0 +1,40 @@
+package signup
+
+import (
+	"net/http"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	Providers []app.Provider `json:"providers"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	if accounts.Current(ctx) != nil {
+		return Page{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+	}
+	return Page{Providers: app.Current.Providers}, nil
+}
+
+type Account struct {
+	Name     string `form:"name" validate:"required,max=80"`
+	Email    string `form:"email" validate:"required,email,max=254"`
+	Password string `form:"password" validate:"required,min=10,max=200"`
+}
+
+var Actions = kit.Actions{
+	"default": kit.FormAction(func(ctx *kit.Ctx, in Account) (struct{}, error) {
+		acc := app.Current.Accounts
+		if _, err := acc.SignUp(ctx, in.Email, in.Name, in.Password); err != nil {
+			return struct{}{}, accounts.FormError(ctx, err)
+		}
+		if err := acc.SendVerification(ctx); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+	}),
+}

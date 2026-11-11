@@ -1,0 +1,117 @@
+<script lang="ts">
+	import { enhance } from '@ternkit/tern';
+	import { AlertDialog, Button, Card, Dialog, Empty, Field, Form, Input, Textarea, toast } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+	import { forms } from './$forms';
+
+	type Project = PageProps['data']['projects'][number];
+	let { data, form }: PageProps = $props();
+	let creating = $state(false);
+	let editing = $state<Project | null>(null);
+	let deleting = $state<Project | null>(null);
+	let deleteForm = $state<HTMLFormElement>();
+	const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+</script>
+
+<svelte:head><title>Projects · {{.Name}}</title></svelte:head>
+
+<div class="head">
+	<div>
+		<h1>Projects</h1>
+		<p class="lead">Only you see your projects.</p>
+	</div>
+	<Button onclick={() => (creating = true)}>New project</Button>
+</div>
+
+{#if data.projects.length}
+	<div class="list">
+		{#each data.projects as p (p.id)}
+			<Card title={p.name} level={2} id="project-{p.id}">
+				{#snippet actions()}
+					<Button variant="ghost" size="sm" onclick={() => (editing = p)}>Edit</Button>
+					<Button variant="ghost" size="sm" onclick={() => (deleting = p)}>Delete</Button>
+				{/snippet}
+				{#if p.description}<p class="description">{p.description}</p>{/if}
+				<p class="meta">Created {date(p.createdAt)} · changed {date(p.updatedAt)}</p>
+			</Card>
+		{/each}
+	</div>
+{:else}
+	<Empty title="No projects yet" description="Create one to see how a page, a form action and the database work together." level={2}>
+		{#snippet actions()}<Button onclick={() => (creating = true)}>New project</Button>{/snippet}
+	</Empty>
+{/if}
+
+<Dialog bind:open={creating} title="New project">
+	<Form
+		action="?/create"
+		rules={forms.create}
+		{form}
+		onsuccess={() => {
+			creating = false;
+			toast.success('Project created');
+		}}
+	>
+		<Field label="Name" name="name"><Input autocomplete="off" /></Field>
+		<Field label="Description" name="description"><Textarea rows={3} /></Field>
+		<Button type="submit">Create project</Button>
+	</Form>
+</Dialog>
+
+<Dialog open={editing !== null} onclose={() => (editing = null)} title="Edit project">
+	{#if editing}
+		<Form
+			action="?/update"
+			rules={forms.update}
+			{form}
+			reset={false}
+			onsuccess={() => {
+				editing = null;
+				toast.success('Project saved');
+			}}
+		>
+			<input type="hidden" name="id" value={editing.id} />
+			<Field label="Name" name="name"><Input value={editing.name} autocomplete="off" /></Field>
+			<Field label="Description" name="description"><Textarea value={editing.description} rows={3} /></Field>
+			<Button type="submit">Save</Button>
+		</Form>
+	{/if}
+</Dialog>
+
+<form method="POST" action="?/delete" bind:this={deleteForm} hidden use:enhance>
+	<input type="hidden" name="id" value={deleting?.id ?? ''} />
+</form>
+<AlertDialog
+	open={deleting !== null}
+	title="Delete {deleting?.name ?? 'this project'}?"
+	description="It’s gone for good."
+	confirmLabel="Delete project"
+	danger
+	oncancel={() => (deleting = null)}
+	onconfirm={() => {
+		deleteForm?.requestSubmit();
+		deleting = null;
+	}}
+/>
+
+<style>
+	.head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.list {
+		display: grid;
+		gap: 1rem;
+	}
+	.description {
+		margin: 0 0 0.5rem;
+		white-space: pre-line;
+	}
+	.meta {
+		margin: 0;
+		color: var(--tern-muted);
+		font-size: 0.8125rem;
+	}
+</style>

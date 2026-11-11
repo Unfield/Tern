@@ -1,0 +1,106 @@
+<script lang="ts">
+	import { Alert, Badge, Button, Card, Empty, Form, Stat } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+	const left = $derived(data.steps.filter((s) => !s.done));
+	const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+</script>
+
+<svelte:head><title>Dashboard · {{.Name}}</title></svelte:head>
+
+<h1>Dashboard</h1>
+<p class="lead">What’s in your account.</p>
+
+{#if !data.emailVerified}
+	<Alert tone="warning" title="Confirm your email address">
+		We sent you a link. Didn’t get it?
+		<Form action="?/verify" reset={false} class="inline">
+			<Button type="submit" variant="secondary" size="sm">Send it again</Button>
+		</Form>
+		{#if (form as { sent?: boolean } | null)?.sent}<span role="status">Sent: check your inbox.</span>{/if}
+	</Alert>
+{/if}
+
+<div class="stats">
+	<Stat label="Projects" value={data.projects} />
+	<Stat label="Signed-in devices" value={data.devices} />
+	<Stat label="Passkeys" value={data.passkeys} />
+</div>
+
+<div class="grid">
+	<Card title="Recent projects" level={2}>
+		{#snippet actions()}<Button href="/projects" variant="ghost" size="sm">All projects</Button>{/snippet}
+		{#if data.recent.length}
+			<ul class="list">
+				{#each data.recent as p (p.id)}
+					<li><a href="/projects#project-{p.id}">{p.name}</a><span>{date(p.updatedAt)}</span></li>
+				{/each}
+			</ul>
+		{:else}
+			<Empty title="No projects yet" description="Projects are where your users’ work goes. Create the first one.">
+				{#snippet actions()}<Button href="/projects">Create a project</Button>{/snippet}
+			</Empty>
+		{/if}
+	</Card>
+
+	<Card title="Getting started" level={2}>
+		{#if left.length === 0}
+			<p class="done">You’re all set up.</p>
+		{/if}
+		<ul class="list steps">
+			{#each data.steps as s (s.label)}
+				<li>
+					{#if s.done}<span class="label">{s.label}</span><Badge tone="success">Done</Badge>{:else}<a href={s.href}>{s.label}</a><Badge>To do</Badge>{/if}
+				</li>
+			{/each}
+		</ul>
+	</Card>
+</div>
+
+<style>
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		gap: 1rem;
+		margin: 1.5rem 0;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+		gap: 1rem;
+	}
+	.list {
+		display: grid;
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.list span {
+		color: var(--tern-muted);
+		font-size: 0.875rem;
+	}
+	.list a {
+		color: var(--tern-fg);
+		font-weight: 550;
+	}
+	.steps .label {
+		color: var(--tern-muted);
+		text-decoration: line-through;
+		font-size: 1rem;
+	}
+	.done {
+		margin: 0 0 0.75rem;
+	}
+	:global(.tern-form.inline) {
+		display: inline-flex;
+		margin-inline: 0.5rem;
+	}
+</style>

@@ -1,0 +1,18 @@
+package logout
+
+import (
+	"net/http"
+
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+var Actions = kit.Actions{
+	"default": func(ctx *kit.Ctx) (any, error) {
+		if err := app.Current.Accounts.SignOut(ctx); err != nil {
+			return nil, err
+		}
+		return nil, kit.Redirect(http.StatusSeeOther, "/")
+	},
+}

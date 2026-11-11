@@ -1,0 +1,24 @@
+// Package shell holds the pages for signed-in users. The app.group
+// directory gives them one layout, with the sidebar, without adding to
+// their URLs.
+package shell
+
+import (
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Shell struct {
+	User accounts.User `json:"user"`
+}
+
+// LayoutLoad sends signed-out visitors to sign in, and back here after.
+func LayoutLoad(ctx *kit.Ctx) (Shell, error) {
+	u, err := app.Current.Accounts.Require(ctx)
+	if err != nil {
+		return Shell{}, err
+	}
+	return Shell{User: *u}, nil
+}

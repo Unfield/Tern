@@ -1560,13 +1560,15 @@ Write links with `route()` from `$routes` and `href="%tern.assets%/favicon.svg"`
 
 ## Commands
 
-`tern new` starts a project. Without a directory, it asks its questions; with one, it uses flags:
+`tern new` starts a project. Without a directory, it asks its questions, starting with a bare app or a full one; with one, it uses flags:
 
-- **`-template`:** `minimal` (the default), `blog` for Markdown posts with an RSS feed, or `api` for typed JSON endpoints with OpenAPI.
+- **`-template`:** `minimal` (the default), `blog` for Markdown posts with an RSS feed, `api` for typed JSON endpoints with OpenAPI, or `saas` for a full app: accounts with passkeys, two-step sign-in and sign-in with GitHub or Google, a dashboard, settings, and per-user data in SQLite with a migration, styled with Tern UI. Its README lists the settings it reads from the environment.
 - **`-ui`:** styles the starter with [Tern UI](ui.md).
 - **`-git`:** creates a git repository with a first commit.
 - **`-install`:** runs `npm install`.
 - **`npm create tern@latest`:** runs the matching `tern new`, for people who start from npm.
+
+`tern dev` reads a `.env` file in the project, if there is one, into the app's environment: `KEY=value` lines, `#` comments, quoted values. Variables already set win over it, and empty values are skipped. `tern build`'s binary reads only the real environment.
 
 Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 
@@ -1578,7 +1580,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
 | `tern routes [-json] [dir]` | list routes; `-json` prints them for scripts and editors |
-| `tern new [-template name] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |
+| `tern new [-template minimal\|blog\|api\|saas] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |
 | `tern ui add <Component>...` | copy Tern UI components into `src/lib/ui` to change them; `tern ui list` lists them |
 | `tern version` | print the version |
 

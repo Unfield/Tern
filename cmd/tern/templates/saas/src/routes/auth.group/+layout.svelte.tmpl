@@ -1,0 +1,35 @@
+<script lang="ts">
+	import type { LayoutProps } from './$types';
+
+	let { children }: LayoutProps = $props();
+</script>
+
+<div class="auth">
+	<a class="brand" href="/">{{.Name}}</a>
+	<main>
+		{@render children()}
+	</main>
+</div>
+
+<style>
+	.auth {
+		display: grid;
+		justify-items: center;
+		align-content: start;
+		gap: 2rem;
+		min-height: 100vh;
+		padding: 3rem 1rem;
+		box-sizing: border-box;
+	}
+	.brand {
+		font-weight: 700;
+		font-size: 1.125rem;
+		color: var(--tern-fg);
+		text-decoration: none;
+	}
+	main {
+		display: grid;
+		justify-items: center;
+		width: 100%;
+	}
+</style>

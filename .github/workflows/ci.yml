@@ -122,7 +122,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [minimal, blog, api]
+        template: [minimal, blog, api, saas]
         flags: ['']
         include:
           - template: minimal

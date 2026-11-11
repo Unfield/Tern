@@ -1,0 +1,76 @@
+package projects
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	Projects []app.Project `json:"projects"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	u, err := app.Current.Accounts.Require(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	list, err := app.Current.Projects.List(ctx.Request.Context(), u.ID)
+	return Page{Projects: list}, err
+}
+
+type NewProject struct {
+	Name        string `form:"name" validate:"required,max=100"`
+	Description string `form:"description" validate:"max=1000"`
+}
+
+type Edit struct {
+	ID          int64  `form:"id" validate:"required"`
+	Name        string `form:"name" validate:"required,max=100"`
+	Description string `form:"description" validate:"max=1000"`
+}
+
+type ID struct {
+	ID int64 `form:"id" validate:"required"`
+}
+
+type Done struct {
+	Done string `json:"done"`
+	ID   int64  `json:"id"`
+}
+
+// notFound turns another user's project, or a deleted one, into a 404.
+func notFound(err error) error {
+	if errors.Is(err, app.ErrNotFound) {
+		return kit.Error(http.StatusNotFound, "This project doesn’t exist.")
+	}
+	return err
+}
+
+var Actions = kit.Actions{
+	"create": kit.FormAction(func(ctx *kit.Ctx, in NewProject) (Done, error) {
+		u, err := app.Current.Accounts.Require(ctx)
+		if err != nil {
+			return Done{}, err
+		}
+		p, err := app.Current.Projects.Create(ctx.Request.Context(), u.ID, in.Name, in.Description)
+		return Done{Done: "created", ID: p.ID}, err
+	}),
+	"update": kit.FormAction(func(ctx *kit.Ctx, in Edit) (Done, error) {
+		u, err := app.Current.Accounts.Require(ctx)
+		if err != nil {
+			return Done{}, err
+		}
+		return Done{Done: "updated", ID: in.ID}, notFound(app.Current.Projects.Update(ctx.Request.Context(), u.ID, in.ID, in.Name, in.Description))
+	}),
+	"delete": kit.FormAction(func(ctx *kit.Ctx, in ID) (Done, error) {
+		u, err := app.Current.Accounts.Require(ctx)
+		if err != nil {
+			return Done{}, err
+		}
+		return Done{Done: "deleted"}, notFound(app.Current.Projects.Delete(ctx.Request.Context(), u.ID, in.ID))
+	}),
+}

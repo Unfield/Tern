@@ -1,0 +1,40 @@
+<script lang="ts">
+	import { Card, Devices, LinkedAccounts, Passkeys, TwoStep } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+	const recoveryCodes = $derived((form as { recoveryCodes?: string[] } | null)?.recoveryCodes);
+</script>
+
+<svelte:head><title>Security · {{.Name}}</title></svelte:head>
+
+<h1>Security</h1>
+<p class="lead">How you sign in, and where you’re signed in.</p>
+
+<div class="sections">
+	<Card>
+		<TwoStep
+			enabled={data.user.twoStep}
+			setup={data.setup}
+			{recoveryCodes}
+			codesLeft={data.codesLeft}
+			setupAction="?/twoStepSetup"
+			confirmAction="?/twoStepConfirm"
+			offAction="?/twoStepOff"
+			codesAction="?/twoStepCodes"
+			{form}
+		/>
+	</Card>
+	<Card><Passkeys passkeys={data.passkeys} removeAction="?/removePasskey" /></Card>
+	{#if data.providers.length || data.identities.length}
+		<Card><LinkedAccounts identities={data.identities} providers={data.providers} next="/settings/security" unlinkAction="?/unlink" /></Card>
+	{/if}
+	<Card><Devices sessions={data.sessions} action="?/revoke" othersAction="?/others" /></Card>
+</div>
+
+<style>
+	.sections {
+		display: grid;
+		gap: 1rem;
+	}
+</style>

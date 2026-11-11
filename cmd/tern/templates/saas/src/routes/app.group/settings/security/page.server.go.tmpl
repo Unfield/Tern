@@ -1,0 +1,104 @@
+package security
+
+import (
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	User       accounts.User             `json:"user"`
+	Setup      *accounts.TwoStepSetup    `json:"setup"`
+	CodesLeft  int                       `json:"codesLeft"`
+	Passkeys   []accounts.Passkey        `json:"passkeys"`
+	Sessions   []accounts.Session        `json:"sessions"`
+	Identities []accounts.LinkedIdentity `json:"identities"`
+	Providers  []app.Provider            `json:"providers"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	acc := app.Current.Accounts
+	u, err := acc.Require(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	p := Page{User: *u, Providers: app.Current.Providers}
+	if p.Setup, err = acc.PendingTwoStepSetup(ctx); err != nil {
+		return Page{}, err
+	}
+	if p.CodesLeft, err = acc.RecoveryCodesLeft(ctx); err != nil {
+		return Page{}, err
+	}
+	if p.Passkeys, err = acc.Passkeys(ctx); err != nil {
+		return Page{}, err
+	}
+	if p.Sessions, err = acc.Sessions(ctx); err != nil {
+		return Page{}, err
+	}
+	if p.Identities, err = acc.Identities(ctx); err != nil {
+		return Page{}, err
+	}
+	return p, nil
+}
+
+type Code struct {
+	Code string `form:"code" validate:"required,max=20" label:"Code"`
+}
+
+type ID struct {
+	ID string `form:"id" validate:"required"`
+}
+
+type Provider struct {
+	Provider string `form:"provider" validate:"required"`
+}
+
+type Done struct {
+	Done string `json:"done"`
+	// RecoveryCodes are shown once, after turning two-step sign-in on.
+	RecoveryCodes []string `json:"recoveryCodes"`
+}
+
+func do(ctx *kit.Ctx, done string, fn func() error) (Done, error) {
+	if _, err := app.Current.Accounts.Require(ctx); err != nil {
+		return Done{}, err
+	}
+	if err := fn(); err != nil {
+		return Done{}, accounts.FormError(ctx, err)
+	}
+	return Done{Done: done}, nil
+}
+
+var Actions = kit.Actions{
+	"twoStepSetup": func(ctx *kit.Ctx) (any, error) {
+		return do(ctx, "", func() error { _, err := app.Current.Accounts.SetUpTwoStep(ctx); return err })
+	},
+	"twoStepConfirm": kit.FormAction(func(ctx *kit.Ctx, in Code) (Done, error) {
+		var codes []string
+		d, err := do(ctx, "twoStep", func() (err error) { codes, err = app.Current.Accounts.ConfirmTwoStep(ctx, in.Code); return err })
+		d.RecoveryCodes = codes
+		return d, err
+	}),
+	"twoStepCodes": func(ctx *kit.Ctx) (any, error) {
+		var codes []string
+		d, err := do(ctx, "codes", func() (err error) { codes, err = app.Current.Accounts.RecoveryCodes(ctx); return err })
+		d.RecoveryCodes = codes
+		return d, err
+	},
+	"twoStepOff": kit.FormAction(func(ctx *kit.Ctx, in Code) (Done, error) {
+		return do(ctx, "twoStepOff", func() error { return app.Current.Accounts.TurnOffTwoStep(ctx, in.Code) })
+	}),
+	"removePasskey": kit.FormAction(func(ctx *kit.Ctx, in ID) (Done, error) {
+		return do(ctx, "", func() error { return app.Current.Accounts.RemovePasskey(ctx, in.ID) })
+	}),
+	"revoke": kit.FormAction(func(ctx *kit.Ctx, in ID) (Done, error) {
+		return do(ctx, "", func() error { return app.Current.Accounts.Revoke(ctx, in.ID) })
+	}),
+	"others": func(ctx *kit.Ctx) (any, error) {
+		return do(ctx, "", func() error { return app.Current.Accounts.SignOutOthers(ctx) })
+	},
+	"unlink": kit.FormAction(func(ctx *kit.Ctx, in Provider) (Done, error) {
+		return do(ctx, "", func() error { return app.Current.Accounts.Unlink(ctx, in.Provider) })
+	}),
+}

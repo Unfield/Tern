@@ -191,6 +191,12 @@ func BenchmarkItems(b *testing.B) {
 			_, _ = Marshal(v)
 		}
 	})
+	b.Run("stdlib", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, _ = json.Marshal(v)
+		}
+	})
 	b.Run("stdlib+nilslices", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {

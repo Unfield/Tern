@@ -1,0 +1,37 @@
+<script lang="ts">
+	import { Alert, Button } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+</script>
+
+<svelte:head><title>Confirm your email · {{.Name}}</title></svelte:head>
+
+<section class="card" aria-labelledby="verify-title">
+	<h1 id="verify-title">Confirm your email</h1>
+	{#if data.verified}
+		<Alert tone="success">{data.email} is confirmed.</Alert>
+	{:else}
+		<Alert tone="danger">This link is invalid or has expired. Send a new one from your settings.</Alert>
+	{/if}
+	<Button href="/dashboard" variant="secondary">Go to the dashboard</Button>
+</section>
+
+<style>
+	.card {
+		display: grid;
+		gap: 1rem;
+		justify-items: start;
+		width: 100%;
+		max-width: 24rem;
+		box-sizing: border-box;
+		padding: 2rem;
+		background: var(--tern-surface);
+		border: 1px solid var(--tern-border);
+		border-radius: calc(var(--tern-radius) + 4px);
+	}
+	h1 {
+		margin: 0;
+		font-size: 1.375rem;
+	}
+</style>

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
+- `tern dev` says which routes were added and removed when route directories change.
+
 ## [1.6.0] - 2026-11-11
 
 ### Added

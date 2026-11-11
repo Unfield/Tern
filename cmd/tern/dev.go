@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,6 +63,8 @@ func cmdDev(args []string, stdout, stderr io.Writer) int {
 }
 
 type devRunner struct {
+	// routes are the route patterns of the last generation, nil before it.
+	routes []string
 	root   string
 	host   string
 	port   int
@@ -354,10 +357,12 @@ func (d *devRunner) rebuild(reload bool) {
 	d.mu.Unlock()
 	d.stopApp()
 
-	if _, err := codegen.Generate(d.root); err != nil {
+	res, err := codegen.Generate(d.root)
+	if err != nil {
 		d.setProblem(err.Error())
 		return
 	}
+	d.noteRoutes(res)
 	bin := filepath.Join(d.root, codegen.GenDir, "dev", "app")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
@@ -518,6 +523,9 @@ func (d *devRunner) watch(ctx context.Context) error {
 				d.rebuild(true)
 			case gen:
 				res, err := codegen.Generate(d.root)
+				if err == nil {
+					d.noteRoutes(res)
+				}
 				switch {
 				case err != nil:
 					d.setProblem(err.Error())
@@ -529,6 +537,53 @@ func (d *devRunner) watch(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// noteRoutes says which routes a generation added and removed.
+func (d *devRunner) noteRoutes(res *codegen.Result) {
+	if res == nil || res.Manifest == nil {
+		return
+	}
+	now := make([]string, 0, len(res.Manifest.Routes))
+	for _, r := range res.Manifest.Routes {
+		now = append(now, r.Pattern())
+	}
+	if d.routes != nil {
+		added, removed := diffRoutes(d.routes, now)
+		for _, p := range added {
+			d.ui.Event(d.ui.Green("+"), "route %s", p)
+		}
+		for _, p := range removed {
+			d.ui.Event(d.ui.Red("-"), "route %s", p)
+		}
+	}
+	d.routes = now
+}
+
+// diffRoutes returns the patterns in now but not in old, and the other
+// way around, each sorted.
+func diffRoutes(old, now []string) (added, removed []string) {
+	in := func(list []string) map[string]bool {
+		m := make(map[string]bool, len(list))
+		for _, p := range list {
+			m[p] = true
+		}
+		return m
+	}
+	o, n := in(old), in(now)
+	for p := range n {
+		if !o[p] {
+			added = append(added, p)
+		}
+	}
+	for p := range o {
+		if !n[p] {
+			removed = append(removed, p)
+		}
+	}
+	slices.Sort(added)
+	slices.Sort(removed)
+	return added, removed
 }
 
 func (d *devRunner) currentProblem() string {

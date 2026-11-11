@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -109,4 +110,47 @@ func TestLockDev(t *testing.T) {
 		t.Fatalf("stale lock: %v", err)
 	}
 	unlock()
+}
+
+func TestRoutesJSON(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeFiles(t, ".",
+		"src/routes/+layout.svelte",
+		"src/routes/+page.svelte",
+		"src/routes/blog/slug.param/+page.svelte",
+		"src/routes/blog/slug.param/page.server.go",
+		"src/routes/api/health/+page.svelte",
+		"src/routes/api/health/server.go",
+	)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"routes", "-json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr: %s", code, stderr.String())
+	}
+	var got []struct {
+		Pattern, ID, Kind string
+		Load              bool
+		Layouts           int
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("%v\n%s", err, stdout.String())
+	}
+	if len(got) != 3 || got[0].Pattern != "/" || got[1].Kind != "page+endpoint" || got[2].Pattern != "/blog/[slug]" || !got[2].Load || got[2].Layouts != 1 {
+		t.Fatalf("%+v", got)
+	}
+	stdout.Reset()
+	t.Chdir(t.TempDir())
+	_ = os.MkdirAll("src/routes", 0o755)
+	if code := run([]string{"routes", "-json"}, &stdout, &stderr); code != 0 || strings.TrimSpace(stdout.String()) != "[]" {
+		t.Fatalf("empty: %d %q", code, stdout.String())
+	}
+}
+
+func TestDiffRoutes(t *testing.T) {
+	added, removed := diffRoutes([]string{"/", "/old", "/about"}, []string{"/", "/projects/[id]", "/about", "/a"})
+	if strings.Join(added, ",") != "/a,/projects/[id]" || strings.Join(removed, ",") != "/old" {
+		t.Fatalf("added %v, removed %v", added, removed)
+	}
+	if a, r := diffRoutes([]string{"/"}, []string{"/"}); a != nil || r != nil {
+		t.Fatalf("no change: %v %v", a, r)
+	}
 }

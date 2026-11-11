@@ -128,6 +128,23 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] Signed-in devices: a list of sessions, and signing out of the others
 - [x] Tern UI screens for each, and [examples/accounts](../examples/accounts)
 
+## v1.7: Faster native rendering, and accounts for real apps
+
+**Native rendering**
+- [ ] Faster renders from the loads' Go structs: page data handed to components without going through JSON
+- [ ] Smaller binaries for large apps
+- [ ] The vs-sveltekit benchmark run in CI, so a slowdown shows when it lands
+
+**Accounts**
+- [ ] Two-step sign-in with an authenticator app (TOTP), and recovery codes
+- [ ] Sign in with GitHub, Google or OpenID Connect into an accounts user
+- [ ] Changing the email address, confirmed through the new one
+- [ ] Sign-in, sign-up and reset attempts limited per address and per IP, built in
+
+**CLI**
+- [ ] `tern routes -json`
+- [ ] `tern dev` says which routes were added and removed
+
 ## Next
 
 

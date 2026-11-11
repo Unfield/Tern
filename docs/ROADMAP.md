@@ -128,23 +128,28 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] Signed-in devices: a list of sessions, and signing out of the others
 - [x] Tern UI screens for each, and [examples/accounts](../examples/accounts)
 
-## v1.7: Faster native rendering, and accounts for real apps
+## v1.7: Faster native rendering, and accounts for real apps (released)
 
 **Native rendering**
-- [ ] Faster renders from the loads' Go structs: page data handed to components without going through JSON
-- [ ] Smaller binaries for large apps
-- [ ] The vs-sveltekit benchmark run in CI, so a slowdown shows when it lands
+- [x] Page data encoded by Tern's own JSON encoder, without encoding/json or a copy for nil slices: 6× faster, uncached renders 17% faster
+- [x] Smaller binaries for large apps: 11% from compiling the renderer without inlining, at the same speed
+- [x] The vs-sveltekit benchmark run in CI, and every change's renders compared with the commit before
 
 **Accounts**
-- [ ] Two-step sign-in with an authenticator app (TOTP), and recovery codes
-- [ ] Sign in with GitHub, Google or OpenID Connect into an accounts user
-- [ ] Changing the email address, confirmed through the new one
-- [ ] Sign-in, sign-up and reset attempts limited per address and per IP, built in
+- [x] Two-step sign-in with an authenticator app (TOTP), and recovery codes
+- [x] Sign in with GitHub, Google or OpenID Connect into an accounts user
+- [x] Changing the email address, confirmed through the new one
+- [x] Sign-in, sign-up and reset attempts limited per address and per IP, built in
 
 **CLI**
-- [ ] `tern routes -json`
-- [ ] `tern dev` says which routes were added and removed
+- [x] `tern routes -json`
+- [x] `tern dev` says which routes were added and removed
 
 ## Next
+
+**Native rendering, phase 2**
+- [ ] Typed fast paths from the loads' Go structs: components read page data without JavaScript property lookups. A render of the benchmark's table spends about 250 µs in compiled JavaScript, against 22 µs for the hand-written spike.
+- [ ] Page data handed to the renderer as Go values, without parsing JSON in the realm (about 50 µs of that render)
+- [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
 
 

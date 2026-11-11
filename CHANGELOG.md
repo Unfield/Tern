@@ -6,12 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-11
+
 ### Added
 
 - **Two-step sign-in** in `accounts`: codes from an authenticator app (TOTP) after the password, with recovery codes. `SetUpTwoStep` returns a QR code, `ConfirmTwoStep` turns it on, `SignIn` returns `ErrTwoStepRequired` and `CompleteSignIn` takes the code. Tern UI's `TwoStep` and `TwoStepCode` blocks show it.
 - **Sign in with GitHub, Google or OpenID Connect into `accounts`:** `plugins/oauth` takes `Accounts: acc` in place of `OnLogin`. A provider's sign-in joins the account with the same verified email, or creates one, or connects to the signed-in user; `acc.Identities` and `acc.Unlink` manage them, and Tern UI's `LinkedAccounts` shows them. `acc.SignInWith` does it for any provider.
 - `acc.RequestEmailChange` changes a user's email address once they open a link sent to the new one, and tells the old one.
-- `accounts` limits attempts per account and per IP: sign-ins, sign-ups, emails, passkey sign-ins and two-step codes. Past a limit, methods return `ErrTooManyAttempts`.
+- `accounts` limits attempts per account and per IP, on by default: sign-ins, sign-ups, emails, passkey sign-ins and two-step codes. Past a limit, methods return `ErrTooManyAttempts`; `Options.NoRateLimits` turns them off, for tests.
 - A Benchmarks workflow: every push and pull request renders the benchmark app's pages at the commit before and at the new one, and fails on a significant slowdown of more than 10%. Pushes to `main` also run the comparison with SvelteKit.
 - `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
 - `tern dev` says which routes were added and removed when route directories change.
@@ -266,7 +268,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/Unfield/Tern/releases/tag/v1.7.0
 [1.6.0]: https://github.com/Unfield/Tern/releases/tag/v1.6.0
 [1.5.0]: https://github.com/Unfield/Tern/releases/tag/v1.5.0
 [1.4.0]: https://github.com/Unfield/Tern/releases/tag/v1.4.0

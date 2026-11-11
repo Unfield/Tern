@@ -106,6 +106,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.4** | Form validation from Go struct tags, checked in the browser too; the complete Tern UI with charts, data tables and auth screens; `tern ui add`; `npm create tern`; an analytics example app | Done |
 | **v1.5** | Native rendering: `tern build` compiles the server renderer to Go, 12× faster than QuickJS on a 100-row table and faster than SvelteKit on a Node cluster | Done |
 | **v1.6** | Fully native rendering; user accounts with passkeys, email verification, password resets and signed-in devices; Tern's own texts translatable | Done |
+| **v1.7** | Two-step sign-in, sign-in with GitHub, Google or OIDC into accounts, email changes and rate limits; a faster JSON encoder and smaller binaries; render benchmarks in CI | Done |
 
 ## Documentation
 

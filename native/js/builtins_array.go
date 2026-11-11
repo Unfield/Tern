@@ -408,7 +408,7 @@ func (rt *Realm) setupArray() {
 		return Join(rt.elems(this), ",")
 	})
 	rt.method(p, "toLocaleString", 0, func(this Value, _ []Value) Value { return Join(rt.elems(this), ",") })
-	rt.method(p, "push", 1, func(this Value, args []Value) Value {
+	rt.arrayPush = rt.method(p, "push", 1, func(this Value, args []Value) Value {
 		o := rt.ToObject(this)
 		if o.frozen {
 			panic(TypeErrorf("Cannot add property %d, object is not extensible", len(*o.array)))
@@ -727,3 +727,18 @@ func (rt *Realm) Spread(v Value) []Value {
 }
 
 var _ = math.Inf
+
+// PushPlain is v.push(x) for an array whose push is the built-in one,
+// for Go code that appends where JavaScript would call push. It reports
+// false, doing nothing, for anything else, which the caller then calls.
+func (rt *Realm) PushPlain(ic *IC, v, x Value) bool {
+	o, ok := v.(*Object)
+	if !ok || o.array == nil || o.proxy != nil || o.frozen {
+		return false
+	}
+	if f, ok := rt.GetIC(ic, o, "push").(*Object); !ok || f != rt.arrayPush {
+		return false
+	}
+	*o.array = append(*o.array, x)
+	return true
+}

@@ -13,6 +13,7 @@ type Realm struct {
 	ObjectPrototype, FunctionPrototype, ArrayPrototype, StringPrototype *Object
 	NumberPrototype, BooleanPrototype, SymbolPrototype, ErrorPrototype  *Object
 	IteratorPrototype, DatePrototype, RegExpPrototype, PromisePrototype *Object
+	arrayPush                                                           *Object
 	listIteratorPrototype                                               *Object
 	ArrayBufferPrototype, TypedArrayPrototype, DataViewPrototype        *Object
 	GeneratorPrototype, GeneratorFunctionPrototype                      *Object

@@ -659,10 +659,10 @@ func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *f
 			a.redirect(c, isData, re)
 			return
 		}
-		a.renderErrorWithNodes(c, def, out.nodes, out.failed, isData, out.err, out.reused...)
+		a.renderErrorWithNodes(c, def, out.nodes, out.values, out.failed, isData, out.err, out.reused...)
 		return
 	}
-	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: out.nodes, Uses: out.uses, Reused: out.reused}
+	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: out.nodes, Uses: out.uses, Reused: out.reused, values: out.values}
 	if form != nil {
 		p.Form = form.v
 		p.HasForm = true
@@ -745,13 +745,13 @@ func (a *App) renderError(c *Ctx, def *RouteDef, isData bool, err error) {
 		fns = append(fns, a.m.Layouts[li].Load)
 	}
 	out := a.runLoads(c, fns, nil)
-	nodes := out.nodes
+	nodes, values := out.nodes, out.values
 	if out.err != nil {
 		// A layout failed while rendering an error: render without layouts.
 		a.logLoadErr(c, out.err)
-		nodes = nil
+		nodes, values = nil, nil
 	}
-	a.renderErrorWithNodes(c, def, nodes, len(nodes), isData, err)
+	a.renderErrorWithNodes(c, def, nodes, values, len(nodes), isData, err)
 }
 
 func (a *App) logLoadErr(c *Ctx, err error) {
@@ -763,7 +763,7 @@ func (a *App) logLoadErr(c *Ctx, err error) {
 	}
 }
 
-func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []jsonenc.Verbatim, failed int, isData bool, err error, reused ...int) {
+func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []jsonenc.Verbatim, values []any, failed int, isData bool, err error, reused ...int) {
 	p := errorPayload(c, def, err, a.dev != nil)
 	for _, k := range reused {
 		if k < failed {
@@ -773,7 +773,7 @@ func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []jsonenc.Verbat
 	if _, _, expected := classify(err); !expected {
 		a.logError(c, err)
 	}
-	p.Nodes = nodes
+	p.Nodes, p.values = nodes, values
 	p.Failed = &failed
 	if isData {
 		a.writeDataJSON(c, http.StatusOK, p)

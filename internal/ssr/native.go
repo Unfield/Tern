@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Unfield/Tern/internal/jsvalue"
 	"github.com/Unfield/Tern/native/js"
 )
 
@@ -170,6 +171,15 @@ func (n *Native) hostFuncs(rt *js.Realm, s *realmSlot) {
 	}
 }
 
+type payloadValueKey struct{}
+
+// WithPayloadValue gives native rendering the payload as a Go value:
+// whatever encodes to the payload JSON, read into the realm without
+// parsing the JSON. The JavaScript engine uses the JSON.
+func WithPayloadValue(ctx context.Context, v any) context.Context {
+	return context.WithValue(ctx, payloadValueKey{}, v)
+}
+
 // fallbackError is a render the realm couldn't do, for the engine to redo.
 type fallbackError struct {
 	reason string
@@ -286,7 +296,13 @@ func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href str
 		err = &fallbackError{reason: describePanic(r), thrown: thrown}
 	}()
 	if s.raw != nil {
-		v := js.Call(s.raw, js.Undefined, string(payload), href)
+		var in js.Value = string(payload)
+		if pv := ctx.Value(payloadValueKey{}); pv != nil {
+			if conv, err := jsvalue.Convert(s.rt, pv); err == nil {
+				in = conv
+			}
+		}
+		v := js.Call(s.raw, js.Undefined, in, href)
 		s.rt.DropJobs()
 		o, ok := v.(*js.Object)
 		if !ok {

@@ -32,15 +32,16 @@ export interface RenderResult {
  * same payload the client receives, so the server and the client render
  * exactly the same tree and hydration matches.
  */
-export function createRenderer(manifest: ServerManifest): ((payload: string, href: string) => string) & { raw: (payload: string, href: string) => RenderResult } {
+export function createRenderer(manifest: ServerManifest): ((payload: string, href: string) => string) & { raw: (payload: string | Payload, href: string) => RenderResult } {
 	const layout = (i: number) => manifest.layouts[i]?.component ?? Passthrough;
 	configureI18n(manifest.i18n ?? null);
 	setBase(manifest.base ?? '');
 
 	// raw returns the result as an object, for a native renderer to read
-	// without encoding it as JSON first.
-	const raw = (payloadJSON: string, href: string): RenderResult => {
-		const p = JSON.parse(payloadJSON) as Payload;
+	// without encoding it as JSON first. Native rendering also passes the
+	// payload as an object, made from Go values without the JSON.
+	const raw = (payload: string | Payload, href: string): RenderResult => {
+		const p = typeof payload === 'string' ? (JSON.parse(payload) as Payload) : payload;
 		// Deferred values are still loading: render their pending state.
 		if (p.deferred) p.nodes = revive(p.nodes, () => new Promise(() => {}));
 		const what = plan(manifest, p);

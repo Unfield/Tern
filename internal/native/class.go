@@ -42,6 +42,14 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 		}
 	}
 
+	privOf := func(n string) (string, bool) {
+		b, ok := cs.names[n]
+		if !ok || b.kind != "private" {
+			return "", false
+		}
+		return b.expr, true
+	}
+
 	// Instance fields and private methods, set up on each new instance.
 	init := "init" + id
 	iw := &writer{indent: 1}
@@ -57,7 +65,13 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 		}
 		keyName := "#" + m.Child("key").Str("name")
 		fv := "pm" + strconv.Itoa(c.site())
-		w.line("%s := %s", fv, c.methodFunction(cs, m.Child("value"), keyName, "", parentProto))
+		fnExpr := c.methodFunction(cs, m.Child("value"), keyName, "", parentProto)
+		if m.Str("kind") == "method" {
+			if e, ok := c.methodIntrinsicFor(c.cur, name, keyName, m.Child("value"), fnExpr, ctor, privOf); ok {
+				fnExpr = e
+			}
+		}
+		w.line("%s := %s", fv, fnExpr)
 		switch m.Str("kind") {
 		case "get":
 			iw.line("js.PrivateAccessor(%s, %s, %s, nil)", ifn.this, cs.lookup(keyName).expr, fv)
@@ -158,6 +172,11 @@ func (c *Compiler) class(s *scope, n *Node, name string) string {
 				label = m.Str("kind") + " " + keyName
 			}
 			fn := c.methodFunction(cs, m.Child("value"), label, "", superBase)
+			if !static && m.Str("kind") == "method" && !m.Bool("computed") {
+				if e, ok := c.methodIntrinsicFor(c.cur, name, keyName, m.Child("value"), fn, ctor, privOf); ok {
+					fn = e
+				}
+			}
 			switch m.Str("kind") {
 			case "get":
 				w.line("%s.DefineAccessor(%s, js.AsObject(%s), nil, false)", home, key, fn)

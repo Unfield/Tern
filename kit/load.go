@@ -17,9 +17,12 @@ type loadResult struct {
 	done chan struct{}
 	run  func()
 	data jsonenc.Verbatim
-	uses *nodeUses
-	err  error
-	ran  bool
+	// value is what the load returned, which data encodes, for native
+	// rendering to read without parsing data.
+	value any
+	uses  *nodeUses
+	err   error
+	ran   bool
 }
 
 // ensure runs the load once and waits for it.
@@ -64,6 +67,7 @@ func (u *nodeUses) set(f func(*nodeUses)) {
 // loadOutcome is the result of running a chain of loads.
 type loadOutcome struct {
 	nodes  []jsonenc.Verbatim
+	values []any // what encodes to nodes
 	uses   []*nodeUses
 	reused []int // nodes the client already has, skipped by request
 	failed int
@@ -113,6 +117,7 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 			})
 			if res.err == nil {
 				res.data, res.err = encodeNode(v)
+				res.value = v
 			}
 		}
 	}
@@ -125,7 +130,7 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 	}
 	wg.Wait()
 
-	out := loadOutcome{nodes: make([]jsonenc.Verbatim, len(fns)), uses: make([]*nodeUses, len(fns)), failed: len(fns)}
+	out := loadOutcome{nodes: make([]jsonenc.Verbatim, len(fns)), values: make([]any, len(fns)), uses: make([]*nodeUses, len(fns)), failed: len(fns)}
 	for i, res := range results {
 		if skip[i] && !res.ran {
 			out.reused = append(out.reused, i)
@@ -133,10 +138,11 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 		}
 		if res.err != nil && !errors.Is(res.err, errParentFailed) {
 			out.failed, out.err = i, res.err
-			out.nodes = out.nodes[:i]
+			out.nodes, out.values = out.nodes[:i], out.values[:i]
 			return out
 		}
 		out.nodes[i] = res.data
+		out.values[i] = res.value
 		out.uses[i] = res.uses
 	}
 	return out

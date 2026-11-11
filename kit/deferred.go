@@ -1,10 +1,10 @@
 package kit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/Unfield/Tern/internal/jsonenc"
 )
@@ -141,9 +141,9 @@ const resolveScript = `__tern_d={};__tern_resolve=function(c){__tern_d[c.id]=c;i
 
 // splitBody splits a document before its closing </body>, where streamed
 // chunks are written.
-func splitBody(doc string) (before, after string) {
-	if i := strings.LastIndex(doc, "</body>"); i >= 0 {
+func splitBody(doc []byte) (before, after []byte) {
+	if i := bytes.LastIndex(doc, []byte("</body>")); i >= 0 {
 		return doc[:i], doc[i:]
 	}
-	return doc, ""
+	return doc, nil
 }

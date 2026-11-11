@@ -9,9 +9,13 @@ import (
 	"html"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
+	"unsafe"
 
 	"github.com/Unfield/Tern/internal/jsonenc"
+	"github.com/Unfield/Tern/internal/ssr"
 )
 
 // payload is the data sent to the client, both inline in the HTML shell
@@ -36,6 +40,25 @@ type payload struct {
 	// Deferred says the nodes have deferred values' placeholders, so the
 	// renderers look for them only then.
 	Deferred bool `json:"deferred,omitempty"`
+	// values are the loads' results that Nodes encodes, when there's one
+	// for each node: native rendering reads them instead of the JSON.
+	values []any
+}
+
+// renderPayload is the payload with the loads' values in place of their
+// JSON, for native rendering: it makes the same JavaScript values.
+type renderPayload struct {
+	payload
+	Nodes []any `json:"nodes,omitempty"`
+}
+
+// asValue is p for the renderer to read without parsing its JSON, or nil
+// when a node's value isn't there.
+func (p payload) asValue() any {
+	if len(p.values) != len(p.Nodes) {
+		return nil
+	}
+	return renderPayload{payload: p, Nodes: p.values}
 }
 
 type errorBody struct {
@@ -103,26 +126,75 @@ func parseShell(src string) (*shell, error) {
 	}
 }
 
-func (s *shell) render(head, body, nonce, base, lang string) string {
-	var b strings.Builder
+// appendTo writes the document into b: the shell with head's and body's
+// pieces in their places, in one buffer of the right size.
+func (s *shell) appendTo(b []byte, head, body []string, nonce, base, lang string) []byte {
+	n := 0
+	for _, p := range s.parts {
+		n += len(p)
+	}
+	size := func(pieces []string) (m int) {
+		for _, p := range pieces {
+			m += len(p)
+		}
+		return m
+	}
+	for _, slot := range s.slots {
+		switch slot {
+		case "%tern.head%":
+			n += size(head)
+		case "%tern.body%":
+			n += size(body)
+		case "%tern.nonce%":
+			n += len(nonce)
+		case "%tern.assets%":
+			n += len(base)
+		case "%tern.lang%":
+			n += len(lang)
+		}
+	}
+	b = slices.Grow(b[:0], n)
 	for i, part := range s.parts {
-		b.WriteString(part)
+		b = append(b, part...)
 		if i < len(s.slots) {
 			switch s.slots[i] {
 			case "%tern.head%":
-				b.WriteString(head)
+				for _, p := range head {
+					b = append(b, p...)
+				}
 			case "%tern.body%":
-				b.WriteString(body)
+				for _, p := range body {
+					b = append(b, p...)
+				}
 			case "%tern.nonce%":
-				b.WriteString(nonce)
+				b = append(b, nonce...)
 			case "%tern.assets%":
-				b.WriteString(base)
+				b = append(b, base...)
 			case "%tern.lang%":
-				b.WriteString(lang)
+				b = append(b, lang...)
 			}
 		}
 	}
-	return b.String()
+	return b
+}
+
+// render is the document as a string.
+func (s *shell) render(head, body, nonce, base, lang string) string {
+	return string(s.appendTo(nil, []string{head}, []string{body}, nonce, base, lang))
+}
+
+// docBuffers hold page payloads and documents between requests: a page
+// is written into one, sent, and the buffer used again.
+var docBuffers = sync.Pool{New: func() any { return new([]byte) }}
+
+func getBuffer() *[]byte { return docBuffers.Get().(*[]byte) }
+
+func putBuffer(b *[]byte) {
+	if cap(*b) > 4<<20 {
+		return // a rare giant page: let it go
+	}
+	*b = (*b)[:0]
+	docBuffers.Put(b)
 }
 
 // writeDocument responds with the HTML shell for a page or error.
@@ -132,11 +204,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
-	data, err := jsonenc.Marshal(p) // escapes <, > and & for safe inlining
+	dataBuf := getBuffer()
+	defer putBuffer(dataBuf)
+	data, err := jsonenc.Append((*dataBuf)[:0], p) // escapes <, > and & for safe inlining
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))
 		status = http.StatusInternalServerError
 		data = []byte(`{"type":"error","status":500,"error":{"message":"Internal Error"}}`)
+	} else {
+		*dataBuf = data
 	}
 
 	nonce := newNonce()
@@ -181,12 +257,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	if streaming {
 		fmt.Fprintf(&head, "\n\t\t<script nonce=\"%s\">%s</script>", nonce, resolveScript)
 	}
-	fmt.Fprintf(&head, "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"%s\">%s</script>", nonce, data)
-
-	headHTML := head.String()
-	body := `<div id="tern-root" style="display: contents"></div>`
+	// The head: the rendered head first, then the assets and the data.
+	headParts := []string{head.String(), "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"", nonce, "\">", unsafeString(data), "</script>"}
+	bodyParts := []string{`<div id="tern-root" style="display: contents"></div>`}
 	if a.ssr != nil && (def == nil || def.Page == nil || !def.Page.NoSSR) {
-		res, err := a.ssr.Render(context.WithValue(c.Request.Context(), liveLocalsKey{}, maps.Clone(c.Locals)), data, absoluteURL(c.Request, a.m.BasePath))
+		ctx := context.WithValue(c.Request.Context(), liveLocalsKey{}, maps.Clone(c.Locals))
+		if v := p.asValue(); v != nil {
+			ctx = ssr.WithPayloadValue(ctx, v)
+		}
+		res, err := a.ssr.Render(ctx, data, absoluteURL(c.Request, a.m.BasePath))
 		switch {
 		case err != nil:
 			// Render on the client instead; the page still works.
@@ -194,12 +273,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 				"path", c.Request.URL.Path, "route", c.routeID, "error", err)
 		case !res.Skip:
 			if res.Head != "" {
-				headHTML = "\n\t\t" + res.Head + headHTML
+				headParts = append([]string{"\n\t\t", res.Head}, headParts...)
 			}
-			body = `<div id="tern-root" data-tern-ssr style="display: contents">` + res.Body + `</div>`
+			bodyParts = []string{`<div id="tern-root" data-tern-ssr style="display: contents">`, res.Body, `</div>`}
 		}
 	}
-	doc := shell.render(headHTML, body, nonce, a.m.BasePath, a.htmlLang(c))
+	docBuf := getBuffer()
+	defer putBuffer(docBuf)
+	doc := shell.appendTo(*docBuf, headParts, bodyParts, nonce, a.m.BasePath, a.htmlLang(c))
+	*docBuf = doc
 
 	c.applyHeaders()
 	h := c.writer.Header()
@@ -219,17 +301,26 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		return
 	}
 	if !streaming {
-		_, _ = c.writer.Write([]byte(doc))
+		_, _ = c.writer.Write(doc)
 		return
 	}
 	// Send the page now, then each deferred value as it resolves.
 	before, after := splitBody(doc)
-	_, _ = c.writer.Write([]byte(before))
+	_, _ = c.writer.Write(before)
 	_ = http.NewResponseController(c.writer).Flush()
 	a.streamDeferred(c, func(chunk []byte) {
 		fmt.Fprintf(c.writer, "<script nonce=\"%s\">__tern_resolve(%s)</script>\n", nonce, chunk)
 	})
-	_, _ = c.writer.Write([]byte(after))
+	_, _ = c.writer.Write(after)
+}
+
+// unsafeString is b as a string without copying, for b that doesn't change
+// while the string is used.
+func unsafeString(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(&b[0], len(b))
 }
 
 // absoluteURL reconstructs the URL the client requested.

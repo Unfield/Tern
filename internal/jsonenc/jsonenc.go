@@ -636,3 +636,63 @@ func appendString(b []byte, s string) []byte {
 	b = append(b, s[start:]...)
 	return append(b, '"')
 }
+
+// Field is a struct field as encoding/json writes it, for other encoders
+// that follow its rules.
+type Field struct {
+	Name string
+	// Index is the path to the field through embedded structs.
+	Index     []int
+	Type      reflect.Type
+	OmitEmpty bool
+	OmitZero  bool
+}
+
+// Fields returns the fields encoding/json writes for struct type t, in
+// order. ok is false for structs it leaves to encoding/json (the ",string"
+// option).
+func Fields(t reflect.Type) (fields []Field, ok bool) {
+	fs, ok := typeFields(t)
+	if !ok {
+		return nil, false
+	}
+	out := make([]Field, len(fs))
+	for i, f := range fs {
+		out[i] = Field{Name: f.name, Index: f.index, Type: f.typ, OmitEmpty: f.omitEmpty, OmitZero: f.omitZero}
+	}
+	return out, true
+}
+
+// EncodesItself reports whether values of t are written by their own
+// MarshalJSON or MarshalText, or need encoding/json for another reason:
+// what this package hands to encoding/json.
+func EncodesItself(t reflect.Type) bool {
+	if t == rawMessageType || t == verbatimType {
+		return true
+	}
+	if t.Kind() != reflect.Pointer && (reflect.PointerTo(t).Implements(marshalerType) || reflect.PointerTo(t).Implements(textMarshalerType)) {
+		return true
+	}
+	return t.Implements(marshalerType) || t.Implements(textMarshalerType)
+}
+
+// IsEmpty and IsZero are the omitempty and omitzero tests.
+func IsEmpty(v reflect.Value) bool { return isEmpty(v) }
+
+// IsZero is the omitzero test.
+func IsZero(v reflect.Value) bool { return isZero(v) }
+
+// MapKey is a map key as encoding/json writes it, for the map kinds this
+// package encodes itself: string and integer keys.
+func MapKey(k reflect.Value) (string, bool) {
+	t := k.Type()
+	switch {
+	case t.Kind() == reflect.String && !t.Implements(textMarshalerType):
+		return k.String(), true
+	case t.Kind() >= reflect.Int && t.Kind() <= reflect.Int64 && !t.Implements(textMarshalerType):
+		return strconv.FormatInt(k.Int(), 10), true
+	case t.Kind() >= reflect.Uint && t.Kind() <= reflect.Uintptr && !t.Implements(textMarshalerType):
+		return strconv.FormatUint(k.Uint(), 10), true
+	}
+	return "", false
+}

@@ -489,6 +489,12 @@ func privateSlotOf(obj Value, name *PrivateName) *privateSlot {
 	panic(TypeErrorf("Cannot read private member %s from an object whose class did not declare it", name.Description))
 }
 
+// HasPrivate is #name in obj.
+func HasPrivate(obj Value, name *PrivateName) bool {
+	o, ok := obj.(*Object)
+	return ok && o.private(name) != nil
+}
+
 // PrivateGet reads obj.#name.
 func PrivateGet(obj Value, name *PrivateName) Value {
 	s := privateSlotOf(obj, name)

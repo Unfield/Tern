@@ -353,7 +353,13 @@ func repeats(keys []PropKey) bool {
 // object makes {keys: vals} as Define would, one shape step per key but
 // the slots allocated once.
 func (p *jsonParser) object(keys []PropKey, vals []Value) *Object {
-	o := p.rt.NewPlainObject()
+	return p.rt.NewObjectFrom(keys, vals)
+}
+
+// NewObjectFrom makes the object JSON.parse makes for these members, in
+// order: a repeated key's last value wins. keys and vals are copied.
+func (rt *Realm) NewObjectFrom(keys []PropKey, vals []Value) *Object {
+	o := rt.NewPlainObject()
 	if len(keys) >= dictAt {
 		for i, k := range keys {
 			o.Define(k, vals[i])

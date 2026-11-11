@@ -35,6 +35,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/Unfield/Tern/internal/jsonenc"
 	"github.com/Unfield/Tern/internal/nilslices"
 )
 
@@ -134,7 +135,7 @@ func (c *Component) Emit(name string, v any) {
 	if c.rendering || c.closed || c.hooks.event == nil {
 		return
 	}
-	b, err := json.Marshal(nilslices.Remove(v))
+	b, err := jsonenc.Marshal(v)
 	if err != nil {
 		b = []byte("null")
 	}
@@ -211,7 +212,7 @@ func (c *Component) publish(name string, v any) {
 	if c.closed || name == "" {
 		return
 	}
-	b, err := json.Marshal(nilslices.Remove(v))
+	b, err := jsonenc.Marshal(v)
 	if err != nil {
 		b = []byte("null")
 	}

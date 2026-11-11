@@ -321,6 +321,58 @@ type jsonParser struct {
 	// keys holds each object key once, as a Value: the objects of a list
 	// repeat their keys, and boxing each would allocate.
 	keys map[string]PropKey
+	// kbuf and vbuf collect an object's members, nested objects after
+	// their parents', so each object is made once at its final shape.
+	kbuf []PropKey
+	vbuf []Value
+}
+
+var plainAttrs = attrsOf(&prop{enumerable: true, writable: true, configurable: true})
+
+func repeats(keys []PropKey) bool {
+	if len(keys) > 16 {
+		seen := make(map[PropKey]bool, len(keys))
+		for _, k := range keys {
+			if seen[k] {
+				return true
+			}
+			seen[k] = true
+		}
+		return false
+	}
+	for i, k := range keys {
+		for _, prev := range keys[:i] {
+			if prev == k {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// object makes {keys: vals} as Define would, one shape step per key but
+// the slots allocated once.
+func (p *jsonParser) object(keys []PropKey, vals []Value) *Object {
+	o := p.rt.NewPlainObject()
+	if len(keys) >= dictAt {
+		for i, k := range keys {
+			o.Define(k, vals[i])
+		}
+		return o
+	}
+	if repeats(keys) { // the last one wins, in the first one's place
+		for i, k := range keys {
+			o.Define(k, vals[i])
+		}
+		return o
+	}
+	sh := o.shape
+	for _, k := range keys {
+		sh = sh.with(k, plainAttrs)
+	}
+	o.shape = sh
+	o.slots = append(make([]Value, 0, len(vals)), vals...)
+	return o
 }
 
 func (p *jsonParser) key(k string) PropKey {
@@ -360,12 +412,13 @@ func (p *jsonParser) value() (Value, error) {
 	switch c := p.s[p.i]; {
 	case c == '{':
 		p.i++
-		o := p.rt.NewPlainObject()
 		p.space()
 		if p.i < len(p.s) && p.s[p.i] == '}' {
 			p.i++
-			return o, nil
+			return p.rt.NewPlainObject(), nil
 		}
+		base := len(p.kbuf)
+		defer func() { p.kbuf, p.vbuf = p.kbuf[:base], p.vbuf[:base] }()
 		for {
 			p.space()
 			if p.i >= len(p.s) || p.s[p.i] != '"' {
@@ -385,7 +438,8 @@ func (p *jsonParser) value() (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			o.Define(p.key(k), v)
+			p.kbuf = append(p.kbuf, p.key(k))
+			p.vbuf = append(p.vbuf, v)
 			p.space()
 			if p.i < len(p.s) && p.s[p.i] == ',' {
 				p.i++
@@ -393,7 +447,7 @@ func (p *jsonParser) value() (Value, error) {
 			}
 			if p.i < len(p.s) && p.s[p.i] == '}' {
 				p.i++
-				return o, nil
+				return p.object(p.kbuf[base:], p.vbuf[base:]), nil
 			}
 			return nil, p.fail()
 		}

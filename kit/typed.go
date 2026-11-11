@@ -13,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Unfield/Tern/internal/nilslices"
 )
 
 // Typed endpoints are route functions with request and response types,
@@ -66,7 +64,7 @@ func TypedEndpoint[In, Out any](method string, fn func(*Ctx, In) (Out, error)) H
 		if err != nil {
 			return err
 		}
-		return c.JSON(http.StatusOK, nilslices.Remove(out))
+		return c.jsonNoNil(http.StatusOK, out)
 	}
 }
 
@@ -77,7 +75,7 @@ func OutputEndpoint[Out any](fn func(*Ctx) (Out, error)) HandlerFunc {
 		if err != nil {
 			return err
 		}
-		return c.JSON(http.StatusOK, nilslices.Remove(out))
+		return c.jsonNoNil(http.StatusOK, out)
 	}
 }
 

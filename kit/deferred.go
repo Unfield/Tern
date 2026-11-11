@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Unfield/Tern/internal/nilslices"
+	"github.com/Unfield/Tern/internal/jsonenc"
 )
 
 // Deferred is a value that a load starts computing but does not wait for.
@@ -122,9 +122,9 @@ func (a *App) streamDeferred(c *Ctx, write func(chunk []byte)) {
 				}
 				chunk.Error = &errorBody{Message: msg}
 			} else {
-				chunk.Data = nilslices.Remove(d.value)
+				chunk.Data = d.value
 			}
-			b, err := json.Marshal(chunk)
+			b, err := jsonenc.Marshal(chunk)
 			if err != nil {
 				a.logError(c, fmt.Errorf("kit: encoding deferred data: %w", err))
 				b, _ = json.Marshal(deferredChunk{ID: d.id, Error: &errorBody{Message: "Internal Error"}})

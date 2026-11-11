@@ -20,7 +20,7 @@ import (
 
 	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/internal/i18n"
-	"github.com/Unfield/Tern/internal/nilslices"
+	"github.com/Unfield/Tern/internal/jsonenc"
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
 )
@@ -630,14 +630,14 @@ func (a *App) runAction(c *Ctx, def *RouteDef) {
 		a.redirect(c, false, re)
 	case errors.As(err, &fe):
 		if enhanced {
-			a.writeDataJSON(c, http.StatusOK, payload{Type: "failure", Status: fe.Status, Data: nilslices.Remove(fe.Data)})
+			a.writeDataJSON(c, http.StatusOK, payload{Type: "failure", Status: fe.Status, Data: fe.Data})
 			return
 		}
 		a.renderPage(c, def, false, fe.Status, &formValue{fe.Data})
 	case err != nil:
 		fail(err)
 	case enhanced:
-		a.writeDataJSON(c, http.StatusOK, payload{Type: "success", Status: http.StatusOK, Data: nilslices.Remove(result)})
+		a.writeDataJSON(c, http.StatusOK, payload{Type: "success", Status: http.StatusOK, Data: result})
 	default:
 		a.renderPage(c, def, false, http.StatusOK, &formValue{result})
 	}
@@ -664,7 +664,7 @@ func (a *App) renderPage(c *Ctx, def *RouteDef, isData bool, status int, form *f
 	}
 	p := payload{Type: "data", Route: def.ID, Params: c.params, Status: status, Nodes: out.nodes, Uses: out.uses, Reused: out.reused}
 	if form != nil {
-		p.Form = nilslices.Remove(form.v)
+		p.Form = form.v
 		p.HasForm = true
 	}
 	if isData {
@@ -763,7 +763,7 @@ func (a *App) logLoadErr(c *Ctx, err error) {
 	}
 }
 
-func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []json.RawMessage, failed int, isData bool, err error, reused ...int) {
+func (a *App) renderErrorWithNodes(c *Ctx, def *RouteDef, nodes []jsonenc.Verbatim, failed int, isData bool, err error, reused ...int) {
 	p := errorPayload(c, def, err, a.dev != nil)
 	for _, k := range reused {
 		if k < failed {

@@ -9,14 +9,14 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/Unfield/Tern/internal/nilslices"
+	"github.com/Unfield/Tern/internal/jsonenc"
 )
 
 type loadResult struct {
 	once sync.Once
 	done chan struct{}
 	run  func()
-	data json.RawMessage
+	data jsonenc.Verbatim
 	uses *nodeUses
 	err  error
 	ran  bool
@@ -63,7 +63,7 @@ func (u *nodeUses) set(f func(*nodeUses)) {
 
 // loadOutcome is the result of running a chain of loads.
 type loadOutcome struct {
-	nodes  []json.RawMessage
+	nodes  []jsonenc.Verbatim
 	uses   []*nodeUses
 	reused []int // nodes the client already has, skipped by request
 	failed int
@@ -125,7 +125,7 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 	}
 	wg.Wait()
 
-	out := loadOutcome{nodes: make([]json.RawMessage, len(fns)), uses: make([]*nodeUses, len(fns)), failed: len(fns)}
+	out := loadOutcome{nodes: make([]jsonenc.Verbatim, len(fns)), uses: make([]*nodeUses, len(fns)), failed: len(fns)}
 	for i, res := range results {
 		if skip[i] && !res.ran {
 			out.reused = append(out.reused, i)
@@ -143,8 +143,8 @@ func (a *App) runLoads(c *Ctx, fns []LoadFunc, skip map[int]bool) loadOutcome {
 }
 
 // encodeNode marshals a load result, which must encode to a JSON object.
-func encodeNode(v any) (json.RawMessage, error) {
-	b, err := json.Marshal(nilslices.Remove(v))
+func encodeNode(v any) (jsonenc.Verbatim, error) {
+	b, err := jsonenc.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("kit: encoding load data: %w", err)
 	}
@@ -157,7 +157,7 @@ func encodeNode(v any) (json.RawMessage, error) {
 	return b, nil
 }
 
-func mergeInto(dst map[string]json.RawMessage, data json.RawMessage) error {
+func mergeInto(dst map[string]json.RawMessage, data jsonenc.Verbatim) error {
 	if data == nil {
 		return nil
 	}

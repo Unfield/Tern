@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
 - `tern dev` says which routes were added and removed when route directories change.
 
+### Changed
+
+- Page data, action results, typed endpoint output and live component state are encoded by Tern's own JSON encoder: byte for byte what encoding/json writes, with nil slices as `[]`, about 6× faster, without copying the data first. An uncached render of the benchmark's 100-row table takes 17% less time.
+- Native rendering builds the page data's objects at their final shape, and property reads that miss their cache no longer allocate.
+
 ### Fixed
 
 - Tern UI's `SignIn` said a sign-in had failed when the user cancelled it at the provider: it now matches `plugins/oauth`'s `denied` code.

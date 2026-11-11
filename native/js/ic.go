@@ -31,6 +31,16 @@ type IC struct {
 	add   bool
 	next  *Shape
 	index int32
+	// key is the site's key as a Value, made once: turning a string into
+	// one allocates, which a miss would do each time.
+	key PropKey
+}
+
+func (c *IC) boxed(key string) PropKey {
+	if c.key == nil {
+		c.key = key
+	}
+	return c.key
 }
 
 // lazyFnShape stands for functions whose name, length and prototype
@@ -66,6 +76,17 @@ func (rt *Realm) receiverShape(v Value) *Shape {
 
 // GetIC is obj.key with a cache.
 func (rt *Realm) GetIC(c *IC, v Value, key string) Value {
+	if key == "length" {
+		// Arrays and strings, mostly: no shape to cache, and no key to box.
+		switch x := v.(type) {
+		case string:
+			return Box(float64(rt.Len16(x)))
+		case *Object:
+			if x.array != nil && x.proxy == nil {
+				return Box(float64(len(*x.array)))
+			}
+		}
+	}
 	s := rt.receiverShape(v)
 	if s != c.shape || s == nil || c.add {
 		return rt.getMiss(c, v, key)
@@ -106,7 +127,7 @@ func (rt *Realm) GetIC(c *IC, v Value, key string) Value {
 func (rt *Realm) getMiss(c *IC, v Value, key string) Value {
 	c.shape = nil
 	if !cacheable(key) {
-		return rt.Get(v, key)
+		return rt.Get(v, c.boxed(key))
 	}
 	var s *Shape
 	if x, ok := v.(*Object); ok {
@@ -118,10 +139,10 @@ func (rt *Realm) getMiss(c *IC, v Value, key string) Value {
 			s = x.sh()
 		}
 	} else if s = rt.receiverShape(v); s == nil {
-		return rt.Get(v, key)
+		return rt.Get(v, c.boxed(key))
 	}
 	rt.fill(c, v, s, key)
-	return rt.Get(v, key)
+	return rt.Get(v, c.boxed(key))
 }
 
 // fill caches where key is for receivers of shape s: on the receiver
@@ -209,17 +230,17 @@ func protosValid(c *IC, p *Object) bool {
 func (rt *Realm) setMiss(c *IC, obj Value, key string, v Value) {
 	o, ok := obj.(*Object)
 	if !ok || !cacheable(key) || o.frozen || o == rt.Global {
-		Set(obj, key, v)
+		Set(obj, c.boxed(key), v)
 		return
 	}
 	before := o.sh()
 	c.shape = nil
 	if before.dict {
-		o.Set(key, v)
+		o.Set(c.boxed(key), v)
 		return
 	}
 	if i := before.findString(key); i >= 0 {
-		o.Set(key, v)
+		o.Set(c.boxed(key), v)
 		if a := before.attrs[i]; a&attrAccessor == 0 && a&attrWritable != 0 && o.shape == before {
 			c.shape, c.depth, c.index, c.accessor, c.add = before, 0, int32(i), false, false
 		}
@@ -232,14 +253,14 @@ func (rt *Realm) setMiss(c *IC, obj Value, key string, v Value) {
 	for p := o.proto; p != nil; p = p.proto {
 		ps := p.sh()
 		if depth == maxDepth || ps.dict || ps.findString(key) >= 0 {
-			o.Set(key, v)
+			o.Set(c.boxed(key), v)
 			return
 		}
 		protos[depth] = ps
 		depth++
 	}
-	o.Set(key, v)
-	if after := o.shape; !after.dict && len(after.keys) == len(before.keys)+1 && after.keys[len(before.keys)] == PropKey(key) {
+	o.Set(c.boxed(key), v)
+	if after := o.shape; !after.dict && len(after.keys) == len(before.keys)+1 && after.keys[len(before.keys)] == c.boxed(key) {
 		c.shape, c.next, c.add, c.depth, c.protos, c.accessor = before, after, true, uint8(depth), protos, false
 	}
 }

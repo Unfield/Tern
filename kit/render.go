@@ -4,34 +4,35 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
 	"maps"
 	"net/http"
 	"strings"
+
+	"github.com/Unfield/Tern/internal/jsonenc"
 )
 
 // payload is the data sent to the client, both inline in the HTML shell
 // and from __data.json and enhanced form actions.
 type payload struct {
 	// Type is "data", "error", "redirect", "success" or "failure".
-	Type     string            `json:"type"`
-	Route    string            `json:"route,omitempty"`
-	Params   map[string]string `json:"params,omitempty"`
-	Status   int               `json:"status"`
-	Nodes    []json.RawMessage `json:"nodes,omitempty"`
-	Uses     []*nodeUses       `json:"uses,omitempty"`
-	Reused   []int             `json:"reused,omitempty"`
-	Failed   *int              `json:"failed,omitempty"`
-	Error    *errorBody        `json:"error,omitempty"`
-	Location string            `json:"location,omitempty"`
-	Data     any               `json:"data,omitempty"`
-	Form     any               `json:"form,omitempty"`
-	Env      map[string]string `json:"env,omitempty"`
-	Locale   string            `json:"locale,omitempty"`
-	HasForm  bool              `json:"hasForm,omitempty"`
+	Type     string             `json:"type"`
+	Route    string             `json:"route,omitempty"`
+	Params   map[string]string  `json:"params,omitempty"`
+	Status   int                `json:"status"`
+	Nodes    []jsonenc.Verbatim `json:"nodes,omitempty"`
+	Uses     []*nodeUses        `json:"uses,omitempty"`
+	Reused   []int              `json:"reused,omitempty"`
+	Failed   *int               `json:"failed,omitempty"`
+	Error    *errorBody         `json:"error,omitempty"`
+	Location string             `json:"location,omitempty"`
+	Data     any                `json:"data,omitempty"`
+	Form     any                `json:"form,omitempty"`
+	Env      map[string]string  `json:"env,omitempty"`
+	Locale   string             `json:"locale,omitempty"`
+	HasForm  bool               `json:"hasForm,omitempty"`
 	// Deferred says the nodes have deferred values' placeholders, so the
 	// renderers look for them only then.
 	Deferred bool `json:"deferred,omitempty"`
@@ -44,7 +45,7 @@ type errorBody struct {
 func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
-	b, err := json.Marshal(p)
+	b, err := jsonenc.Marshal(p)
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding response: %w", err))
 		b = []byte(`{"type":"error","status":500,"error":{"message":"Internal Error"}}`)
@@ -131,7 +132,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
-	data, err := json.Marshal(p) // escapes <, > and & for safe inlining
+	data, err := jsonenc.Marshal(p) // escapes <, > and & for safe inlining
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))
 		status = http.StatusInternalServerError

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Unfield/Tern/internal/jsonenc"
 )
 
 // Ctx is the request context passed to Load, LayoutLoad, actions,
@@ -231,6 +233,19 @@ func (c *Ctx) Writer() http.ResponseWriter {
 // JSON writes v as a JSON response. It is meant for endpoints.
 func (c *Ctx) JSON(status int, v any) error {
 	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("kit: encoding JSON response: %w", err)
+	}
+	w := c.Writer()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, err = w.Write(b)
+	return err
+}
+
+// jsonNoNil is JSON with nil slices as [], for typed endpoints.
+func (c *Ctx) jsonNoNil(status int, v any) error {
+	b, err := jsonenc.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("kit: encoding JSON response: %w", err)
 	}

@@ -198,7 +198,11 @@ func truncate(b []byte, n int) string {
 type panicError struct {
 	value any
 	stack []byte
+	pcs   []uintptr
 }
+
+// PanicValue gives reports the panic's value and where it happened.
+func (e *panicError) PanicValue() (any, []uintptr) { return e.value, e.pcs }
 
 func (e *panicError) Error() string { return fmt.Sprintf("panic: %v\n\n%s", e.value, e.stack) }
 

@@ -16,6 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Logs:** records logged inside a span carry its trace and span IDs.
   - **Sampling:** `TERN_TRACE_SAMPLE` keeps a fraction of traces.
 - `tern dev` traces every request and shows each one's spans as a waterfall in the log view.
+- **Error reports** ([ADR 0018](docs/adr/0018-error-reports.md), [docs/errors.md](docs/errors.md)):
+  - **What's reported:** unexpected errors and panics from loads, actions, endpoints, hooks, live components and jobs, plus uncaught errors and unhandled rejections in the browser.
+  - **Grouped by cause** and rate-limited, with the stack, request, route, trace, release and user.
+  - **Sent to Sentry** or any service that takes its protocol.
+  - **Wiring:** `kit.WithReporter` turns it on. `report.WithStack` and `report.Errorf` give returned errors a stack.
+  - **In dev:** `tern dev`'s log view lists the groups.
 
 ### Changed
 

@@ -58,6 +58,20 @@ main { font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .wf-bar.client { background: var(--warn); }
 .wf-ms { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .has-trace .ms::after { content: ' · trace'; color: var(--info); }
+#errcount { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--line); font-size: 11px; }
+#errors.has #errcount { background: var(--error); color: var(--bg); }
+#groups { border-bottom: 1px solid var(--line); background: var(--panel); max-height: 55vh; overflow: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#groups .none { padding: 16px; color: var(--muted); font-family: system-ui, sans-serif; }
+.group { padding: 8px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.group:hover { background: var(--hover); }
+.g-head { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; }
+.g-count { color: var(--error); font-weight: 600; }
+.g-meta { color: var(--muted); }
+.g-type { color: var(--error); }
+.g-stack { margin: 6px 0 2px 66px; }
+.g-stack div { white-space: pre-wrap; overflow-wrap: anywhere; }
+.g-stack .app { color: var(--text); font-weight: 600; }
+.g-stack .lib { color: var(--muted); }
 pre.detail { grid-column: 3; margin: 4px 0 6px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 #empty { padding: 48px 16px; text-align: center; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
 @media (max-width: 640px) { .row { grid-template-columns: 64px 44px 1fr; gap: 6px; padding: 3px 10px; } .time { font-size: 11px; } }
@@ -76,10 +90,12 @@ pre.detail { grid-column: 3; margin: 4px 0 6px; padding: 8px 10px; background: v
 	<label><input type="checkbox" id="requests" checked> Requests</label>
 	<label><input type="checkbox" id="assets"> Assets</label>
 	<span class="chip" id="chip">request <span id="chipid"></span><button id="unchip" aria-label="Show all requests">×</button></span>
+	<button id="errors" aria-pressed="false" aria-controls="groups">Errors <span id="errcount">0</span></button>
 	<button id="pause" aria-pressed="false">Pause</button>
 	<button id="clear">Clear</button>
 	<span id="status">connecting…</span>
 </header>
+<section id="groups" hidden aria-label="Errors, grouped by cause"></section>
 <main id="rows"></main>
 <div id="empty">No records yet. Log with the app's logger, or with slog and a logger from logging.New, and they show up here.</div>
 <script>
@@ -89,6 +105,51 @@ const pauseBtn = document.getElementById('pause'), chip = document.getElementByI
 const items = []; let paused = false, held = [], onlyRequest = '';
 // Spans, by trace, and the trace of each request: for the waterfalls.
 const traces = new Map(), requestTrace = new Map();
+// Unexpected errors, by cause.
+const groups = new Map();
+const groupsEl = document.getElementById('groups'), errBtn = document.getElementById('errors'), errCount = document.getElementById('errcount');
+function keepReport(r) {
+	const g = groups.get(r.group) || { count: 0, first: r.time, last: null };
+	g.count++;
+	g.last = r;
+	groups.set(r.group, g);
+	errCount.textContent = String(groups.size);
+	errBtn.classList.add('has');
+	if (!groupsEl.hidden) drawGroups();
+}
+function drawGroups() {
+	const list = [...groups.values()].sort((a, b) => Date.parse(b.last.time) - Date.parse(a.last.time));
+	if (!list.length) { groupsEl.replaceChildren(el('div', 'none', 'No unexpected errors so far.')); return; }
+	groupsEl.replaceChildren(...list.map((g) => {
+		const r = g.last;
+		const box = el('div', 'group');
+		const head = el('div', 'g-head');
+		head.append(el('span', 'g-count', '×' + g.count));
+		const what = el('span');
+		what.append(el('span', 'g-type', r.type + ': '), el('span', null, r.message));
+		const t = new Date(r.time);
+		head.append(what, el('span', 'g-meta', r.source + (r.route ? ' · ' + r.route : '') + ' · ' + t.toLocaleTimeString([], { hour12: false })));
+		box.append(head);
+		box.onclick = () => {
+			const open = box.querySelector('.g-stack');
+			if (open) { open.remove(); return; }
+			const st = el('div', 'g-stack');
+			if (!(r.stack || []).length) st.append(el('div', 'lib', 'No stack: wrap the error with report.WithStack, or return report.Errorf, to see where it came from.'));
+			for (const f of r.stack || []) st.append(el('div', f.inApp ? 'app' : 'lib', f.function + '  ' + f.file.split('/').slice(-3).join('/') + ':' + f.line));
+			if (r.requestId) {
+				const b = el('div', 'lib', 'request #' + r.requestId.slice(0, 8) + (r.traceId ? ' · trace ' + r.traceId.slice(0, 12) : ''));
+				st.append(b);
+			}
+			box.append(st);
+		};
+		return box;
+	}));
+}
+errBtn.onclick = () => {
+	groupsEl.hidden = !groupsEl.hidden;
+	errBtn.setAttribute('aria-pressed', String(!groupsEl.hidden));
+	if (!groupsEl.hidden) drawGroups();
+};
 function keepSpan(s) {
 	if (!traces.has(s.trace)) traces.set(s.trace, []);
 	traces.get(s.trace).push(s);
@@ -162,7 +223,7 @@ function flat(obj, prefix, out) {
 	return out;
 }
 function matches(it) {
-	if (it.kind === 'span') return false;
+	if (it.kind === 'span' || it.kind === 'report') return false;
 	if (it.kind === 'request' && (!showReq.checked || (!showAssets.checked && isAsset(it.path)))) return false;
 	if (it.kind === 'log' && rank(it.level) < Number(level.value)) return false;
 	if (onlyRequest && it.request_id !== onlyRequest) return false;
@@ -216,6 +277,7 @@ function append(list) {
 	const frag = document.createDocumentFragment();
 	for (const it of list) {
 		if (it.kind === 'span') { keepSpan(it.span); continue; }
+		if (it.kind === 'report') { keepReport(it.report); continue; }
 		items.push(it);
 		if (matches(it)) frag.append(render(it));
 	}

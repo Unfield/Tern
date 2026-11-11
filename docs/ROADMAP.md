@@ -200,10 +200,10 @@ Knowing what an app does in production, and that it still does it after a change
 - [x] A waterfall of each request in `tern dev`'s log view
 - [x] Trace context passed on to outgoing requests and jobs, so a trace follows work across services
 
-**Error reports**
-- [ ] Unexpected errors and panics grouped by cause, with stack traces, the request and the user, and sent to Sentry-compatible services
-- [ ] Browser errors reported to the server the same way
-- [ ] A page in `tern dev` that lists them as they happen
+**Error reports** ([ADR 0018](adr/0018-error-reports.md))
+- [x] Unexpected errors and panics grouped by cause, with stack traces, the request and the user, and sent to Sentry-compatible services
+- [x] Browser errors reported to the server the same way
+- [x] A list in `tern dev`'s log view, as they happen
 
 **Testing**
 - [ ] `kit/kittest`: call loads, actions and endpoints from Go tests, as a signed-in user, with a test database that resets

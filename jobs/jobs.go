@@ -28,12 +28,14 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/report"
 	"github.com/Unfield/Tern/sqldb"
 	"github.com/Unfield/Tern/tracing"
 )
@@ -471,6 +473,10 @@ func (q *Queue) runOne(ctx context.Context) (bool, error) {
 		_, err = q.db.ExecContext(rctx, q.d.Rebind(`UPDATE tern_jobs SET state = 'done', finished_at = ?, last_error = NULL, locked_until = NULL WHERE id = ?`), now.UnixMilli(), j.ID)
 	case j.Attempts >= j.MaxAttempts:
 		q.log.Error("jobs: job failed", "kind", j.Kind, "id", j.ID, "attempts", j.Attempts, "err", err)
+		report.Default().Report(ctx, err, func(r *report.Report) {
+			r.Source, r.Route = "job", j.Kind
+			r.Attrs = map[string]any{"job.id": j.ID, "job.attempts": j.Attempts}
+		})
 		_, err = q.db.ExecContext(rctx, q.d.Rebind(`UPDATE tern_jobs SET state = 'failed', finished_at = ?, last_error = ?, locked_until = NULL WHERE id = ?`), now.UnixMilli(), err.Error(), j.ID)
 	default:
 		q.log.Warn("jobs: job will be retried", "kind", j.Kind, "id", j.ID, "attempt", j.Attempts, "err", err)
@@ -501,7 +507,9 @@ func (q *Queue) call(_ context.Context, h *handler, j *Job) (err error) {
 	ctx, span := tracing.Start(ctx, "job "+j.Kind, opts...)
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v\n%s", r, debug.Stack())
+			pcs := make([]uintptr, 64)
+			n := runtime.Callers(3, pcs)
+			err = &panicError{value: r, stack: debug.Stack(), pcs: pcs[:n]}
 		}
 		span.RecordError(err)
 		span.End()
@@ -589,3 +597,15 @@ func (q *Queue) Retry(ctx context.Context, id int64) error {
 	q.notify()
 	return nil
 }
+
+// panicError is a job's panic, with where it happened, for reports.
+type panicError struct {
+	value any
+	stack []byte
+	pcs   []uintptr
+}
+
+func (e *panicError) Error() string { return fmt.Sprintf("panic: %v\n%s", e.value, e.stack) }
+
+// PanicValue gives reports the panic's value and where it happened.
+func (e *panicError) PanicValue() (any, []uintptr) { return e.value, e.pcs }

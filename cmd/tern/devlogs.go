@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/report"
 	"github.com/Unfield/Tern/tracing"
 )
 
@@ -49,6 +50,8 @@ type devLogItem struct {
 	RequestID string  `json:"request_id,omitempty"`
 	// Spans only: the tracing package's DevSpan.
 	Span *tracing.DevSpan `json:"span,omitempty"`
+	// Reports only: an unexpected error, from the report package.
+	Report *report.Report `json:"report,omitempty"`
 }
 
 func newDevLogs() *devLogs {
@@ -78,13 +81,26 @@ func (l *devLogs) env() []string {
 }
 
 func (l *devLogs) ingest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost || (r.URL.Path != "/ingest" && r.URL.Path != "/ingest-spans") {
+	if r.Method != http.MethodPost || (r.URL.Path != "/ingest" && r.URL.Path != "/ingest-spans" && r.URL.Path != "/ingest-errors") {
 		http.NotFound(w, r)
 		return
 	}
 	got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if subtle.ConstantTimeCompare([]byte(got), []byte(l.token)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == "/ingest-errors" {
+		var reports []report.Report
+		if err := json.NewDecoder(io.LimitReader(r.Body, 16<<20)).Decode(&reports); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		for i := range reports {
+			rep := reports[i]
+			l.add(devLogItem{Kind: "report", Time: rep.Time, Msg: rep.Message, RequestID: rep.RequestID, Report: &rep})
+		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	if r.URL.Path == "/ingest-spans" {

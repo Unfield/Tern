@@ -41,6 +41,9 @@ type payload struct {
 	// Deferred says the nodes have deferred values' placeholders, so the
 	// renderers look for them only then.
 	Deferred bool `json:"deferred,omitempty"`
+	// Errors asks the client to send its uncaught errors to
+	// BrowserErrorsPath, when the App has a reporter.
+	Errors bool `json:"errors,omitempty"`
 	// values are the loads' results that Nodes encodes, when there's one
 	// for each node: native rendering reads them instead of the JSON.
 	values []any
@@ -205,6 +208,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
+	p.Errors = a.reporter() != nil
 	dataBuf := getBuffer()
 	defer putBuffer(dataBuf)
 	data, err := jsonenc.Append((*dataBuf)[:0], p) // escapes <, > and & for safe inlining

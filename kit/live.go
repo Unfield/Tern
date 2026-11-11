@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"sync"
 	"time"
+
+	"github.com/Unfield/Tern/report"
 
 	"github.com/coder/websocket"
 
@@ -360,6 +363,9 @@ func (lc *liveConn) mount(m liveIn, locals map[string]any) {
 		},
 		Panic: func(v any, stack []byte) {
 			lc.a.logger.Error("kit: a live component panicked", "component", m.ID, "panic", v, "stack", string(stack))
+			if r := lc.a.reporter(); r != nil {
+				r.Send(report.Report{Source: "server", Type: "panic", Panic: true, Message: fmt.Sprint(v), Route: "live " + m.ID})
+			}
 		},
 	}, func(err error) {
 		lc.send(&liveOut{Op: "error", Ref: ref, Error: lc.errorMessage("Setup", err)})

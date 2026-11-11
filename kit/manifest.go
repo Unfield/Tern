@@ -11,6 +11,7 @@ import (
 
 	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/native/js"
+	"github.com/Unfield/Tern/report"
 	"github.com/Unfield/Tern/tracing"
 )
 
@@ -158,6 +159,7 @@ type options struct {
 	connWraps       []func(net.Conn) net.Conn
 	connContexts    []func(context.Context, net.Conn) context.Context
 	tracer          *tracing.Tracer
+	reporter        *report.Reporter
 	plugins         []Plugin
 	csp             string
 	cspReportOnly   bool

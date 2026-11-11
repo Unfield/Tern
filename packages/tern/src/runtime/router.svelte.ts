@@ -107,6 +107,7 @@ export async function start(m: ClientManifest): Promise<void> {
 	if (import.meta.env?.DEV) for (const el of document.querySelectorAll('style[data-tern-dev]')) el.remove();
 	runAfter({ from: null, to: current(), type: 'enter' });
 	registerServiceWorker();
+	if (payload.errors) reportErrors();
 
 	const saved = fresh ? undefined : scrollPositions[historyIndex];
 	if (saved) {
@@ -115,6 +116,35 @@ export async function start(m: ClientManifest): Promise<void> {
 		scrollToHash(url.hash, true);
 	}
 	listen();
+}
+
+/**
+ * Sends the page's uncaught errors and unhandled rejections to the server's
+ * reporter: at most ten a page, each message once.
+ */
+function reportErrors() {
+	const sent = new Set<string>();
+	const url = `${manifest.base ?? ''}/__tern/errors`;
+	const send = (name: string, message: string, stack: string) => {
+		if (!message || sent.size >= 10 || sent.has(message)) return;
+		sent.add(message);
+		const body = JSON.stringify({ name, message, stack, url: location.href, route: page.route.id ?? '' });
+		try {
+			if (navigator.sendBeacon?.(url, new Blob([body], { type: 'application/json' }))) return;
+		} catch {
+			// fall through to fetch
+		}
+		void fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+	};
+	addEventListener('error', (e: ErrorEvent) => {
+		const err = e.error as Error | undefined;
+		send(err?.name ?? 'Error', err?.message ?? e.message, err?.stack ?? `at ${e.filename}:${e.lineno}:${e.colno}`);
+	});
+	addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+		const r = e.reason as unknown;
+		if (r instanceof Error) send(r.name, r.message, r.stack ?? '');
+		else send('UnhandledRejection', String(r), '');
+	});
 }
 
 function registerServiceWorker() {

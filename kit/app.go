@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
 	"github.com/Unfield/Tern/logging"
+	"github.com/Unfield/Tern/report"
 	"github.com/Unfield/Tern/tracing"
 )
 
@@ -37,6 +39,8 @@ type App struct {
 	defs    map[*routes.Route]*RouteDef
 	handler http.Handler
 	logger  *slog.Logger
+	// browserErrs limits the browser error reports each address sends.
+	browserErrs browserErrors
 	// tls is how the server terminates TLS, once WrapListener has run.
 	tls     *tlsSetup
 	shell   *shell
@@ -233,6 +237,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	if t := a.tracer(); t != nil && tracing.Default() == nil {
 		tracing.SetDefault(t)
 	}
+	if r := a.reporter(); r != nil && report.Default() == nil {
+		report.SetDefault(r)
+	}
 	return a, nil
 }
 
@@ -253,6 +260,12 @@ func (a *App) Close() error {
 	}
 	if t := a.tracer(); t != nil && tracing.Default() == t {
 		tracing.SetDefault(nil)
+	}
+	if r := a.reporter(); r != nil {
+		errs = append(errs, r.Flush(ctx))
+		if report.Default() == r {
+			report.SetDefault(nil)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -290,6 +303,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.dev != nil && strings.HasPrefix(r.URL.Path, "/__tern/emails") {
 		a.emailPreviews(w, r)
+		return
+	}
+	if r.URL.Path == BrowserErrorsPath {
+		a.serveBrowserError(w, r)
 		return
 	}
 	if a.prerendering && r.URL.Path == "/__tern/prerender" {
@@ -843,6 +860,7 @@ func (a *App) logError(c *Ctx, err error) {
 		"route", c.routeID,
 		"error", err,
 	)
+	a.reportError(c, err)
 }
 
 // safely runs f, turning a panic into an error so one bad request cannot
@@ -853,7 +871,9 @@ func (a *App) safely(f func() error) (err error) {
 			if e, ok := r.(error); ok && errors.Is(e, http.ErrAbortHandler) {
 				panic(r)
 			}
-			err = &panicError{value: r, stack: stack()}
+			pcs := make([]uintptr, 64)
+			n := runtime.Callers(3, pcs) // from the panicking function
+			err = &panicError{value: r, stack: stack(), pcs: pcs[:n]}
 		}
 	}()
 	return f()

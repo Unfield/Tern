@@ -1548,7 +1548,7 @@ server, err := ternApp(kit.WithLogger(logger))
 
 In loads and actions, `slog.InfoContext(c, …)` and `c.Logger().Info(…)` include the request's ID, which the response carries as `X-Request-Id`. `TERN_LOG_LEVEL` and `TERN_LOG_FORMAT` set the level and format. Under `tern dev`, records and requests show up live at `/__tern/dev/logs`. See [docs/logging.md](logging.md).
 
-`kit.WithTracer` traces each request, with its loads, actions, render, SQL queries and outgoing calls, exported over OTLP; under `tern dev`, the log view shows each request's waterfall. See [docs/tracing.md](tracing.md).
+`kit.WithTracer` traces each request, with its loads, actions, render, SQL queries and outgoing calls, exported over OTLP; under `tern dev`, the log view shows each request's waterfall. See [docs/tracing.md](tracing.md). `kit.WithReporter` groups unexpected errors and panics, on the server and in the browser, and sends them to Sentry; see [docs/errors.md](errors.md).
 
 ## Configuration file
 

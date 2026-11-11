@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,6 +86,9 @@ type devRunner struct {
 	clients  map[chan struct{}]bool
 	logTail  *tailBuffer
 	building sync.Mutex
+
+	routesInit bool
+	routes     []string
 }
 
 func (d *devRunner) run(ctx context.Context) error {
@@ -354,10 +358,12 @@ func (d *devRunner) rebuild(reload bool) {
 	d.mu.Unlock()
 	d.stopApp()
 
-	if _, err := codegen.Generate(d.root); err != nil {
+	genRes, err := codegen.Generate(d.root)
+	if err != nil {
 		d.setProblem(err.Error())
 		return
 	}
+	d.reportRouteChanges(genRes.Manifest)
 	bin := filepath.Join(d.root, codegen.GenDir, "dev", "app")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
@@ -521,10 +527,14 @@ func (d *devRunner) watch(ctx context.Context) error {
 				switch {
 				case err != nil:
 					d.setProblem(err.Error())
-				case res.GoChanged:
-					d.rebuild(true)
-				case d.currentProblem() != "":
-					d.rebuild(true) // a route fix may resolve the shown problem
+				default:
+					d.reportRouteChanges(res.Manifest)
+					switch {
+					case res.GoChanged:
+						d.rebuild(true)
+					case d.currentProblem() != "":
+						d.rebuild(true) // a route fix may resolve the shown problem
+					}
 				}
 			}
 		}
@@ -668,3 +678,59 @@ func (t *tailBuffer) String() string {
 	defer t.mu.Unlock()
 	return string(t.buf)
 }
+
+func routePatterns(m *routes.Manifest) []string {
+	if m == nil {
+		return nil
+	}
+	patterns := make([]string, len(m.Routes))
+	for i, r := range m.Routes {
+		patterns[i] = r.Pattern()
+	}
+	return patterns
+}
+
+// diffRoutes reports which route patterns were added and removed between prev and next.
+// Both returned slices are sorted alphabetically for deterministic reporting.
+func diffRoutes(prev, next []string) (added, removed []string) {
+	prevSet := make(map[string]bool, len(prev))
+	for _, p := range prev {
+		prevSet[p] = true
+	}
+	nextSet := make(map[string]bool, len(next))
+	for _, p := range next {
+		nextSet[p] = true
+	}
+
+	for _, p := range next {
+		if !prevSet[p] {
+			added = append(added, p)
+		}
+	}
+	for _, p := range prev {
+		if !nextSet[p] {
+			removed = append(removed, p)
+		}
+	}
+	sort.Strings(added)
+	sort.Strings(removed)
+	return added, removed
+}
+
+func (d *devRunner) reportRouteChanges(m *routes.Manifest) {
+	current := routePatterns(m)
+	if !d.routesInit {
+		d.routes = current
+		d.routesInit = true
+		return
+	}
+	added, removed := diffRoutes(d.routes, current)
+	d.routes = current
+	for _, r := range added {
+		d.ui.Event("+", "route %s", r)
+	}
+	for _, r := range removed {
+		d.ui.Event("-", "route %s", r)
+	}
+}
+

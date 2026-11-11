@@ -165,6 +165,7 @@ func (a *Accounts) VerifyEmail(c *kit.Ctx, token string) (*User, error) {
 	if _, err := a.exec(ctx, `UPDATE tern_users SET email_verified = ? WHERE id = ? AND email = ?`, time.Now().UnixMilli(), id, email); err != nil {
 		return nil, err
 	}
+	a.Audit(c, Event{Action: "user.email_verified", UserID: id, Target: email})
 	if cur := Current(c); cur != nil && cur.ID == id {
 		cur.EmailVerified = true
 	}
@@ -211,6 +212,7 @@ func (a *Accounts) ResetPassword(c *kit.Ctx, token, password string) (*User, err
 	if _, err := a.exec(ctx, `DELETE FROM tern_sessions WHERE user_id = ?`, id); err != nil {
 		return nil, err
 	}
+	a.Audit(c, Event{Action: "user.password_reset", UserID: id, Target: email})
 	u, err := a.UserByID(ctx, id)
 	if err != nil || u == nil {
 		return nil, ErrInvalidToken
@@ -272,6 +274,7 @@ func (a *Accounts) confirmEmailChange(c *kit.Ctx, token string) (*User, error) {
 	}
 	// Links sent to the old address no longer apply.
 	_, _ = a.exec(ctx, `DELETE FROM tern_tokens WHERE user_id = ? AND purpose IN ('verify', 'reset', 'email-change')`, id)
+	a.Audit(c, Event{Action: "user.email_changed", UserID: id, Target: email, Data: map[string]string{"from": old.Email, "to": email}})
 	if a.opts.Send != nil {
 		notice := *old
 		_ = a.send(c, "changed", &notice, "")

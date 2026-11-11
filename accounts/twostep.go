@@ -179,6 +179,7 @@ func (a *Accounts) ConfirmTwoStep(c *kit.Ctx, code string) ([]string, error) {
 	}
 	a.succeeded("code", fmt.Sprint(u.ID))
 	u.TwoStep = true
+	a.Audit(c, Event{Action: "user.two_step_on"})
 	return a.newRecoveryCodes(c, u.ID)
 }
 
@@ -244,6 +245,7 @@ func (a *Accounts) TurnOffTwoStep(c *kit.Ctx, code string) error {
 		}
 	}
 	u.TwoStep = false
+	a.Audit(c, Event{Action: "user.two_step_off"})
 	return nil
 }
 
@@ -343,6 +345,9 @@ func (a *Accounts) CompleteSignIn(c *kit.Ctx, code string) (*User, error) {
 		return nil, ErrInvalidToken
 	}
 	if err := a.checkCode(c, id, code); err != nil {
+		if errors.Is(err, ErrInvalidCode) {
+			a.Audit(c, Event{Action: "user.sign_in_failed", UserID: id, Data: map[string]string{"reason": "code"}})
+		}
 		return nil, err
 	}
 	ctx := c.Request.Context()

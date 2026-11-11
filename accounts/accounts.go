@@ -70,6 +70,23 @@ type Options struct {
 	// each browser a device ID; see NewDevice.
 	NotifyNewDevices bool
 	OnNewDevice      func(c *kit.Ctx, d NewDevice)
+
+	// TeamRoles are roles of the app's own that team members can have,
+	// besides owner, admin and member. See Teams.
+	TeamRoles []string
+	// NewTeamPath is where RequireTeam sends users who aren't in a team,
+	// to make one. The default is /teams/new.
+	NewTeamPath string
+	// InvitePath is the page invitation emails link to, with the token in
+	// ?token=. The default is /invitation.
+	InvitePath string
+	// OnDeleteTeam deletes the app's data of a team about to be deleted,
+	// by DeleteTeam or with its last member's account. An error stops
+	// the deletion.
+	OnDeleteTeam func(ctx context.Context, teamID int64) error
+	// AuditFor is how long the audit log keeps events. The default is a
+	// year; a negative value turns the log off.
+	AuditFor time.Duration
 }
 
 // Accounts is the accounts plugin. Create it with New.
@@ -135,6 +152,12 @@ func New(db *sql.DB, opts Options) (*Accounts, error) {
 	}
 	if opts.Issuer == "" {
 		opts.Issuer = opts.RPName
+	}
+	if opts.NewTeamPath == "" {
+		opts.NewTeamPath = "/teams/new"
+	}
+	if opts.InvitePath == "" {
+		opts.InvitePath = "/invitation"
 	}
 	if opts.PasskeyPath == "" {
 		opts.PasskeyPath = "/_tern/passkeys"
@@ -211,10 +234,15 @@ func (a *Accounts) Migrate(ctx context.Context) error {
 			PRIMARY KEY (user_id, device)
 		)`,
 	}
+	stmts = append(stmts, a.teamTables()...)
+	stmts = append(stmts, a.auditTables()...)
 	for _, s := range stmts {
 		if _, err := a.db.ExecContext(ctx, s); err != nil {
 			return fmt.Errorf("accounts: creating tables: %w", err)
 		}
+	}
+	if err := a.addColumn(ctx, "tern_sessions", "team_id", "BIGINT NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("accounts: updating tables: %w", err)
 	}
 	return nil
 }
@@ -238,15 +266,20 @@ const localsKey = "tern/accounts"
 
 // state is the request's account state.
 type state struct {
+	acc     *Accounts
 	user    *User
 	session string // its id, the hash of the cookie's token
+	// teamID is the session's team; team is loaded from it on first use.
+	teamID     int64
+	team       *Membership
+	teamLoaded bool
 }
 
 // Setup implements kit.Plugin: each request gets its user from the
 // session cookie.
 func (a *Accounts) Setup(s *kit.Setup) error {
 	s.Hook(func(c *kit.Ctx) error {
-		st := &state{}
+		st := &state{acc: a}
 		c.Locals[localsKey] = st
 		token, ok := c.Cookie(a.opts.Cookie)
 		if !ok || token == "" {
@@ -372,6 +405,7 @@ func (a *Accounts) createUser(c *kit.Ctx, email, name, password string) (*User, 
 			return nil, err
 		}
 	}
+	a.Audit(c, Event{Action: "user.signed_up", UserID: id, Target: email})
 	return &User{ID: id, Email: email, Name: strings.TrimSpace(name), CreatedAt: time.UnixMilli(now).UTC(), HasPassword: hash != ""}, nil
 }
 
@@ -399,6 +433,7 @@ func (a *Accounts) SignIn(c *kit.Ctx, email, password string, remember bool) (*U
 	}
 	ok, rehash := CheckPassword(hash, password)
 	if !ok {
+		a.Audit(c, Event{Action: "user.sign_in_failed", UserID: u.ID, Target: u.Email, Data: map[string]string{"reason": "password"}})
 		return nil, ErrInvalidCredentials
 	}
 	a.succeeded("signin", u.Email)
@@ -423,6 +458,7 @@ func (a *Accounts) SignOut(c *kit.Ctx) error {
 		if _, err := a.exec(c.Request.Context(), `DELETE FROM tern_sessions WHERE id = ?`, st.session); err != nil {
 			return err
 		}
+		a.Audit(c, Event{Action: "user.signed_out"})
 	}
 	st.user, st.session = nil, ""
 	c.SetCookie(&http.Cookie{Name: a.opts.Cookie, Value: "", MaxAge: -1, HttpOnly: true})
@@ -458,6 +494,7 @@ func (a *Accounts) ChangePassword(c *kit.Ctx, current, password string) error {
 		return err
 	}
 	st.user.HasPassword = true
+	a.Audit(c, Event{Action: "user.password_changed"})
 	return a.SignOutOthers(c)
 }
 
@@ -481,7 +518,11 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 		return ErrSignedOut
 	}
 	ctx := c.Request.Context()
-	for _, q := range []string{`DELETE FROM tern_identities WHERE user_id = ?`, `DELETE FROM tern_two_step WHERE user_id = ?`, `DELETE FROM tern_recovery_codes WHERE user_id = ?`, `DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
+	if err := a.leaveAllTeams(ctx, st.user.ID); err != nil {
+		return err
+	}
+	a.Audit(c, Event{Action: "user.deleted", Target: st.user.Email})
+	for _, q := range []string{`DELETE FROM tern_invitations WHERE invited_by = ?`, `DELETE FROM tern_identities WHERE user_id = ?`, `DELETE FROM tern_two_step WHERE user_id = ?`, `DELETE FROM tern_recovery_codes WHERE user_id = ?`, `DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
 		if _, err := a.exec(ctx, q, st.user.ID); err != nil {
 			return err
 		}
@@ -495,5 +536,6 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 // checks have passed. c must have run the plugin's hook, as a Ctx from
 // kit.App.NewCtx does.
 func (a *Accounts) ActAs(c *kit.Ctx, u *User) {
-	stateOf(c).user = u
+	st := stateOf(c)
+	st.user, st.team, st.teamLoaded = u, nil, false
 }

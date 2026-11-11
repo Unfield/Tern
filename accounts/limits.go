@@ -26,6 +26,7 @@ var rules = map[string]rule{
 	"email":   {perKey: 5, perIP: 30, window: time.Hour}, // verification, reset and email change emails
 	"passkey": {perIP: 50, window: 15 * time.Minute},
 	"code":    {perKey: 6, perIP: 50, window: 15 * time.Minute}, // two-step codes
+	"invite":  {perKey: 50, perIP: 100, window: time.Hour},
 }
 
 type limiter struct {

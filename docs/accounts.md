@@ -14,7 +14,7 @@ if err := acc.Migrate(ctx); err != nil { ... }
 app, err := ternApp(kit.WithPlugins(acc))
 ```
 
-`Migrate` creates its tables if they don't exist: `tern_users`, `tern_sessions`, `tern_tokens` (email links, passkey challenges and sign-ins waiting for a code), `tern_passkeys`, `tern_two_step`, `tern_recovery_codes` and `tern_identities`. Tables from an earlier release are kept as they are. Keep `acc` where your loads and actions can reach it, such as a package variable.
+`Migrate` creates its tables if they don't exist: `tern_users`, `tern_sessions`, `tern_tokens` (email links, passkey challenges and sign-ins waiting for a code), `tern_passkeys`, `tern_two_step`, `tern_recovery_codes`, `tern_identities`, the teams' `tern_teams`, `tern_members` and `tern_invitations`, and the audit log's `tern_audit`. Tables from an earlier release are kept as they are. Keep `acc` where your loads and actions can reach it, such as a package variable.
 
 | Option | Default | |
 |---|---|---|
@@ -28,6 +28,11 @@ app, err := ternApp(kit.WithPlugins(acc))
 | `TwoStepPath` | `/login/code` | the page that asks for the two-step code |
 | `Issuer` | `RPName`, then the host | the app's name in authenticator apps |
 | `NoRateLimits` | false | turns off the built-in limits on attempts |
+| `TeamRoles` | none | team roles of the app's own, besides owner, admin and member |
+| `NewTeamPath` | `/teams/new` | where `RequireTeam` sends users who aren't in a team |
+| `InvitePath` | `/invitation` | the page invitation emails link to, with `?token=` |
+| `OnDeleteTeam` | none | deletes the app's data of a team before the team is deleted |
+| `AuditFor` | a year | how long the audit log keeps events; negative turns it off |
 
 ## Who is signed in
 
@@ -145,3 +150,59 @@ The server checks every answer: the challenge (each works once, for five minutes
 An account can sign in with passkeys only: create it with `acc.SignUp(ctx, email, name, "")`, then have the user add a passkey. `User.HasPassword` says whether it has a password.
 
 Passkeys are tied to the site's host name. Set `BaseURL` to the address users visit; browsers allow passkeys on `localhost` over plain HTTP for development.
+
+## Teams
+
+Teams are groups of users who share the app's data: a company, a household, a class. A user can be in several and works in one at a time, the current team, which each session remembers.
+
+```go
+func LayoutLoad(ctx *kit.Ctx) (Layout, error) {
+	m, err := acc.RequireTeam(ctx) // signed in, and in a team
+	if err != nil {
+		return Layout{}, err
+	}
+	projects, err := listProjects(ctx, m.Team.ID) // the app's rows have a team_id
+	...
+}
+```
+
+- `accounts.CurrentTeam(ctx)` is the current `*Membership` (its `Team` and the user's `Role`), or nil. `acc.RequireTeam(ctx)` is the same, or a redirect: to sign in, or to `NewTeamPath` to make a team.
+- `acc.CreateTeam(ctx, name)` makes a team with the user as its owner and switches to it. `acc.Teams(ctx)` lists the user's teams, and `acc.SwitchTeam(ctx, id)` changes the current one.
+- `acc.Members(ctx)` lists the current team's members. `acc.SetRole(ctx, userID, role)` and `acc.RemoveMember(ctx, userID)` change them, and `acc.LeaveTeam(ctx)` takes the user out.
+- `acc.RenameTeam(ctx, name)` and `acc.DeleteTeam(ctx)` change the team itself. `OnDeleteTeam` deletes the app's data of it first.
+
+### Roles
+
+| Role | Can |
+|---|---|
+| owner | everything: make and remove owners, delete the team |
+| admin | invite, remove and change members other than owners, rename the team |
+| member | use the app |
+
+A team always has an owner: the last one can't leave, be removed or be demoted (`ErrLastOwner`), and their account can't be deleted until someone else owns the team. Roles of the app's own, from `TeamRoles`, manage nothing in accounts. Check what any role may do with [`rbac`](guide.md#roles-and-permissions):
+
+```go
+var policy = rbac.New(map[string][]string{
+	"owner":  {"*"},
+	"admin":  {"projects:*", "billing:read"},
+	"member": {"projects:read", "projects:write"},
+	"viewer": {"projects:read"},
+}, accounts.TeamRoles)
+```
+
+### Invitations
+
+`acc.Invite(ctx, email, role)` emails a link to `InvitePath`, valid for a week. The page's load shows it with `acc.InvitationFor(ctx, token)` (the team's name, who invited, the role), and its action calls `acc.AcceptInvitation(ctx, token)` for a signed-in user. Only the invited address can accept (`ErrWrongInvitee`); send signed-out visitors to sign up or in with `?next=` back to the invitation. Accepting verifies the email address. `acc.Invitations(ctx)` lists the pending ones and `acc.CancelInvitation(ctx, id)` withdraws one.
+
+Owners and admins invite; inviting an owner takes an owner. `FormError` turns each of these errors into a message for the form.
+
+## The audit log
+
+accounts records what happens to accounts and teams: sign-ins and failed ones, sign-outs, password, email and two-step changes, passkeys, linked providers, sessions signed out, and teams created, renamed and deleted, with members invited, joined, changed, removed and leaving. Each entry has the time, who did it, the team, what it happened to, the IP and the device.
+
+- `acc.Activity(ctx, before)` is the user's own log, for an account page: "was that sign-in me?". Failed sign-ins to their account are in it.
+- `acc.TeamActivity(ctx, before)` is the current team's, for its owners and admins.
+- `acc.AuditEntries(ctx, accounts.AuditFilter{...})` filters by user, team and action prefix, with no checks of who asks, for support tools behind checks of their own.
+- `acc.Audit(ctx, accounts.Event{Action: "project.deleted", TeamID: id, Target: name})` adds the app's own events.
+
+Lists are newest first, 50 at a time; pass the last entry's `ID` as `before` for the next page. Entries older than `AuditFor` are deleted as new ones come in.

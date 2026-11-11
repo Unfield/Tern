@@ -58,6 +58,9 @@ func (a *Accounts) identityUser(c *kit.Ctx, id Identity) (int64, error) {
 func (a *Accounts) linkIdentity(c *kit.Ctx, userID int64, id Identity) error {
 	_, err := a.exec(c.Request.Context(), `INSERT INTO tern_identities (provider, subject, user_id, email, created_at) VALUES (?, ?, ?, ?, ?)`,
 		id.Provider, id.Subject, userID, normalizeEmail(id.Email), time.Now().UnixMilli())
+	if err == nil {
+		a.Audit(c, Event{Action: "identity.linked", UserID: userID, Target: id.Provider})
+	}
 	return err
 }
 
@@ -173,6 +176,9 @@ func (a *Accounts) Unlink(c *kit.Ctx, provider string) error {
 	if !u.HasPassword && others == 0 && keys == 0 {
 		return ErrLastSignIn
 	}
-	_, err := a.exec(ctx, `DELETE FROM tern_identities WHERE user_id = ? AND provider = ?`, u.ID, provider)
-	return err
+	if _, err := a.exec(ctx, `DELETE FROM tern_identities WHERE user_id = ? AND provider = ?`, u.ID, provider); err != nil {
+		return err
+	}
+	a.Audit(c, Event{Action: "identity.unlinked", Target: provider})
+	return nil
 }

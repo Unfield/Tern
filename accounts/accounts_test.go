@@ -16,6 +16,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -43,6 +44,11 @@ func newHarness(t *testing.T, opts ...func(*Options)) *harness {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
+	return newHarnessDB(t, db, opts...)
+}
+
+func newHarnessDB(t *testing.T, db *sql.DB, opts ...func(*Options)) *harness {
+	t.Helper()
 	h := &harness{t: t}
 	o := Options{Send: func(_ context.Context, e Email) error {
 		h.mu.Lock()
@@ -71,6 +77,7 @@ func newHarness(t *testing.T, opts ...func(*Options)) *harness {
 		}}
 	}
 	form := func(c *kit.Ctx, k string) string { return c.Request.FormValue(k) }
+	formID := func(c *kit.Ctx, k string) int64 { n, _ := strconv.ParseInt(c.Request.FormValue(k), 10, 64); return n }
 	m := &kit.Manifest{
 		AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`,
 		Routes: []kit.RouteDef{
@@ -109,6 +116,23 @@ func newHarness(t *testing.T, opts ...func(*Options)) *harness {
 			{ID: "/identities", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Identities(c) })},
 			{ID: "/unlink", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.Unlink(c, form(c, "provider")) })},
 			{ID: "/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteAccount(c) })},
+			{ID: "/teams/create", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.CreateTeam(c, form(c, "name")) })},
+			{ID: "/teams", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Teams(c) })},
+			{ID: "/teams/current", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.RequireTeam(c) })},
+			{ID: "/teams/switch", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.SwitchTeam(c, formID(c, "id")) })},
+			{ID: "/teams/rename", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.RenameTeam(c, form(c, "name")) })},
+			{ID: "/teams/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteTeam(c) })},
+			{ID: "/members", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Members(c) })},
+			{ID: "/invite", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Invite(c, form(c, "email"), form(c, "role")) })},
+			{ID: "/invitations", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Invitations(c) })},
+			{ID: "/invitation", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.InvitationFor(c.Request.Context(), form(c, "token")) })},
+			{ID: "/invitation/cancel", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.CancelInvitation(c, form(c, "id")) })},
+			{ID: "/invitation/accept", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.AcceptInvitation(c, form(c, "token")) })},
+			{ID: "/role", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.SetRole(c, formID(c, "user"), form(c, "role")) })},
+			{ID: "/remove", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.RemoveMember(c, formID(c, "user")) })},
+			{ID: "/leave", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.LeaveTeam(c) })},
+			{ID: "/activity", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Activity(c, formID(c, "before")) })},
+			{ID: "/team/activity", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.TeamActivity(c, 0) })},
 		},
 	}
 	plugins := []kit.Plugin{acc}

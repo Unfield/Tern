@@ -253,6 +253,7 @@ func (a *Accounts) register(c *kit.Ctx) error {
 	if err != nil {
 		return kit.Error(http.StatusConflict, "this passkey is already added")
 	}
+	a.Audit(c, Event{Action: "passkey.added", Target: truncate(name, 100)})
 	return c.JSON(http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -360,8 +361,14 @@ func (a *Accounts) RemovePasskey(c *kit.Ctx, id string) error {
 	if u == nil {
 		return ErrSignedOut
 	}
-	_, err := a.exec(c.Request.Context(), `DELETE FROM tern_passkeys WHERE id = ? AND user_id = ?`, id, u.ID)
-	return err
+	res, err := a.exec(c.Request.Context(), `DELETE FROM tern_passkeys WHERE id = ? AND user_id = ?`, id, u.ID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		a.Audit(c, Event{Action: "passkey.removed"})
+	}
+	return nil
 }
 
 // COSE keys (RFC 9053): the algorithms passkeys use.

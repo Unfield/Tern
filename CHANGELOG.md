@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Teams in `accounts`** ([ADR 0019](docs/adr/0019-teams.md), [docs/accounts.md](docs/accounts.md#teams)):
+  - **Teams:** users make teams, belong to several and switch between them. Each session remembers the current one: `accounts.CurrentTeam` and `acc.RequireTeam`.
+  - **Invitations by email:** only the invited address can accept, and accepting verifies it.
+  - **Roles:** owner, admin and member are built in, with fixed rules, and a team never loses its last owner. Apps add roles of their own and check them with `rbac` through `accounts.TeamRoles`.
+  - **The app's data:** `Options.OnDeleteTeam` deletes it before a team goes.
+- **An audit log in `accounts`:** sign-ins and failed ones, password, email and two-step changes, passkeys, sessions, and team and member events, with the IP and device. Users see their own (`acc.Activity`), team admins their team's (`acc.TeamActivity`), and support tools anyone's (`acc.AuditEntries`). Apps add events with `acc.Audit`.
+
+### Changed
+
+- `accounts.Migrate` creates the teams and audit tables, and adds a `team_id` column to `tern_sessions`.
+
 ## [1.10.0] - 2026-11-11
 
 ### Added

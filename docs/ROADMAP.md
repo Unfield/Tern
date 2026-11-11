@@ -215,8 +215,8 @@ Knowing what an app does in production, and that it still does it after a change
 What the SaaS template still leaves to you.
 
 **Teams**
-- [ ] Organizations in `accounts`: members, invitations by email, roles with `rbac`, and switching between teams
-- [ ] An audit log of account and team events, for users and for support
+- [x] Organizations in `accounts`: members, invitations by email, roles with `rbac`, and switching between teams
+- [x] An audit log of account and team events, for users and for support
 - [ ] Tern UI screens for team settings, members and invitations
 
 **Billing**

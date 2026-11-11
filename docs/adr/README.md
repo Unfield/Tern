@@ -22,6 +22,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0016](0016-tern-deploy.md) | tern deploy | Accepted |
 | [0017](0017-tracing.md) | Tracing | Accepted |
 | [0018](0018-error-reports.md) | Error reports | Accepted |
+| [0019](0019-teams.md) | Teams and the audit log in accounts | Accepted |
 
 ## Template
 

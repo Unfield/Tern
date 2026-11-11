@@ -31,6 +31,18 @@ func FormError(c *kit.Ctx, err error) error {
 		return kit.FormError(c.TB("tern.accounts.error.tooMany", nil))
 	case errors.Is(err, ErrPasskey):
 		return kit.FormError(c.TB("tern.accounts.error.passkey", nil))
+	case errors.Is(err, ErrNotAllowed):
+		return kit.FormError(c.TB("tern.accounts.error.notAllowed", nil))
+	case errors.Is(err, ErrLastOwner):
+		return kit.FormError(c.TB("tern.accounts.error.lastOwner", nil))
+	case errors.Is(err, ErrAlreadyMember):
+		return kit.FieldError("email", c.TB("tern.accounts.error.alreadyMember", nil))
+	case errors.Is(err, ErrWrongInvitee):
+		return kit.FormError(c.TB("tern.accounts.error.wrongInvitee", nil))
+	case errors.Is(err, ErrUnknownRole):
+		return kit.FieldError("role", c.TB("tern.accounts.error.unknownRole", nil))
+	case errors.Is(err, ErrNotMember):
+		return kit.FormError(c.TB("tern.accounts.error.notMember", nil))
 	}
 	return err
 }

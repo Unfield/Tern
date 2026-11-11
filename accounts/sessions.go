@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,6 +60,8 @@ func (a *Accounts) startSession(c *kit.Ctx, u *User, remember bool) error {
 	c.SetCookie(ck)
 	st := stateOf(c)
 	st.user, st.session = u, id
+	st.teamID, st.team, st.teamLoaded = 0, nil, false
+	a.Audit(c, Event{Action: "user.signed_in"})
 	a.noteDevice(c, u)
 	return nil
 }
@@ -68,12 +71,12 @@ func (a *Accounts) loadSession(c *kit.Ctx, st *state, token string) {
 	id := hashToken(token)
 	var lastSeen, expires int64
 	var remember int
-	row := a.queryRow(ctx, `SELECT `+userColumns+`, s.last_seen, s.expires_at, s.remember FROM tern_sessions s JOIN tern_users u ON u.id = s.user_id WHERE s.id = ?`, id)
+	row := a.queryRow(ctx, `SELECT `+userColumns+`, s.last_seen, s.expires_at, s.remember, s.team_id FROM tern_sessions s JOIN tern_users u ON u.id = s.user_id WHERE s.id = ?`, id)
 	var u User
 	var hash string
 	var verified sql.NullInt64
 	var created, twoStep int64
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created, &twoStep, &lastSeen, &expires, &remember); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created, &twoStep, &lastSeen, &expires, &remember, &st.teamID); err != nil {
 		return // unknown or deleted: signed out
 	}
 	u.TwoStep = twoStep > 0
@@ -159,8 +162,11 @@ func (a *Accounts) Revoke(c *kit.Ctx, sessionID string) error {
 	if target == st.session {
 		return a.SignOut(c)
 	}
-	_, err = a.exec(c.Request.Context(), `DELETE FROM tern_sessions WHERE id = ? AND user_id = ?`, target, st.user.ID)
-	return err
+	if _, err = a.exec(c.Request.Context(), `DELETE FROM tern_sessions WHERE id = ? AND user_id = ?`, target, st.user.ID); err != nil {
+		return err
+	}
+	a.Audit(c, Event{Action: "session.revoked"})
+	return nil
 }
 
 // SignOutOthers signs out every session of the user but this one.
@@ -169,8 +175,14 @@ func (a *Accounts) SignOutOthers(c *kit.Ctx) error {
 	if st.user == nil {
 		return ErrSignedOut
 	}
-	_, err := a.exec(c.Request.Context(), `DELETE FROM tern_sessions WHERE user_id = ? AND id <> ?`, st.user.ID, st.session)
-	return err
+	res, err := a.exec(c.Request.Context(), `DELETE FROM tern_sessions WHERE user_id = ? AND id <> ?`, st.user.ID, st.session)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		a.Audit(c, Event{Action: "session.others_signed_out", Data: map[string]string{"sessions": fmt.Sprint(n)}})
+	}
+	return nil
 }
 
 // describeDevice names a browser and system from a User-Agent header.

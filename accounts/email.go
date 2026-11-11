@@ -18,7 +18,8 @@ import (
 // texts are Tern's own (tern.accounts.*), translated like any other into
 // the request's locale.
 type Email struct {
-	// Kind is "verify" or "reset".
+	// Kind is "verify", "reset", "change" (confirm a new address),
+	// "changed" (to the old one) or "new_device".
 	Kind    string `json:"kind"`
 	To      string `json:"to"`
 	Name    string `json:"name"`
@@ -99,10 +100,18 @@ func (a *Accounts) redeem(ctx context.Context, purpose, token string) (int64, st
 }
 
 func (a *Accounts) send(c *kit.Ctx, kind string, u *User, link string) error {
+	return a.sendWith(c, kind, u, link, nil)
+}
+
+// sendWith sends an email whose text takes params besides name and link.
+func (a *Accounts) sendWith(c *kit.Ctx, kind string, u *User, link string, params map[string]any) error {
 	if a.opts.Send == nil {
 		return ErrNoEmail
 	}
 	p := map[string]any{"name": u.Name, "link": link}
+	for k, v := range params {
+		p[k] = v
+	}
 	key := "tern.accounts." + kind
 	e := Email{Kind: kind, To: u.Email, Name: u.Name, Link: link,
 		Subject: c.TB(key+".subject", p),

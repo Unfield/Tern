@@ -59,6 +59,7 @@ func (a *Accounts) startSession(c *kit.Ctx, u *User, remember bool) error {
 	c.SetCookie(ck)
 	st := stateOf(c)
 	st.user, st.session = u, id
+	a.noteDevice(c, u)
 	return nil
 }
 

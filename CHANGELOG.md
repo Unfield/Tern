@@ -15,6 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Optional sampling of floods.
   - `TERN_LOG_LEVEL` and `TERN_LOG_FORMAT`.
 - Logging sinks that ship records in batches with retries, without blocking: `logging/otlp` (OpenTelemetry over HTTP), `logging/loki`, `logging/datadog` and `logging/file` (JSON lines, rotated). A sink of your own is one method.
+- **HTTPS without a proxy:** `kit.WithAutoTLS`, or `TERN_TLS_DOMAINS`, serves HTTPS with certificates from Let's Encrypt, which the app gets and renews itself, and redirects plain HTTP. `kit.WithTLS` takes certificates of your own. HTTP/2 is offered in both cases.
+- **Security signals** ([ADR 0015](docs/adr/0015-security-signals.md), [docs/signals.md](docs/signals.md)): `plugins/signals` scores how automated each request looks, with reasons, from:
+  - the JA4 TLS fingerprint, an HTTP/2 fingerprint and the order of the headers;
+  - how the headers fit the browser the User-Agent claims;
+  - an optional client check in the browser: a proof of work and three automation tells.
+  It also gives each browser a device ID. `signals.Of(c)` returns them, `Options.Block` refuses scripted form posts, and `signals.Key` makes rate limits per client.
+- `accounts`: `Options.NotifyNewDevices` emails users about sign-ins from a device their account hadn't been used on, and `OnNewDevice` is called then.
+- kit plugins can wrap connections (`Setup.WrapConn`), see TLS ClientHellos (`Setup.OnClientHello`) and add to a connection's context (`Setup.ConnContext`). `kit.IsHTTPS` and `kit.FromTrustedProxy` are exported.
 - `tern dev` has a live log view at `/__tern/dev/logs`: the app's records and the requests it serves, filterable by level, text and request.
 
 ### Changed

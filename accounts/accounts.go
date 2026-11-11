@@ -63,6 +63,13 @@ type Options struct {
 	// NoRateLimits turns off the built-in limits on attempts (see
 	// ErrTooManyAttempts), for tests or a limiter of your own.
 	NoRateLimits bool
+
+	// NotifyNewDevices emails users when their account is signed in to
+	// from a device it hadn't been signed in on before. OnNewDevice is
+	// called then, too. Both need plugins/signals installed, which gives
+	// each browser a device ID; see NewDevice.
+	NotifyNewDevices bool
+	OnNewDevice      func(c *kit.Ctx, d NewDevice)
 }
 
 // Accounts is the accounts plugin. Create it with New.
@@ -197,6 +204,12 @@ func (a *Accounts) Migrate(ctx context.Context) error {
 			PRIMARY KEY (provider, subject)
 		)`,
 		`CREATE INDEX IF NOT EXISTS tern_identities_user ON tern_identities (user_id)`,
+		`CREATE TABLE IF NOT EXISTS tern_known_devices (
+			user_id BIGINT NOT NULL,
+			device TEXT NOT NULL,
+			first_seen BIGINT NOT NULL,
+			PRIMARY KEY (user_id, device)
+		)`,
 	}
 	for _, s := range stmts {
 		if _, err := a.db.ExecContext(ctx, s); err != nil {

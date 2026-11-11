@@ -464,6 +464,7 @@ app, err := ternApp(kit.WithPlugins(
 |---|---|
 | `plugins/health` | `GET /healthz` for liveness and `GET /readyz` for readiness, running your checks with a timeout. Readiness reports 503 during shutdown so load balancers drain first. |
 | `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration, size and request ID. |
+| `plugins/signals` | Tells people from bots: TLS, HTTP/2 and header fingerprints, a score with reasons, an optional client check, device IDs. See [docs/signals.md](signals.md). |
 | `plugins/compress` | gzip for HTML, JSON, XML and text responses. Streaming still flushes as values resolve. |
 | `plugins/secure` | Security headers: no framing, a strict referrer policy, browser features off, cross-origin isolation, and opt-in HSTS. |
 | `plugins/sessions` | Encrypted cookie sessions (AES-GCM): `sessions.Get(ctx).Set("user", id)`, `GetString`, `Value`, flash messages, and secret rotation with `OldSecrets`. |

@@ -28,6 +28,9 @@ type clientInfo struct {
 	// trusted reports whether forwarding headers may be believed: the
 	// peer is a trusted proxy, or no proxies are configured at all.
 	trusted bool
+	// proxied reports whether the peer is one of the trusted proxies
+	// configured, not just trusted for lack of any.
+	proxied bool
 }
 
 type proxySet []netip.Prefix
@@ -100,7 +103,7 @@ func (ps proxySet) resolve(r *http.Request) clientInfo {
 			break
 		}
 	}
-	return clientInfo{ip: ip, trusted: true}
+	return clientInfo{ip: ip, trusted: true, proxied: true}
 }
 
 func (ps proxySet) handler(next http.Handler) http.Handler {
@@ -110,6 +113,11 @@ func (ps proxySet) handler(next http.Handler) http.Handler {
 		next.ServeHTTP(w, requestContext(w, r, info.trusted))
 	})
 }
+
+// FromTrustedProxy reports whether r came through one of the proxies named
+// with [WithTrustedProxies], so headers that proxy sets can be believed.
+// Without any configured, it is false.
+func FromTrustedProxy(r *http.Request) bool { return client(r).proxied }
 
 func client(r *http.Request) clientInfo {
 	if info, ok := r.Context().Value(clientKey{}).(clientInfo); ok {
@@ -127,6 +135,10 @@ func ClientIP(r *http.Request) string { return client(r).ip }
 // configure it with [WithTrustedProxies]; otherwise it is the proxy's
 // address.
 func (c *Ctx) ClientIP() string { return ClientIP(c.Request) }
+
+// IsHTTPS reports whether r came over HTTPS: to the App itself, or to a
+// proxy whose X-Forwarded-Proto the App trusts.
+func IsHTTPS(r *http.Request) bool { return isHTTPS(r) }
 
 // isHTTPS reports whether the client connected over HTTPS, believing
 // X-Forwarded-Proto only from trusted peers.

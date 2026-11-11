@@ -16,6 +16,8 @@ export const builtin: Record<string, string> = {
 	"tern.accounts.error.passkey": "That passkey didn’t work.",
 	"tern.accounts.error.tooMany": "Too many attempts. Try again in a few minutes.",
 	"tern.accounts.error.wrongPassword": "That isn’t your current password.",
+	"tern.accounts.new_device.subject": "A new sign-in to your account",
+	"tern.accounts.new_device.text": "Hello {name},\n\nYour account was just signed in to from a device it hadn’t been used on before: {device}, from {ip}, on {time}.\n\nIf this was you, there’s nothing to do. If it wasn’t, change your password now and sign that device out in your account’s security settings.",
 	"tern.accounts.reset.button": "Choose a new password",
 	"tern.accounts.reset.subject": "Reset your password",
 	"tern.accounts.reset.text": "Hello {name},\n\nSomeone asked to reset your password. If it was you, choose a new one here within an hour:\n{link}\n\nIf it wasn’t you, ignore this email: your password stays as it is.",

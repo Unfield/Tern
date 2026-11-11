@@ -164,14 +164,16 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] Sinks for OpenTelemetry (OTLP), Loki, Datadog and rotating files
 - [x] A live log view in `tern dev`
 
+**HTTPS and security signals** ([ADR 0015](adr/0015-security-signals.md))
+- [x] HTTPS served by the app itself, with certificates from Let's Encrypt
+- [x] `plugins/signals`: JA4, HTTP/2 and header-order fingerprints, a score with reasons, a client check with a proof of work, device IDs
+- [x] Rate limits per client fingerprint, and emails about sign-ins from new devices
+
 ## Next
 
 **Native rendering**
 - [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: what most of a render's remaining time is
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
-
-**Security signals**
-- [ ] Device and client signals for bot and abuse detection and for recognizing a new device at sign-in: TLS and HTTP fingerprints (JA4), header order, client hints, and an optional client check, feeding rate limits and accounts. For an app's own security, not tracking people across sites.
 
 **Deploying**
 - [ ] `tern deploy`: to a server over SSH with zero-downtime restarts, to Fly.io, and to container platforms from the Dockerfile

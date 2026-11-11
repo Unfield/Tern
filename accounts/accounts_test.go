@@ -24,6 +24,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/plugins/signals"
 )
 
 type harness struct {
@@ -34,7 +35,7 @@ type harness struct {
 	sent []Email
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...func(*Options)) *harness {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
@@ -43,12 +44,16 @@ func newHarness(t *testing.T) *harness {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	h := &harness{t: t}
-	acc, err := New(db, Options{Send: func(_ context.Context, e Email) error {
+	o := Options{Send: func(_ context.Context, e Email) error {
 		h.mu.Lock()
 		h.sent = append(h.sent, e)
 		h.mu.Unlock()
 		return nil
-	}, RPName: "Test"})
+	}, RPName: "Test"}
+	for _, f := range opts {
+		f(&o)
+	}
+	acc, err := New(db, o)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +111,11 @@ func newHarness(t *testing.T) *harness {
 			{ID: "/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteAccount(c) })},
 		},
 	}
-	app, err := kit.New(m, kit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))), kit.WithPlugins(acc))
+	plugins := []kit.Plugin{acc}
+	if o.NotifyNewDevices {
+		plugins = append(plugins, signals.New(signals.Options{Secret: "test"}))
+	}
+	app, err := kit.New(m, kit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))), kit.WithPlugins(plugins...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -760,5 +769,39 @@ func TestSignInWith(t *testing.T) {
 	}
 	if _, out := h.post(h.client(), "/with", "provider", "x", "subject", "1"); out["error"] != ErrIdentityNoEmail.Error() {
 		t.Fatalf("no email: %v", out)
+	}
+}
+
+func TestNewDevice(t *testing.T) {
+	var seen []NewDevice
+	h := newHarness(t, func(o *Options) {
+		o.NotifyNewDevices = true
+		o.OnNewDevice = func(_ *kit.Ctx, d NewDevice) { seen = append(seen, d) }
+	})
+	laptop := h.client()
+	if code, _ := h.post(laptop, "/signup", "email", "ada@example.com", "name", "Ada", "password", "analytical engine"); code != 200 {
+		t.Fatal("signup")
+	}
+	_, _ = h.post(laptop, "/signout")
+	if code, _ := h.post(laptop, "/signin", "email", "ada@example.com", "password", "analytical engine"); code != 200 {
+		t.Fatal("signin")
+	}
+	if len(seen) != 0 {
+		t.Fatalf("the first device is news: %v", seen)
+	}
+	phone := h.client()
+	if code, _ := h.post(phone, "/signin", "email", "ada@example.com", "password", "analytical engine"); code != 200 {
+		t.Fatal("signin from the phone")
+	}
+	if len(seen) != 1 || seen[0].User.Email != "ada@example.com" {
+		t.Fatalf("new device: %v", seen)
+	}
+	if e := h.lastEmail(); e.Kind != "new_device" || !strings.Contains(e.Text, "127.0.0.1") {
+		t.Fatalf("email %+v", e)
+	}
+	_, _ = h.post(phone, "/signout")
+	_, _ = h.post(phone, "/signin", "email", "ada@example.com", "password", "analytical engine")
+	if len(seen) != 1 {
+		t.Fatalf("a known device again: %v", seen)
 	}
 }

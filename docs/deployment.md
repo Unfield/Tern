@@ -17,8 +17,11 @@ GOOS=linux GOARCH=arm64 go tool tern build -o build/my-app-linux-arm64
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PORT` | `3000` | Port to listen on |
+| `PORT` | `3000`, or `443` with HTTPS | Port to listen on |
 | `HOST` | all interfaces | Address to listen on, e.g. `127.0.0.1` behind a local proxy |
+| `TERN_TLS_DOMAINS` | | Serve HTTPS for these domains, comma-separated, with certificates from Let's Encrypt (see [HTTPS without a proxy](#https-without-a-proxy)) |
+| `TERN_TLS_EMAIL`, `TERN_TLS_CACHE` | none, `tern-certs` | The email given to Let's Encrypt, and the directory certificates are kept in |
+| `TERN_LOG_LEVEL`, `TERN_LOG_FORMAT` | `info`, JSON | See [logging](logging.md) |
 
 Everything else is configured in `main.go` with `kit` options:
 
@@ -47,6 +50,7 @@ Tern works behind nginx, Caddy, Traefik, or a cloud load balancer:
 - The proxy must pass the `Host` header through unchanged.
 - If the proxy terminates TLS, it must set `X-Forwarded-Proto: https`. Tern uses it to mark cookies `Secure` and to build absolute URLs for server rendering.
 - Leave `Origin` and `Sec-Fetch-Site` intact; cross-origin protection reads them.
+- An `X-Request-Id` the proxy sets is kept as the request's ID in the logs.
 - Tell Tern which addresses are your proxies, so it can find the client's real IP:
 
 ```go
@@ -65,6 +69,22 @@ example.com {
 	reverse_proxy 127.0.0.1:3000
 }
 ```
+
+## HTTPS without a proxy
+
+A Tern app can serve HTTPS itself, with certificates from Let's Encrypt that it gets and renews on its own. No nginx or Caddy is needed in front:
+
+```go
+app, err := ternApp(kit.WithAutoTLS(kit.AutoTLS{Domains: []string{"example.com", "www.example.com"}, Email: "ops@example.com"}))
+```
+
+or, with no code, `TERN_TLS_DOMAINS=example.com,www.example.com`.
+
+- HTTPS is served on port 443, and plain HTTP on port 80. Port 80 answers Let's Encrypt's challenges and redirects everything else to HTTPS.
+- The machine must be reachable at those domains. Certificates are kept in `tern-certs` (`AutoTLS.Cache`), which must survive restarts, or Let's Encrypt's rate limits stop new ones.
+- Ports below 1024 need privileges: on Linux, `setcap 'cap_net_bind_service=+ep' ./app`, or `AmbientCapabilities=CAP_NET_BIND_SERVICE` in a systemd unit.
+
+`kit.WithTLS(cfg)` serves HTTPS with certificates of your own. HTTP/2 is offered in both cases. Serving TLS itself lets the app see the client's TLS fingerprint, which [security signals](signals.md) use.
 
 ## Docker
 

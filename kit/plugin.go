@@ -2,9 +2,11 @@ package kit
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 )
 
@@ -113,6 +115,30 @@ func (s *Setup) Head(html string) {
 // nonce is the request's Content-Security-Policy nonce, for inline scripts.
 func (s *Setup) HeadFunc(fn func(c *Ctx, nonce string) string) {
 	s.app.head = append(s.app.head, fn)
+}
+
+// WrapConn wraps each connection the server accepts, after TLS: what the
+// wrapper reads is the client's HTTP, as sent. The server sees the
+// wrapper, so it must pass reads, writes, deadlines and Close through. It
+// applies when the App runs the server (ListenAndServe, Serve, or
+// WrapListener with ConfigureServer).
+func (s *Setup) WrapConn(fn func(net.Conn) net.Conn) {
+	s.o.connWraps = append(s.o.connWraps, fn)
+}
+
+// ConnContext adds to the context of the requests on a connection, as
+// http.Server.ConnContext does; c is the connection as WrapConn's wrappers
+// left it.
+func (s *Setup) ConnContext(fn func(ctx context.Context, c net.Conn) context.Context) {
+	s.o.connContexts = append(s.o.connContexts, fn)
+}
+
+// OnClientHello is called with each TLS ClientHello, when the App serves
+// HTTPS itself (WithTLS, WithAutoTLS). hello.Conn is the connection under
+// TLS; a WrapConn wrapper's connection has it as NetConn(). fn must not
+// keep hello.
+func (s *Setup) OnClientHello(fn func(hello *tls.ClientHelloInfo)) {
+	s.o.helloHooks = append(s.o.helloHooks, fn)
 }
 
 // OnShutdown registers work to do when the App shuts down, such as

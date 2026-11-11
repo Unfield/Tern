@@ -1,8 +1,11 @@
 package kit
 
 import (
+	"context"
+	"crypto/tls"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -148,6 +151,11 @@ type options struct {
 	multipartMemory int64
 	logger          *slog.Logger
 	addr            string
+	tls             *tls.Config
+	autoTLS         *AutoTLS
+	helloHooks      []func(*tls.ClientHelloInfo)
+	connWraps       []func(net.Conn) net.Conn
+	connContexts    []func(context.Context, net.Conn) context.Context
 	plugins         []Plugin
 	csp             string
 	cspReportOnly   bool

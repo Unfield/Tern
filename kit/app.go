@@ -36,6 +36,8 @@ type App struct {
 	defs    map[*routes.Route]*RouteDef
 	handler http.Handler
 	logger  *slog.Logger
+	// tls is how the server terminates TLS, once WrapListener has run.
+	tls     *tlsSetup
 	shell   *shell
 	assets  *assets
 	dev     *devServer
@@ -245,6 +247,7 @@ func (a *App) Close() error {
 
 // ServeHTTP implements http.Handler.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	restoreTLS(r)
 	a.handler.ServeHTTP(w, r)
 }
 

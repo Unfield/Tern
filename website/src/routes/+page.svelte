@@ -78,9 +78,9 @@
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
 		<a class="announce" href="/docs/changelog">
-			<span class="pill">New in 1.9</span>
-			<span class="long">Logging, security signals and <code>tern deploy</code></span>
-			<span class="short">Logging, signals, deploy</span>
+			<span class="pill">New in 1.10</span>
+			<span class="long">Tracing, error reports and <code>kittest</code></span>
+			<span class="short">Tracing, errors, tests</span>
 			<Icon name="arrow-right" size={14} />
 		</a>
 		<h1>Svelte on the client.<br /><span class="grad">Go on the server.</span></h1>

@@ -9,7 +9,7 @@ The plan, at a glance:
 | Version | Theme |
 |---|---|
 | [v1.9](#v19-logging-security-signals-and-deploying-released) | Logging, security signals, `tern deploy`, tern.land (released) |
-| [v1.10](#v110-production-confidence) | Production confidence: tracing, error reports, test helpers |
+| [v1.10](#v110-production-confidence-released) | Production confidence: tracing, error reports, test helpers (released) |
 | [v1.11](#v111-teams-and-billing) | Teams and billing, for SaaS apps |
 | [v1.12](#v112-rendering-on-demand-and-caching) | Rendering on demand, and caching |
 | [v1.13](#v113-native-rendering-phase-3) | Native rendering, phase 3: no JavaScript engine for most apps |
@@ -191,7 +191,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] The website rebuilt as a Tern app, every page prerendered: a landing page, the docs with search, the decision records and the examples
 - [x] A styled first paint under `tern dev`
 
-## v1.10: Production confidence
+## v1.10: Production confidence (released)
 
 Knowing what an app does in production, and that it still does it after a change.
 

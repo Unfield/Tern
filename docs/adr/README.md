@@ -17,6 +17,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0011](0011-native-rendering.md) | Native rendering | Accepted |
 | [0012](0012-accounts.md) | User accounts | Accepted |
 | [0013](0013-native-rendering-phase-2.md) | Native rendering, phase 2 | Accepted |
+| [0014](0014-logging.md) | Logging | Accepted |
 
 ## Template
 

@@ -157,15 +157,18 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] The document written in one buffer
 - [x] Typed fast paths from the loads' Go structs: profiled and set aside, as inline caches already make property reads cheap
 
+## v1.9: Logging, security signals, and deploying
+
+**Logging** ([ADR 0014](adr/0014-logging.md))
+- [x] Structured logging on `log/slog` with request IDs, trace context, redaction and sampling
+- [x] Sinks for OpenTelemetry (OTLP), Loki, Datadog and rotating files
+- [x] A live log view in `tern dev`
+
 ## Next
 
 **Native rendering**
 - [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: what most of a render's remaining time is
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
-
-**Logging**
-- [ ] Structured logging on `log/slog` with request context, sampling and redaction, and a log view in `tern dev`
-- [ ] Collection plugins: OpenTelemetry (OTLP), Loki, Datadog, files
 
 **Security signals**
 - [ ] Device and client signals for bot and abuse detection and for recognizing a new device at sign-in: TLS and HTTP fingerprints (JA4), header order, client hints, and an optional client check, feeding rate limits and accounts. For an app's own security, not tracking people across sites.

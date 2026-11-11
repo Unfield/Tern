@@ -88,6 +88,8 @@ type devRunner struct {
 	clients  map[chan struct{}]bool
 	logTail  *tailBuffer
 	building sync.Mutex
+	// logs is the log view at /__tern/dev/logs.
+	logs *devLogs
 }
 
 func (d *devRunner) run(ctx context.Context) error {
@@ -109,6 +111,12 @@ func (d *devRunner) run(ctx context.Context) error {
 		http.Error(w, "The app is restarting; try again in a moment.", http.StatusBadGateway)
 	}
 	d.ready = make(chan struct{})
+	d.logs = newDevLogs()
+	stopLogs, err := d.logs.listen()
+	if err != nil {
+		return err
+	}
+	defer stopLogs()
 
 	vite, err := d.startVite()
 	if err != nil {
@@ -148,6 +156,7 @@ func (d *devRunner) banner() {
 	} else {
 		p.Printf("  %s %s %s\n", p.Dim("➜"), p.Dim("Network:"), p.Dim("use -host 0.0.0.0 to expose"))
 	}
+	p.Printf("  %s %s %s\n", p.Green("➜"), p.Bold("Logs:   "), p.Cyan("http://"+net.JoinHostPort(local, port)+"/__tern/dev/logs"))
 	if problem := d.currentProblem(); problem != "" {
 		p.Println()
 		p.Failure("the app does not build yet; the error is shown in the browser too")
@@ -216,6 +225,10 @@ func (d *devRunner) startVite() (*exec.Cmd, error) {
 // ServeHTTP serves dev endpoints and proxies everything else to the app,
 // holding requests while it rebuilds.
 func (d *devRunner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/__tern/dev/logs" || strings.HasPrefix(r.URL.Path, "/__tern/dev/logs/") {
+		d.logs.serve(w, r)
+		return
+	}
 	switch r.URL.Path {
 	case "/__tern/dev/events":
 		d.events(w, r)
@@ -247,7 +260,7 @@ func (d *devRunner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.showProblem(w, r, problem)
 		return
 	}
-	d.proxy.ServeHTTP(w, r)
+	d.logs.proxy(d.proxy, w, r)
 }
 
 const devClientJS = `const events = new EventSource('/__tern/dev/events');
@@ -335,6 +348,8 @@ func (d *devRunner) setProblem(p string) {
 		close(d.ready) // release waiting requests so they see the problem
 	}
 	d.mu.Unlock()
+	first, _, _ := strings.Cut(strings.TrimSpace(p), "\n")
+	d.logs.event("build failed: " + first)
 	d.ui.Event(d.ui.Red("✗"), "%s", d.ui.Red("build failed"))
 	for _, line := range strings.Split(strings.TrimRight(p, "\n"), "\n") {
 		d.ui.Printf("    %s\n", line)
@@ -389,6 +404,7 @@ func (d *devRunner) rebuild(reload bool) {
 	}
 	d.mu.Unlock()
 	if reload {
+		d.logs.event("server restarted in " + ui.Duration(time.Since(began)))
 		d.ui.Event(d.ui.Green("↻"), "server restarted %s", d.ui.Dim("in "+ui.Duration(time.Since(began))))
 		d.broadcastReload()
 	}
@@ -408,6 +424,7 @@ func (d *devRunner) startApp(bin string) error {
 		"TERN_DEV_VITE_URL=http://127.0.0.1:"+strconv.Itoa(d.vitePort),
 		"TERN_ROOT="+d.root,
 	)
+	cmd.Env = append(cmd.Env, d.logs.env()...)
 	cmd.Stdout = d.stdout
 	cmd.Stderr = io.MultiWriter(d.stderr, d.logTail)
 	if err := cmd.Start(); err != nil {

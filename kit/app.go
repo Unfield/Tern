@@ -23,6 +23,7 @@ import (
 	"github.com/Unfield/Tern/internal/jsonenc"
 	"github.com/Unfield/Tern/internal/routes"
 	"github.com/Unfield/Tern/internal/ssr"
+	"github.com/Unfield/Tern/logging"
 )
 
 // App serves a Tern application. It implements http.Handler, so it can be
@@ -91,6 +92,11 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	}
 	if o.logger == nil {
 		o.logger = slog.Default()
+	}
+	// Records get the request's attributes from its context, and under
+	// tern dev go to the log view too.
+	if h := logging.Wrap(o.logger.Handler()); h != o.logger.Handler() {
+		o.logger = slog.New(h)
 	}
 
 	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux(), ctxMux: http.NewServeMux()}
@@ -233,6 +239,7 @@ func (a *App) Close() error {
 		errs = append(errs, c.Close())
 	}
 	a.closers = nil
+	errs = append(errs, logging.Flush(ctx, a.logger))
 	return errors.Join(errs...)
 }
 
@@ -795,7 +802,7 @@ func errorPayload(c *Ctx, def *RouteDef, err error, dev bool) payload {
 }
 
 func (a *App) logError(c *Ctx, err error) {
-	a.logger.Error("unexpected error",
+	a.logger.ErrorContext(c.Request.Context(), "unexpected error",
 		"method", c.Request.Method,
 		"path", c.Request.URL.Path,
 		"route", c.routeID,

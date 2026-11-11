@@ -106,7 +106,8 @@ func (ps proxySet) resolve(r *http.Request) clientInfo {
 func (ps proxySet) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		info := ps.resolve(r)
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientKey{}, info)))
+		r = r.WithContext(context.WithValue(r.Context(), clientKey{}, info))
+		next.ServeHTTP(w, requestContext(w, r, info.trusted))
 	})
 }
 

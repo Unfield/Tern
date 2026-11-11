@@ -269,7 +269,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		switch {
 		case err != nil:
 			// Render on the client instead; the page still works.
-			a.logger.Warn("tern: server rendering failed; falling back to client rendering",
+			a.logger.WarnContext(c.Request.Context(), "tern: server rendering failed; falling back to client rendering",
 				"path", c.Request.URL.Path, "route", c.routeID, "error", err)
 		case !res.Skip:
 			if res.Head != "" {

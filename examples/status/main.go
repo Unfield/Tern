@@ -10,12 +10,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
-	"log/slog"
 	"os"
 	"time"
 
 	"github.com/Unfield/Tern/jobs"
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/logging"
 	"github.com/Unfield/Tern/mail"
 	"github.com/Unfield/Tern/migrate"
 	"github.com/Unfield/Tern/plugins/compress"
@@ -35,7 +35,7 @@ import (
 var migrations embed.FS
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := logging.New(logging.Options{})
 	path := env("DATABASE_PATH", "status.db")
 	st, err := store.Open(path)
 	if err != nil {

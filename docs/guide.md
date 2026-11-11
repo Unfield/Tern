@@ -463,7 +463,7 @@ app, err := ternApp(kit.WithPlugins(
 | Plugin | What it does |
 |---|---|
 | `plugins/health` | `GET /healthz` for liveness and `GET /readyz` for readiness, running your checks with a timeout. Readiness reports 503 during shutdown so load balancers drain first. |
-| `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration and size. |
+| `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration, size and request ID. |
 | `plugins/compress` | gzip for HTML, JSON, XML and text responses. Streaming still flushes as values resolve. |
 | `plugins/secure` | Security headers: no framing, a strict referrer policy, browser features off, cross-origin isolation, and opt-in HSTS. |
 | `plugins/sessions` | Encrypted cookie sessions (AES-GCM): `sessions.Get(ctx).Set("user", id)`, `GetString`, `Value`, flash messages, and secret rotation with `OldSecrets`. |
@@ -1534,6 +1534,18 @@ sw.addEventListener('install', (event) => {
 `examples/todos/src/service-worker.ts` is a complete offline-first worker: cached assets and prerendered pages, the network first for everything else, and the cache when offline.
 
 The service worker is built after prerendering, so its lists are complete. It is not registered in development, where a caching worker would serve stale modules; test it with `tern build`. To register it yourself, set `"serviceWorker": { "register": false }` in `tern.json`.
+
+## Logging
+
+Log with `log/slog`. A logger from `logging.New` adds the request's ID to records logged in a request, redacts passwords, tokens and other secrets, can sample floods, and ships records to OpenTelemetry, Loki, Datadog or rotating files in the background:
+
+```go
+logger := logging.New(logging.Options{Sinks: []logging.Sink{otlp.New(otlp.Options{})}})
+slog.SetDefault(logger)
+server, err := ternApp(kit.WithLogger(logger))
+```
+
+In loads and actions, `slog.InfoContext(c, …)` and `c.Logger().Info(…)` include the request's ID, which the response carries as `X-Request-Id`. `TERN_LOG_LEVEL` and `TERN_LOG_FORMAT` set the level and format. Under `tern dev`, records and requests show up live at `/__tern/dev/logs`. See [docs/logging.md](logging.md).
 
 ## Configuration file
 

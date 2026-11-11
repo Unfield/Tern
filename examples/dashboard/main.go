@@ -2,10 +2,9 @@ package main
 
 import (
 	"log"
-	"log/slog"
-	"os"
 
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/logging"
 	"github.com/Unfield/Tern/plugins/compress"
 	"github.com/Unfield/Tern/plugins/health"
 	"github.com/Unfield/Tern/plugins/requestlog"
@@ -23,7 +22,7 @@ func main() {
 	}
 	app, err := ternApp(
 		kit.WithHook(session.Hook),
-		kit.WithLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))),
+		kit.WithLogger(logging.New(logging.Options{})),
 		kit.WithOpenAPI("/api/openapi.json", "Acme Dashboard API", "1.0.0"),
 		kit.WithPlugins(
 			health.New(health.Check("database", store.Ping)),

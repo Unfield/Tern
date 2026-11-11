@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Logging** ([ADR 0014](docs/adr/0014-logging.md), [docs/logging.md](docs/logging.md)). `logging.New` returns a `*slog.Logger` with these features:
+  - Request context: kit gives every request an ID, kept from a trusted `X-Request-Id` or made new, and returns it as `X-Request-Id`. Records logged with the request's context include it, plus `trace_id` and `span_id` from a trusted `traceparent`.
+  - `c.Logger()` binds the ID and the route; `c.LogWith` and `logging.With` add attributes of your own.
+  - Passwords, tokens, keys, cookies and other secrets are redacted by key, including in headers and URLs, and `logging.Secret` always is.
+  - Optional sampling of floods.
+  - `TERN_LOG_LEVEL` and `TERN_LOG_FORMAT`.
+- Logging sinks that ship records in batches with retries, without blocking: `logging/otlp` (OpenTelemetry over HTTP), `logging/loki`, `logging/datadog` and `logging/file` (JSON lines, rotated). A sink of your own is one method.
+- `tern dev` has a live log view at `/__tern/dev/logs`: the app's records and the requests it serves, filterable by level, text and request.
+
+### Changed
+
+- kit adds the request's attributes to records from loggers it didn't make, and flushes the logger's sinks on shutdown. The saas template and the examples log with `logging.New`.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/logging"
 	"github.com/Unfield/Tern/migrate"
 	"github.com/Unfield/Tern/plugins/compress"
 	"github.com/Unfield/Tern/plugins/health"
@@ -18,7 +19,10 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	// TERN_LOG_LEVEL and TERN_LOG_FORMAT set the level and format. Add
+	// sinks, such as logging/otlp, to send the logs to a collector.
+	logger := logging.New(logging.Options{})
+	slog.SetDefault(logger)
 	// Open reads the settings from the environment: see .env.example.
 	a, err := app.Open(logger)
 	if err != nil {

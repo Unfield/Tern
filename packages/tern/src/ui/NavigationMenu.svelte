@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { page } from '../runtime/state.svelte.js';
 	import { float } from './floating.js';
 
@@ -9,7 +10,8 @@
 		label?: string;
 		class?: string;
 	};
-	let { items, label = 'Main', class: klass = '' }: Props = $props();
+	let { items, label: labelProp, class: klass = '' }: Props = $props();
+	const label = $derived(labelProp ?? tb('tern.ui.navigationMenu.label'));
 
 	const uid = $props.id();
 	let open = $state<number | null>(null);

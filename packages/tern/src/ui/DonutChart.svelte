@@ -1,4 +1,5 @@
 <script lang="ts" generics="Row extends object">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import ChartFrame from './ChartFrame.svelte';
 	import { formatNumber, seriesColor } from './chart.js';
 
@@ -19,7 +20,8 @@
 		format?: (v: number) => string;
 		class?: string;
 	};
-	let { data, label, value, title, description, level, max = 6, totalLabel = 'total', size = 180, format = (v) => formatNumber(v), class: klass = '' }: Props = $props();
+	let { data, label, value, title, description, level, max = 6, totalLabel: totalLabelProp, size = 180, format = (v) => formatNumber(v), class: klass = '' }: Props = $props();
+	const totalLabel = $derived(totalLabelProp ?? tb('tern.ui.donutChart.total'));
 
 	let active = $state<number | null>(null);
 

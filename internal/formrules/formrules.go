@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/Unfield/Tern/internal/i18n"
 )
 
 // Kind is how a field's text is read.
@@ -366,13 +368,22 @@ var (
 
 // Check returns why the posted values of f are invalid, or "". values are
 // the field's posted values; other returns another field's first value,
-// for same=.
-func Check(f Field, values []string, other func(name string) string, labelOf func(name string) string) string {
-	msg := func(m string) string {
+// for same=. t translates Tern's texts (i18n.Catalog.TB); nil uses English.
+func Check(f Field, values []string, other func(name string) string, labelOf func(name string) string, t func(key string, params map[string]any) string) string {
+	if t == nil {
+		var none *i18n.Catalog
+		t = func(key string, params map[string]any) string { return none.TB("en", key, params) }
+	}
+	msg := func(key string, params map[string]any) string {
 		if f.Message != "" {
 			return f.Message
 		}
-		return m
+		if params == nil {
+			params = map[string]any{}
+		}
+		params["field"] = f.Label
+		params["fieldLower"] = strings.ToLower(f.Label)
+		return t("tern.validate."+key, params)
 	}
 	var list []string
 	for _, v := range values {
@@ -398,37 +409,38 @@ func Check(f Field, values []string, other func(name string) string, labelOf fun
 			return ""
 		}
 		if f.Kind == Bool {
-			return msg(f.Label + " must be checked.")
+			return msg("checked", nil)
 		}
-		return msg(f.Label + " is required.")
+		return msg("required", nil)
 	}
 	var num float64
 	var when time.Time
 	switch f.Kind {
 	case Int:
-		t := strings.TrimSpace(v)
-		if !intRe.MatchString(t) {
-			return msg(f.Label + " must be a whole number.")
+		tv := strings.TrimSpace(v)
+		if !intRe.MatchString(tv) {
+			return msg("int", nil)
 		}
-		num, _ = strconv.ParseFloat(t, 64)
+		num, _ = strconv.ParseFloat(tv, 64)
 	case Float:
-		t := strings.TrimSpace(v)
-		if !floatRe.MatchString(t) {
-			return msg(f.Label + " must be a number.")
+		tv := strings.TrimSpace(v)
+		if !floatRe.MatchString(tv) {
+			return msg("number", nil)
 		}
-		num, _ = strconv.ParseFloat(t, 64)
+		num, _ = strconv.ParseFloat(tv, 64)
 	case Date, DateTime:
-		t, ok := ParseTime(f.Kind, strings.TrimSpace(v))
+		tv, ok := ParseTime(f.Kind, strings.TrimSpace(v))
 		if !ok {
 			if f.Kind == Date {
-				return msg(f.Label + " must be a date.")
+				return msg("date", nil)
 			}
-			return msg(f.Label + " must be a date and time.")
+			return msg("datetime", nil)
 		}
-		when = t
+		when = tv
 	}
 	for _, r := range f.Rules {
 		n, _ := strconv.ParseFloat(r.Arg, 64)
+		bound := map[string]any{"count": r.Arg, "n": n}
 		switch r.Name {
 		case "min", "max", "len":
 			low := r.Name == "min"
@@ -436,52 +448,52 @@ func Check(f Field, values []string, other func(name string) string, labelOf fun
 			case String:
 				c := float64(utf8.RuneCountInString(v))
 				if (r.Name == "len" && c != n) || (low && c < n) || (r.Name == "max" && c > n) {
-					word := "characters"
-					if n == 1 {
-						word = "character"
-					}
-					return msg(fmt.Sprintf("%s must be %s %s %s.", f.Label, map[string]string{"min": "at least", "max": "at most", "len": "exactly"}[r.Name], r.Arg, word))
+					return msg(map[string]string{"min": "minLength", "max": "maxLength", "len": "length"}[r.Name], bound)
 				}
 			case Int, Float:
 				if (r.Name == "len" && num != n) || (low && num < n) || (r.Name == "max" && num > n) {
-					return msg(fmt.Sprintf("%s must be %s %s.", f.Label, map[string]string{"min": "at least", "max": "at most", "len": "exactly"}[r.Name], r.Arg))
+					return msg(map[string]string{"min": "min", "max": "max", "len": "exactly"}[r.Name], bound)
 				}
 			case Date, DateTime:
-				bound, _ := ParseTime(f.Kind, r.Arg)
-				if (low && when.Before(bound)) || (r.Name == "max" && when.After(bound)) {
-					return msg(fmt.Sprintf("%s must be on or %s %s.", f.Label, map[bool]string{true: "after", false: "before"}[low], r.Arg))
+				b, _ := ParseTime(f.Kind, r.Arg)
+				if (low && when.Before(b)) || (r.Name == "max" && when.After(b)) {
+					key := "before"
+					if low {
+						key = "after"
+					}
+					return msg(key, map[string]any{"date": r.Arg})
 				}
 			case Strings:
 				c := float64(len(list))
 				if (r.Name == "len" && c != n) || (low && c < n) || (r.Name == "max" && c > n) {
-					return msg(fmt.Sprintf("Choose %s %s for %s.", map[string]string{"min": "at least", "max": "at most", "len": "exactly"}[r.Name], r.Arg, strings.ToLower(f.Label)))
+					return msg(map[string]string{"min": "minItems", "max": "maxItems", "len": "items"}[r.Name], bound)
 				}
 			}
 		case "email":
 			if !emailRe.MatchString(v) {
-				return msg(f.Label + " must be an email address.")
+				return msg("email", nil)
 			}
 		case "url":
 			u, err := url.Parse(v)
 			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.ContainsAny(v, " \t\n") {
-				return msg(f.Label + " must be a web address starting with http:// or https://.")
+				return msg("url", nil)
 			}
 		case "pattern":
 			for _, s := range valuesFor(f, v, list) {
 				if !f.re.MatchString(s) {
-					return msg(f.Label + " isn't in the expected format.")
+					return msg("pattern", nil)
 				}
 			}
 		case "oneof":
 			opts := strings.Split(r.Arg, "|")
 			for _, s := range valuesFor(f, v, list) {
 				if !contains(opts, s) {
-					return msg(fmt.Sprintf("%s must be one of %s.", f.Label, joinOr(opts)))
+					return msg("oneof", map[string]any{"options": joinOr(opts, t("tern.validate.or", nil))})
 				}
 			}
 		case "same":
 			if other(r.Arg) != v {
-				return msg(fmt.Sprintf("%s must match %s.", f.Label, strings.ToLower(labelOf(r.Arg))))
+				return msg("same", map[string]any{"otherLower": strings.ToLower(labelOf(r.Arg))})
 			}
 		}
 	}
@@ -504,9 +516,9 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-func joinOr(list []string) string {
+func joinOr(list []string, or string) string {
 	if len(list) == 1 {
 		return list[0]
 	}
-	return strings.Join(list[:len(list)-1], ", ") + " or " + list[len(list)-1]
+	return strings.Join(list[:len(list)-1], ", ") + " " + or + " " + list[len(list)-1]
 }

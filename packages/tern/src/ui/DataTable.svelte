@@ -1,4 +1,5 @@
 <script lang="ts" generics="Row">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import Checkbox from './Checkbox.svelte';
 	import Input from './Input.svelte';
@@ -49,10 +50,11 @@
 		total,
 		toolbar,
 		actions,
-		empty = 'No rows match',
+		empty: emptyProp,
 		loading = false,
 		class: klass = ''
 	}: Props = $props();
+	const empty = $derived(emptyProp ?? tb('tern.ui.dataTable.empty'));
 
 	const uid = $props.id();
 	let sort = $state<DataQuery['sort']>(null);
@@ -115,8 +117,8 @@
 				<div class="search">
 					<Input
 						type="search"
-						placeholder="Search…"
-						aria-label="Search {caption}"
+						placeholder={tb('tern.ui.dataTable.search')}
+						aria-label={tb('tern.ui.dataTable.searchLabel', { caption })}
 						aria-controls="tern-datatable-{uid}"
 						bind:value={search}
 						oninput={() => (page = 1)}
@@ -133,7 +135,7 @@
 				<tr>
 					{#if selectable}
 						<th scope="col" class="select">
-							<Checkbox checked={allShown} indeterminate={someShown} onchange={toggleAll} aria-label="Select all rows on this page" />
+							<Checkbox checked={allShown} indeterminate={someShown} onchange={toggleAll} aria-label={tb('tern.ui.dataTable.selectAll')} />
 						</th>
 					{/if}
 					{#each columns as col (col.key)}
@@ -150,7 +152,7 @@
 							{/if}
 						</th>
 					{/each}
-					{#if actions}<th scope="col"><span class="tern-sr-only">Actions</span></th>{/if}
+					{#if actions}<th scope="col"><span class="tern-sr-only">{tb('tern.ui.dataTable.actions')}</span></th>{/if}
 				</tr>
 			</thead>
 			<tbody>

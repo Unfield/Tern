@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import type { FormField } from '../runtime/validate.js';
 	import Alert from './Alert.svelte';
@@ -41,7 +42,7 @@
 		class?: string;
 	};
 	let {
-		title = 'Sign in',
+		title: titleProp,
 		description,
 		level = 1,
 		providers = [],
@@ -58,10 +59,11 @@
 		footer,
 		class: klass = ''
 	}: Props = $props();
+	const title = $derived(titleProp ?? tb('tern.ui.signIn.title'));
 
 	let submitting = $state(false);
 	const errorText = $derived(
-		!error ? null : error === 'access_denied' ? 'You cancelled the sign-in. Try again when you’re ready.' : 'Signing in didn’t work. Try again, or choose another way.'
+		!error ? null : error === 'access_denied' ? tb('tern.ui.signIn.cancelled') : tb('tern.ui.signIn.failed')
 	);
 	const login = (name: string) => `${authPath}/${encodeURIComponent(name)}/login${next ? `?next=${encodeURIComponent(next)}` : ''}`;
 </script>
@@ -75,28 +77,28 @@
 	{#if providers.length}
 		<div class="providers">
 			{#each providers as p (p.name)}
-				<Button variant="secondary" href={login(p.name)}>Continue with {p.label}</Button>
+				<Button variant="secondary" href={login(p.name)}>{tb('tern.ui.signIn.continueWith', { provider: p.label })}</Button>
 			{/each}
 		</div>
 	{/if}
-	{#if providers.length && password}<div class="or"><Separator /><span>or</span><Separator /></div>{/if}
+	{#if providers.length && password}<div class="or"><Separator /><span>{tb('tern.ui.signIn.or')}</span><Separator /></div>{/if}
 	{#if password}
 		<Form {rules} {form} {action} bind:submitting reset={false}>
 			{#if next}<input type="hidden" name="next" value={next} />{/if}
-			<Field label="Email" name="email">
+			<Field label={tb('tern.ui.signIn.email')} name="email">
 				<Input type="email" autocomplete="username" spellcheck="false" />
 			</Field>
-			<Field label="Password" name="password">
+			<Field label={tb('tern.ui.signIn.password')} name="password">
 				<PasswordInput autocomplete="current-password" />
 			</Field>
 			<div class="row">
-				{#if remember}<Checkbox name="remember">Keep me signed in</Checkbox>{/if}
-				{#if forgotHref}<a href={forgotHref}>Forgot your password?</a>{/if}
+				{#if remember}<Checkbox name="remember">{tb('tern.ui.signIn.remember')}</Checkbox>{/if}
+				{#if forgotHref}<a href={forgotHref}>{tb('tern.ui.signIn.forgot')}</a>{/if}
 			</div>
-			<Button type="submit" loading={submitting}>Sign in</Button>
+			<Button type="submit" loading={submitting}>{tb('tern.ui.signIn.submit')}</Button>
 		</Form>
 	{/if}
-	{#if signUpHref}<p class="switch">New here? <a href={signUpHref}>Create an account</a></p>{/if}
+	{#if signUpHref}<p class="switch">{tb('tern.ui.signIn.new')} <a href={signUpHref}>{tb('tern.ui.signIn.signUp')}</a></p>{/if}
 	{#if footer}<div class="footer">{@render footer()}</div>{/if}
 </section>
 

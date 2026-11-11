@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { matches } from './options.js';
 	import { trapTab } from './floating.js';
 
@@ -28,7 +29,10 @@
 		hotkey?: string;
 		class?: string;
 	};
-	let { items, label = 'Commands', placeholder = 'Type a command or search…', empty = 'No results', dialog = false, open = $bindable(false), hotkey, class: klass = '' }: Props = $props();
+	let { items, label: labelProp, placeholder: placeholderProp, empty: emptyProp, dialog = false, open = $bindable(false), hotkey, class: klass = '' }: Props = $props();
+	const empty = $derived(emptyProp ?? tb('tern.ui.command.empty'));
+	const placeholder = $derived(placeholderProp ?? tb('tern.ui.command.placeholder'));
+	const label = $derived(labelProp ?? tb('tern.ui.command.label'));
 
 	const uid = $props.id();
 	const id = `tern-command-${uid}`;

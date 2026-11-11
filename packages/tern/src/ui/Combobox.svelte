@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { getField } from './field.js';
 	import { float } from './floating.js';
 	import { grouped, matches, type Option } from './options.js';
@@ -31,13 +32,14 @@
 		placeholder,
 		label,
 		name: nameProp,
-		empty = 'No results',
+		empty: emptyProp,
 		onsearch,
 		debounce = 200,
 		disabled = false,
 		class: klass = '',
 		onchange
 	}: Props = $props();
+	const empty = $derived(emptyProp ?? tb('tern.ui.combobox.empty'));
 	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
@@ -241,7 +243,7 @@
 					{@render items()}
 				{/if}
 			{:else}
-				<div class="empty" role="status">{searching ? 'Searching…' : empty}</div>
+				<div class="empty" role="status">{searching ? tb('tern.ui.combobox.searching') : empty}</div>
 			{/each}
 		{/if}
 	</div>

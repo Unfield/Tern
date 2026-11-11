@@ -42,7 +42,7 @@ func TestCases(t *testing.T) {
 	}
 	for _, tc := range c.Cases {
 		f := c.Fields[tc.Field]
-		got := Check(f, tc.Values, func(n string) string { return tc.Other[n] }, func(n string) string { return c.Fields[n].Label })
+		got := Check(f, tc.Values, func(n string) string { return tc.Other[n] }, func(n string) string { return c.Fields[n].Label }, nil)
 		if got != tc.Error {
 			t.Errorf("%s %q: got %q, want %q", tc.Field, tc.Values, got, tc.Error)
 		}

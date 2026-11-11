@@ -48,7 +48,7 @@ func TypedEndpoint[In, Out any](method string, fn func(*Ctx, In) (Out, error)) H
 		if err := decodeInput(c, method, &in); err != nil {
 			return err
 		}
-		if err := checkTyped(in); err != nil {
+		if err := checkTyped(c, in); err != nil {
 			return err
 		}
 		if v, ok := any(&in).(Validator); ok {

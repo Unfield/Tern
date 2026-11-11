@@ -1,4 +1,5 @@
 <script lang="ts" generics="T">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -63,10 +64,10 @@
 				{/if}
 			</button>
 		{/if}
-		<button type="button" class="control" aria-label="Previous slide" aria-controls="tern-carousel-{uid}" onclick={() => go(current - 1)}>
+		<button type="button" class="control" aria-label={tb('tern.ui.carousel.previous')} aria-controls="tern-carousel-{uid}" onclick={() => go(current - 1)}>
 			<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M10 4l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
 		</button>
-		<button type="button" class="control" aria-label="Next slide" aria-controls="tern-carousel-{uid}" onclick={() => go(current + 1)}>
+		<button type="button" class="control" aria-label={tb('tern.ui.carousel.next')} aria-controls="tern-carousel-{uid}" onclick={() => go(current + 1)}>
 			<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
 		</button>
 	</div>
@@ -76,7 +77,7 @@
 		class="track"
 		id="tern-carousel-{uid}"
 		role="group"
-		aria-label="Slides"
+		aria-label={tb('tern.ui.carousel.label')}
 		tabindex="0"
 		aria-live={playing && !paused ? 'off' : 'polite'}
 		{onscroll}

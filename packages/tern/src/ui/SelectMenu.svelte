@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { getField } from './field.js';
 	import { float } from './floating.js';
 	import { grouped, type Option } from './options.js';
@@ -18,7 +19,8 @@
 		onchange?: (value: string, option: Option) => void;
 	};
 	const field = getField();
-	let { options, value = $bindable(field?.value ?? null), placeholder = 'Choose…', label, name: nameProp, disabled = false, class: klass = '', onchange }: Props = $props();
+	let { options, value = $bindable(field?.value ?? null), placeholder: placeholderProp, label, name: nameProp, disabled = false, class: klass = '', onchange }: Props = $props();
+	const placeholder = $derived(placeholderProp ?? tb('tern.ui.selectMenu.placeholder'));
 	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();

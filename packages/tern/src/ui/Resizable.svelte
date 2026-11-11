@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -13,7 +14,8 @@
 		second: Snippet;
 		class?: string;
 	};
-	let { size = $bindable(50), min = 15, max = 85, direction = 'horizontal', label = 'Resize', first, second, class: klass = '' }: Props = $props();
+	let { size = $bindable(50), min = 15, max = 85, direction = 'horizontal', label: labelProp, first, second, class: klass = '' }: Props = $props();
+	const label = $derived(labelProp ?? tb('tern.ui.resizable.label'));
 
 	const uid = $props.id();
 	let root = $state<HTMLDivElement>();

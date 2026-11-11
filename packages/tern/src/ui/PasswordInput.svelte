@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import { getField } from './field.js';
 
@@ -37,7 +38,7 @@
 	<button
 		type="button"
 		class="toggle"
-		aria-label="Show password"
+		aria-label={tb('tern.ui.password.show')}
 		aria-pressed={visible}
 		aria-controls={id}
 		disabled={field?.disabled || rest.disabled}

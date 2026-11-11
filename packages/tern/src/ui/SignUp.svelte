@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import type { FormField } from '../runtime/validate.js';
 	import Button from './Button.svelte';
@@ -26,7 +27,8 @@
 		footer?: Snippet;
 		class?: string;
 	};
-	let { title = 'Create an account', description, level = 1, action, rules, form, name = true, confirm = false, termsHref, signInHref, footer, class: klass = '' }: Props = $props();
+	let { title: titleProp, description, level = 1, action, rules, form, name = true, confirm = false, termsHref, signInHref, footer, class: klass = '' }: Props = $props();
+	const title = $derived(titleProp ?? tb('tern.ui.signUp.title'));
 
 	let submitting = $state(false);
 	const minPassword = $derived(rules?.find((f) => f.name === 'password')?.rules?.find((r) => r.name === 'min')?.arg);
@@ -39,21 +41,21 @@
 	</header>
 	<Form {rules} {form} {action} bind:submitting reset={false}>
 		{#if name}
-			<Field label="Name" name="name"><Input autocomplete="name" /></Field>
+			<Field label={tb('tern.ui.signUp.name')} name="name"><Input autocomplete="name" /></Field>
 		{/if}
-		<Field label="Email" name="email"><Input type="email" autocomplete="email" spellcheck="false" /></Field>
-		<Field label="Password" name="password" description={minPassword ? `At least ${minPassword} characters.` : undefined}>
+		<Field label={tb('tern.ui.signUp.email')} name="email"><Input type="email" autocomplete="email" spellcheck="false" /></Field>
+		<Field label={tb('tern.ui.signUp.password')} name="password" description={minPassword ? tb('tern.ui.signUp.minPassword', { n: minPassword }) : undefined}>
 			<PasswordInput autocomplete="new-password" />
 		</Field>
 		{#if confirm}
-			<Field label="Confirm password" name="confirm"><PasswordInput autocomplete="new-password" /></Field>
+			<Field label={tb('tern.ui.signUp.confirm')} name="confirm"><PasswordInput autocomplete="new-password" /></Field>
 		{/if}
 		{#if termsHref}
-			<Checkbox name="terms">I agree to the <a href={termsHref}>terms</a></Checkbox>
+			<Checkbox name="terms">{tb('tern.ui.signUp.agree')} <a href={termsHref}>{tb('tern.ui.signUp.terms')}</a></Checkbox>
 		{/if}
-		<Button type="submit" loading={submitting}>Create account</Button>
+		<Button type="submit" loading={submitting}>{tb('tern.ui.signUp.submit')}</Button>
 	</Form>
-	{#if signInHref}<p class="switch">Already have an account? <a href={signInHref}>Sign in</a></p>{/if}
+	{#if signInHref}<p class="switch">{tb('tern.ui.signUp.haveAccount')} <a href={signInHref}>{tb('tern.ui.signUp.signIn')}</a></p>{/if}
 	{#if footer}<div class="footer">{@render footer()}</div>{/if}
 </section>
 

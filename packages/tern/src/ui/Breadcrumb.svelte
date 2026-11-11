@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import Menu from './Menu.svelte';
 
 	type Crumb = { label: string; href?: string };
@@ -29,7 +30,7 @@
 	</li>
 {/snippet}
 
-<nav class="tern-breadcrumb {klass}" aria-label="Breadcrumb">
+<nav class="tern-breadcrumb {klass}" aria-label={tb('tern.ui.breadcrumb.label')}>
 	<ol>
 		{#each head as item, i (i)}{@render crumb(item, !collapsed && i === items.length - 1)}{/each}
 		{#if collapsed}

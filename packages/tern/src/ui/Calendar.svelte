@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { tick } from 'svelte';
 	import { addDays, addMonths, format, localeWeekStart, monthGrid, startOfMonth, today, type ISODate } from './dates.js';
 
@@ -108,11 +109,11 @@
 
 <div class="tern-calendar {klass}" role="group" aria-label={label}>
 	<div class="header">
-		<button type="button" class="nav" aria-label="Previous month" disabled={!canPrev} onclick={() => (focused = addMonths(focused, -1))}>
+		<button type="button" class="nav" aria-label={tb('tern.ui.calendar.previousMonth')} disabled={!canPrev} onclick={() => (focused = addMonths(focused, -1))}>
 			<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M10 4l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
 		</button>
 		<div class="title" id="{id}-title" aria-live="polite">{format(focused, locale, { month: 'long', year: 'numeric' })}</div>
-		<button type="button" class="nav" aria-label="Next month" disabled={!canNext} onclick={() => (focused = addMonths(focused, 1))}>
+		<button type="button" class="nav" aria-label={tb('tern.ui.calendar.nextMonth')} disabled={!canNext} onclick={() => (focused = addMonths(focused, 1))}>
 			<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
 		</button>
 	</div>

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
@@ -142,18 +143,37 @@ type typedIn struct {
 }
 
 func TestCheckTyped(t *testing.T) {
-	if err := checkTyped(typedIn{Name: "ok", Count: 3}); err != nil {
+	if err := checkTyped(nil, typedIn{Name: "ok", Count: 3}); err != nil {
 		t.Errorf("valid input: %v", err)
 	}
-	err := checkTyped(typedIn{Name: "", Count: 11})
+	err := checkTyped(nil, typedIn{Name: "", Count: 11})
 	var he *HTTPError
 	if !errors.As(err, &he) || he.Status != http.StatusBadRequest || he.Message != "Name is required. Count must be at most 10." {
 		t.Errorf("got %v", err)
 	}
-	if err := checkTyped(typedIn{Name: "ok"}); err != nil {
+	if err := checkTyped(nil, typedIn{Name: "ok"}); err != nil {
 		t.Errorf("a missing number isn't checked against its rules: %v", err)
 	}
-	if checkTyped(struct{ M map[string]int }{}) != nil {
+	if checkTyped(nil, struct{ M map[string]int }{}) != nil {
 		t.Error("inputs without form types have no rules")
+	}
+}
+
+func TestFormActionTranslatesMessages(t *testing.T) {
+	var got signup
+	m := formManifest(&got)
+	m.Locales = fstest.MapFS{
+		"en.json": {Data: []byte(`{}`)},
+		"de.json": {Data: []byte(`{"tern": {"validate": {"required": "{field} fehlt.", "or": "oder"}}}`)},
+	}
+	a, _ := newTestApp(t, m)
+	rec := postForm(t, a, "/signup", url.Values{}, "X-Tern-Action", "true", "Accept-Language", "de")
+	errs := jsonPayload(t, rec).Data.(map[string]any)["errors"].(map[string]any)
+	if errs["email"] != "Email fehlt." {
+		t.Errorf("German: %v", errs["email"])
+	}
+	// What the locale leaves out stays English.
+	if errs["terms"] != "Terms must be checked." {
+		t.Errorf("fallback: %v", errs["terms"])
 	}
 }

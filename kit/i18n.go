@@ -1,5 +1,7 @@
 package kit
 
+import "github.com/Unfield/Tern/internal/i18n"
+
 // localeCookie is set by setLocale() in the browser.
 const localeCookie = "locale"
 
@@ -61,6 +63,16 @@ func (c *Ctx) T(key string, params ...map[string]any) string {
 		p = params[0]
 	}
 	return c.app.i18n.T(c.Locale(), key, p)
+}
+
+// tb translates one of Tern's own texts, such as a validation message:
+// the app's message for its key in src/locales, else Tern's English.
+func (c *Ctx) tb(key string, params map[string]any) string {
+	if c == nil {
+		var none *i18n.Catalog
+		return none.TB("en", key, params)
+	}
+	return c.app.i18n.TB(c.Locale(), key, params)
 }
 
 // htmlLang is the value of %tern.lang%.

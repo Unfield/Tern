@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import Avatar from './Avatar.svelte';
 	import Button from './Button.svelte';
 
@@ -17,7 +18,7 @@
 
 <!-- Asks the signed-in user to let another app use their account. The form posts back to plugins/oidc, which checks the request again. -->
 <section class="tern-consent {klass}" aria-labelledby="tern-consent-title">
-	<svelte:element this={`h${level}`} id="tern-consent-title">{consent.client} wants to access your account</svelte:element>
+	<svelte:element this={`h${level}`} id="tern-consent-title">{tb('tern.ui.consent.title', { client: consent.client })}</svelte:element>
 	{#if user}
 		<div class="user">
 			<Avatar name={user.name} size="2rem" />
@@ -25,11 +26,11 @@
 				<div class="name">{user.name}</div>
 				{#if user.email}<div class="email">{user.email}</div>{/if}
 			</div>
-			{#if switchHref}<a href={switchHref}>Not you?</a>{/if}
+			{#if switchHref}<a href={switchHref}>{tb('tern.ui.consent.notYou')}</a>{/if}
 		</div>
 	{/if}
 	<div>
-		<p id="tern-consent-scopes">It will be able to:</p>
+		<p id="tern-consent-scopes">{tb('tern.ui.consent.scopes')}</p>
 		<ul aria-labelledby="tern-consent-scopes">
 			{#each consent.scopes as scope (scope)}
 				<li>
@@ -39,11 +40,11 @@
 			{/each}
 		</ul>
 	</div>
-	<p class="note">You can take this back at any time in your account settings.</p>
+	<p class="note">{tb('tern.ui.consent.note')}</p>
 	<form method="POST" action={consent.action}>
 		{#each Object.entries(consent.params) as [k, v] (k)}<input type="hidden" name={k} value={v} />{/each}
-		<Button type="submit" name="decision" value="deny" variant="secondary">Deny</Button>
-		<Button type="submit" name="decision" value="allow">Allow</Button>
+		<Button type="submit" name="decision" value="deny" variant="secondary">{tb('tern.ui.consent.deny')}</Button>
+		<Button type="submit" name="decision" value="allow">{tb('tern.ui.consent.allow')}</Button>
 	</form>
 </section>
 

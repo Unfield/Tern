@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import { dismiss, toasts, type Toast } from './toast.svelte.js';
 
 	type Props = { position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' };
@@ -36,14 +37,14 @@
 				<p class="message">{t.message}</p>
 				{#if t.description}<p class="description">{t.description}</p>{/if}
 			</div>
-			<button type="button" aria-label="Dismiss" onclick={() => dismiss(t.id)}>
+			<button type="button" aria-label={tb('tern.ui.toaster.dismiss')} onclick={() => dismiss(t.id)}>
 				<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
 			</button>
 		</li>
 	{/each}
 {/snippet}
 
-<section class="tern-toaster {position}" aria-label="Notifications">
+<section class="tern-toaster {position}" aria-label={tb('tern.ui.toaster.label')}>
 	<!-- Errors are announced at once; the rest when the reader is idle. -->
 	<ol aria-live="assertive" aria-relevant="additions">{@render list(urgent)}</ol>
 	<ol aria-live="polite" aria-relevant="additions">{@render list(polite)}</ol>

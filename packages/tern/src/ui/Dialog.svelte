@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import { trapTab } from './floating.js';
 
@@ -101,7 +102,7 @@
 		<header>
 			<h2 id="tern-dialog-{uid}-title">{title}</h2>
 			{#if closeButton}
-				<button type="button" class="close" aria-label="Close" onclick={() => (open = false)}>
+				<button type="button" class="close" aria-label={tb('tern.ui.dialog.close')} onclick={() => (open = false)}>
 					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
 				</button>
 			{/if}

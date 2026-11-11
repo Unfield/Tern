@@ -1,4 +1,5 @@
 <script lang="ts" generics="Row">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import type { Column } from './table.js';
 
@@ -15,7 +16,8 @@
 		empty?: string;
 		class?: string;
 	};
-	let { columns, rows, caption, hideCaption = false, key = (r) => JSON.stringify(r), empty = 'Nothing to show', class: klass = '' }: Props = $props();
+	let { columns, rows, caption, hideCaption = false, key = (r) => JSON.stringify(r), empty: emptyProp, class: klass = '' }: Props = $props();
+	const empty = $derived(emptyProp ?? tb('tern.ui.table.empty'));
 </script>
 
 <!-- A semantic table, with a caption, column headers and numeric alignment. -->

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import Calendar, { type DateRange } from './Calendar.svelte';
 	import Popover from './Popover.svelte';
 	import { format, type ISODate } from './dates.js';
@@ -28,7 +29,7 @@
 	let {
 		mode = 'single',
 		value = $bindable(mode === 'range' ? { start: null, end: null } : null),
-		placeholder = mode === 'range' ? 'Pick dates' : 'Pick a date',
+		placeholder: placeholderProp,
 		label,
 		name: nameProp,
 		min,
@@ -41,6 +42,7 @@
 		class: klass = '',
 		onchange
 	}: Props = $props();
+	const placeholder = $derived(placeholderProp ?? (mode === 'range' ? tb('tern.ui.datePicker.placeholderRange') : tb('tern.ui.datePicker.placeholder')));
 	const name = $derived(nameProp ?? field?.name);
 
 	const uid = $props.id();
@@ -56,7 +58,7 @@
 	});
 </script>
 
-<Popover bind:open label={label ?? 'Choose a date'} align="start" {triggerId}>
+<Popover bind:open label={label ?? tb('tern.ui.datePicker.label')} align="start" {triggerId}>
 	{#snippet trigger(props)}
 		<button
 			type="button"
@@ -79,7 +81,7 @@
 		{isDisabled}
 		{locale}
 		{weekStart}
-		label={label ?? 'Choose a date'}
+		label={label ?? tb('tern.ui.datePicker.label')}
 		onselect={(v) => {
 			onchange?.(v);
 			open = false;

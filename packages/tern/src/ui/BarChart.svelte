@@ -1,4 +1,5 @@
 <script lang="ts" generics="Row extends object">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import ChartFrame from './ChartFrame.svelte';
 	import { lastIndex, formatNumber, niceTicks, seriesColor, textWidth, type Series } from './chart.js';
 
@@ -163,7 +164,7 @@
 				{#each series as s, k (s.key)}
 					<div class="row"><span class="swatch" style:background={seriesColor(k)}></span><strong>{format(values[active]![k]!)}</strong><span>{s.label}</span></div>
 				{/each}
-				{#if stacked && series.length > 1}<div class="row"><strong>{format(totals[active]!)}</strong><span>Total</span></div>{/if}
+				{#if stacked && series.length > 1}<div class="row"><strong>{format(totals[active]!)}</strong><span>{tb('tern.ui.barChart.total')}</span></div>{/if}
 			</div>
 		{/if}
 	</div>

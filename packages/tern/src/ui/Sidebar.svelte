@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import { page } from '../runtime/state.svelte.js';
 	import Dialog from './Dialog.svelte';
@@ -29,7 +30,8 @@
 		children: Snippet;
 		class?: string;
 	};
-	let { groups, header, footer, collapsed = $bindable(false), label = 'Main', children, class: klass = '' }: Props = $props();
+	let { groups, header, footer, collapsed = $bindable(false), label: labelProp, children, class: klass = '' }: Props = $props();
+	const label = $derived(labelProp ?? tb('tern.ui.sidebar.label'));
 
 	let mobileOpen = $state(false);
 	const path = $derived(page.url?.pathname ?? '');
@@ -85,7 +87,7 @@
 		{#if footer && !collapsed}<div class="footer">{@render footer()}</div>{/if}
 	</aside>
 	<div class="mobilebar">
-		<button type="button" class="collapse" aria-label="Open navigation" aria-expanded={mobileOpen} onclick={() => (mobileOpen = true)}>
+		<button type="button" class="collapse" aria-label={tb('tern.ui.sidebar.open')} aria-expanded={mobileOpen} onclick={() => (mobileOpen = true)}>
 			<svg aria-hidden="true" viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" /></svg>
 		</button>
 		{#if header}<div class="header">{@render header()}</div>{/if}
@@ -93,7 +95,7 @@
 	<div class="main">{@render children()}</div>
 </div>
 
-<Dialog bind:open={mobileOpen} title="Navigation" side="left" class="tern-sidebar-sheet">
+<Dialog bind:open={mobileOpen} title={tb('tern.ui.sidebar.title')} side="left" class="tern-sidebar-sheet">
 	{@render nav(false)}
 	{#if footer}<div class="footer">{@render footer()}</div>{/if}
 </Dialog>

@@ -1,4 +1,5 @@
 import type { Messages } from '../index.js';
+import { builtin } from './builtin.js';
 import { format } from './format.js';
 
 /** A message key from src/locales, or any string when the app has none. */
@@ -92,6 +93,16 @@ export function t(key: MessageKey, params?: Record<string, unknown>): string {
 		}
 		return key;
 	}
+	return format(state.locale || config?.defaultLocale || 'en', message, params);
+}
+
+/**
+ * Translates one of Tern's own texts, such as Tern UI's labels and the
+ * validation messages: the app's message for key in src/locales if it has
+ * one, else Tern's English. Their keys start with "tern.".
+ */
+export function tb(key: string, params?: Record<string, unknown>): string {
+	const message = state.messages[key] ?? state.fallback[key] ?? builtin[key] ?? key;
 	return format(state.locale || config?.defaultLocale || 'en', message, params);
 }
 

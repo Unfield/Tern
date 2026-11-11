@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import Collapsible from './Collapsible.svelte';
 	import ScrollArea from './ScrollArea.svelte';
@@ -26,7 +27,7 @@
 		{#if description}<p class="description">{description}</p>{/if}
 	</figcaption>
 	{#if legend.length >= 2}
-		<ul class="legend" aria-label="Legend">
+		<ul class="legend" aria-label={tb('tern.ui.chart.legend')}>
 			{#each legend as item (item.label)}
 				<li><span class="key {item.kind}" style:background={item.color} aria-hidden="true"></span>{item.label}</li>
 			{/each}

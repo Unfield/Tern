@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	type Props = {
 		/** The current page, from 1; bind it. */
 		page?: number;
@@ -12,7 +13,8 @@
 		class?: string;
 		onchange?: (page: number) => void;
 	};
-	let { page = $bindable(1), pages, href, siblings = 1, label = 'Pagination', class: klass = '', onchange }: Props = $props();
+	let { page = $bindable(1), pages, href, siblings = 1, label: labelProp, class: klass = '', onchange }: Props = $props();
+	const label = $derived(labelProp ?? tb('tern.ui.pagination.label'));
 
 	// 1 … 4 5 6 … 20: the ends, the current page and its siblings.
 	const shown = $derived.by(() => {
@@ -45,7 +47,7 @@
 
 <nav class="tern-pagination {klass}" aria-label={label}>
 	<ul>
-		<li>{@render link(page - 1, '‹ Previous', 'Previous page', page <= 1, 'step')}</li>
+		<li>{@render link(page - 1, tb('tern.ui.pagination.previous'), tb('tern.ui.pagination.previousLabel'), page <= 1, 'step')}</li>
 		{#each shown as p, i (i)}
 			<li>
 				{#if p === 'gap'}
@@ -55,7 +57,7 @@
 				{/if}
 			</li>
 		{/each}
-		<li>{@render link(page + 1, 'Next ›', 'Next page', page >= pages, 'step')}</li>
+		<li>{@render link(page + 1, tb('tern.ui.pagination.next'), tb('tern.ui.pagination.nextLabel'), page >= pages, 'step')}</li>
 	</ul>
 </nav>
 

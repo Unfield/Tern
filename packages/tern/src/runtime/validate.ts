@@ -3,6 +3,8 @@
 // internal/formrules in Go, which checks the same rules on the server;
 // internal/formrules/testdata/cases.json keeps the two in step.
 
+import { tb } from './i18n.svelte.js';
+
 /** A form field's rules, as tern gen writes them. */
 export interface FormField<Name extends string = string> {
 	name: Name;
@@ -50,41 +52,42 @@ export function parseFormTime(kind: 'date' | 'datetime', s: string): number | nu
 	return null;
 }
 
-function joinOr(list: string[]) {
-	return list.length === 1 ? list[0]! : `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`;
+function joinOr(list: string[], or: string) {
+	return list.length === 1 ? list[0]! : `${list.slice(0, -1).join(', ')} ${or} ${list[list.length - 1]}`;
 }
-
-const bound = { min: 'at least', max: 'at most', len: 'exactly' } as Record<string, string>;
 
 /**
  * Returns why a field's values are invalid, or "". values are its posted
- * values; other reads another field's first value, for same=.
+ * values; other reads another field's first value, for same=. Messages
+ * are Tern's texts (tern.validate.*), translated through src/locales.
  */
 export function checkField(f: FormField, values: string[], other: (name: string) => string = () => '', labelOf: (name: string) => string = (n) => n): string {
-	const msg = (m: string) => f.message || m;
+	const msg = (key: string, params: Record<string, unknown> = {}) =>
+		f.message || tb(`tern.validate.${key}`, { ...params, field: f.label, fieldLower: f.label.toLowerCase() });
 	const list = values.filter((v) => v.trim() !== '');
 	const v = values[0] ?? '';
 	const empty = f.kind === 'strings' ? list.length === 0 : f.kind === 'bool' ? !truthy(v) : v.trim() === '';
 	if (empty) {
 		if (!f.required) return '';
-		return msg(f.kind === 'bool' ? `${f.label} must be checked.` : `${f.label} is required.`);
+		return msg(f.kind === 'bool' ? 'checked' : 'required');
 	}
 	let num = 0;
 	let when = 0;
 	if (f.kind === 'int') {
-		if (!intRe.test(v.trim())) return msg(`${f.label} must be a whole number.`);
+		if (!intRe.test(v.trim())) return msg('int');
 		num = Number(v.trim());
 	} else if (f.kind === 'float') {
-		if (!floatRe.test(v.trim())) return msg(`${f.label} must be a number.`);
+		if (!floatRe.test(v.trim())) return msg('number');
 		num = Number(v.trim());
 	} else if (f.kind === 'date' || f.kind === 'datetime') {
 		const t = parseFormTime(f.kind, v.trim());
-		if (t === null) return msg(f.kind === 'date' ? `${f.label} must be a date.` : `${f.label} must be a date and time.`);
+		if (t === null) return msg(f.kind === 'date' ? 'date' : 'datetime');
 		when = t;
 	}
 	for (const r of f.rules ?? []) {
 		const arg = r.arg ?? '';
 		const n = Number(arg);
+		const bound = { count: arg, n };
 		switch (r.name) {
 			case 'min':
 			case 'max':
@@ -92,19 +95,19 @@ export function checkField(f: FormField, values: string[], other: (name: string)
 				const low = r.name === 'min';
 				const fails = (c: number) => (r.name === 'len' && c !== n) || (low && c < n) || (r.name === 'max' && c > n);
 				if (f.kind === 'string') {
-					if (fails([...v].length)) return msg(`${f.label} must be ${bound[r.name]} ${arg} ${n === 1 ? 'character' : 'characters'}.`);
+					if (fails([...v].length)) return msg({ min: 'minLength', max: 'maxLength', len: 'length' }[r.name], bound);
 				} else if (f.kind === 'int' || f.kind === 'float') {
-					if (fails(num)) return msg(`${f.label} must be ${bound[r.name]} ${arg}.`);
+					if (fails(num)) return msg({ min: 'min', max: 'max', len: 'exactly' }[r.name], bound);
 				} else if (f.kind === 'date' || f.kind === 'datetime') {
 					const b = parseFormTime(f.kind, arg) ?? 0;
-					if ((low && when < b) || (r.name === 'max' && when > b)) return msg(`${f.label} must be on or ${low ? 'after' : 'before'} ${arg}.`);
+					if ((low && when < b) || (r.name === 'max' && when > b)) return msg(low ? 'after' : 'before', { date: arg });
 				} else if (f.kind === 'strings') {
-					if (fails(list.length)) return msg(`Choose ${bound[r.name]} ${arg} for ${f.label.toLowerCase()}.`);
+					if (fails(list.length)) return msg({ min: 'minItems', max: 'maxItems', len: 'items' }[r.name], bound);
 				}
 				break;
 			}
 			case 'email':
-				if (!emailRe.test(v)) return msg(`${f.label} must be an email address.`);
+				if (!emailRe.test(v)) return msg('email');
 				break;
 			case 'url': {
 				let ok = false;
@@ -114,22 +117,22 @@ export function checkField(f: FormField, values: string[], other: (name: string)
 				} catch {
 					ok = false;
 				}
-				if (!ok) return msg(`${f.label} must be a web address starting with http:// or https://.`);
+				if (!ok) return msg('url');
 				break;
 			}
 			case 'pattern': {
 				let re = patterns.get(arg);
 				if (!re) patterns.set(arg, (re = new RegExp(`^(?:${arg})$`, 'u')));
-				for (const s of f.kind === 'strings' ? list : [v]) if (!re.test(s)) return msg(`${f.label} isn't in the expected format.`);
+				for (const s of f.kind === 'strings' ? list : [v]) if (!re.test(s)) return msg('pattern');
 				break;
 			}
 			case 'oneof': {
 				const opts = arg.split('|');
-				for (const s of f.kind === 'strings' ? list : [v]) if (!opts.includes(s)) return msg(`${f.label} must be one of ${joinOr(opts)}.`);
+				for (const s of f.kind === 'strings' ? list : [v]) if (!opts.includes(s)) return msg('oneof', { options: joinOr(opts, tb('tern.validate.or')) });
 				break;
 			}
 			case 'same':
-				if (other(arg) !== v) return msg(`${f.label} must match ${labelOf(arg).toLowerCase()}.`);
+				if (other(arg) !== v) return msg('same', { otherLower: labelOf(arg).toLowerCase() });
 				break;
 		}
 	}

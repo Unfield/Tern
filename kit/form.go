@@ -93,7 +93,7 @@ func FormAction[In, Out any](fn func(*Ctx, In) (Out, error)) ActionFunc {
 		if err != nil {
 			return nil, err
 		}
-		if errs := checkForm(fields, form); len(errs) > 0 {
+		if errs := checkForm(c, fields, form); len(errs) > 0 {
 			return nil, Fail(http.StatusBadRequest, invalid(fields, form, errs))
 		}
 		var in In
@@ -122,14 +122,14 @@ func validateInput(in any) error {
 	return nil
 }
 
-func checkForm(fields []formrules.Field, form url.Values) map[string]string {
+func checkForm(c *Ctx, fields []formrules.Field, form url.Values) map[string]string {
 	labels := map[string]string{}
 	for _, f := range fields {
 		labels[f.Name] = f.Label
 	}
 	errs := map[string]string{}
 	for _, f := range fields {
-		if m := formrules.Check(f, form[f.Name], form.Get, func(n string) string { return labels[n] }); m != "" {
+		if m := formrules.Check(f, form[f.Name], form.Get, func(n string) string { return labels[n] }, c.tb); m != "" {
 			errs[f.Name] = m
 		}
 	}
@@ -220,7 +220,7 @@ func decodeForm(fields []formrules.Field, form url.Values, v reflect.Value) {
 
 // checkTyped applies validate tags to a typed endpoint's decoded input, by
 // turning its fields back into the text a form would post.
-func checkTyped(in any) error {
+func checkTyped(c *Ctx, in any) error {
 	t := reflect.TypeOf(in)
 	if t == nil || t.Kind() != reflect.Struct {
 		return nil
@@ -234,7 +234,7 @@ func checkTyped(in any) error {
 	for _, f := range fields {
 		form[f.Name] = asText(f.Kind, v.FieldByIndex(f.Index()))
 	}
-	errs := checkForm(fields, form)
+	errs := checkForm(c, fields, form)
 	if len(errs) == 0 {
 		return nil
 	}

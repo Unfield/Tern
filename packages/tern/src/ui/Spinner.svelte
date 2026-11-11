@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	type Props = { label?: string; size?: string; class?: string };
-	let { label = 'Loading', size = '1.25rem', class: klass = '' }: Props = $props();
+	let { label: labelProp, size = '1.25rem', class: klass = '' }: Props = $props();
+	const label = $derived(labelProp ?? tb('tern.ui.spinner.label'));
 </script>
 
 <span class="tern-spinner {klass}" role="status" style:--size={size}>

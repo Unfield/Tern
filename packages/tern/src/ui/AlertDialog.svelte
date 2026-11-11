@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tb } from '../runtime/i18n.svelte.js';
 	import Button from './Button.svelte';
 	import Dialog from './Dialog.svelte';
 	import type { Snippet } from 'svelte';
@@ -27,8 +28,8 @@
 		open = $bindable(false),
 		title,
 		description,
-		confirmLabel = 'Continue',
-		cancelLabel = 'Cancel',
+		confirmLabel: confirmLabelProp,
+		cancelLabel: cancelLabelProp,
 		danger = false,
 		onconfirm,
 		oncancel,
@@ -36,6 +37,8 @@
 		confirmDisabled = false,
 		class: klass = ''
 	}: Props = $props();
+	const cancelLabel = $derived(cancelLabelProp ?? tb('tern.ui.alertDialog.cancel'));
+	const confirmLabel = $derived(confirmLabelProp ?? tb('tern.ui.alertDialog.confirm'));
 
 	const uid = $props.id();
 	let busy = $state(false);

@@ -577,6 +577,13 @@ func (e *state) float(f float64, bits int) {
 
 const hexDigits = "0123456789abcdef"
 
+// replacement is what encoding/json writes for invalid UTF-8: U+FFFD, as
+// the character or escaped, depending on the Go release.
+var replacement = func() string {
+	b, _ := json.Marshal("\xff")
+	return string(b[1 : len(b)-1])
+}()
+
 // appendString writes s quoted, escaped as encoding/json does by default:
 // HTML characters too, and invalid UTF-8 as U+FFFD.
 func appendString(b []byte, s string) []byte {
@@ -612,7 +619,7 @@ func appendString(b []byte, s string) []byte {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		if r == utf8.RuneError && size == 1 {
 			b = append(b, s[start:i]...)
-			b = append(b, `�`...)
+			b = append(b, replacement...)
 			i += size
 			start = i
 			continue

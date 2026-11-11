@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Two-step sign-in** in `accounts`: codes from an authenticator app (TOTP) after the password, with recovery codes. `SetUpTwoStep` returns a QR code, `ConfirmTwoStep` turns it on, `SignIn` returns `ErrTwoStepRequired` and `CompleteSignIn` takes the code. Tern UI's `TwoStep` and `TwoStepCode` blocks show it.
+- **Sign in with GitHub, Google or OpenID Connect into `accounts`:** `plugins/oauth` takes `Accounts: acc` in place of `OnLogin`. A provider's sign-in joins the account with the same verified email, or creates one, or connects to the signed-in user; `acc.Identities` and `acc.Unlink` manage them, and Tern UI's `LinkedAccounts` shows them. `acc.SignInWith` does it for any provider.
 - `acc.RequestEmailChange` changes a user's email address once they open a link sent to the new one, and tells the old one.
 - `accounts` limits attempts per account and per IP: sign-ins, sign-ups, emails, passkey sign-ins and two-step codes. Past a limit, methods return `ErrTooManyAttempts`.
 - `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
@@ -16,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Tern UI's `SignIn` said a sign-in had failed when the user cancelled it at the provider: it now matches `plugins/oauth`'s `denied` code.
 - Tern UI's `Form` hid the server's error on a field that lost focus without being changed, and two submits in a row raced each other: now the newest submit aborts the older one.
 
 ## [1.6.0] - 2026-11-11

@@ -14,7 +14,7 @@ if err := acc.Migrate(ctx); err != nil { ... }
 app, err := ternApp(kit.WithPlugins(acc))
 ```
 
-`Migrate` creates four tables if they don't exist: `tern_users`, `tern_sessions`, `tern_tokens` (email links and passkey challenges) and `tern_passkeys`. Keep `acc` where your loads and actions can reach it, such as a package variable.
+`Migrate` creates its tables if they don't exist: `tern_users`, `tern_sessions`, `tern_tokens` (email links, passkey challenges and sign-ins waiting for a code), `tern_passkeys`, `tern_two_step`, `tern_recovery_codes` and `tern_identities`. Tables from an earlier release are kept as they are. Keep `acc` where your loads and actions can reach it, such as a package variable.
 
 | Option | Default | |
 |---|---|---|
@@ -58,7 +58,7 @@ Each page is a Tern UI block and a small action. Return `accounts.FormError(ctx,
 | `/forgot-password` | `ForgotPassword` | `acc.RequestPasswordReset(ctx, email)`; return `{ sent: true }` |
 | `/reset-password` | `ResetPassword token={data.token}` | `acc.ResetPassword(ctx, token, password)` |
 | `/verify-email` | none: the load calls `acc.VerifyEmail(ctx, token)` | |
-| `/account` | `Devices`, `Passkeys`, `TwoStep` | `acc.Revoke`, `acc.SignOutOthers`, `acc.RemovePasskey`, `acc.ChangePassword`, `acc.SetName`, `acc.DeleteAccount` |
+| `/account` | `Devices`, `Passkeys`, `TwoStep`, `LinkedAccounts` | `acc.Revoke`, `acc.SignOutOthers`, `acc.RemovePasskey`, `acc.ChangePassword`, `acc.SetName`, `acc.DeleteAccount` |
 | sign out | a form posting to an action | `acc.SignOut(ctx)` |
 
 ## Passwords
@@ -87,6 +87,28 @@ Users can ask for a code from an authenticator app (any app for TOTP, RFC 6238) 
 Each code works once, within 30 seconds either side of now; each recovery code works once and is stored hashed. `User.TwoStep` says whether it's on. Passkeys don't ask for a code: a passkey is two steps already, the device and its screen lock.
 
 The `TwoStep` block shows all of this on an account page: the QR code while setting up, the recovery codes once, and the controls to turn it off or get new codes.
+
+## Sign in with GitHub, Google or OpenID Connect
+
+`plugins/oauth` signs users in to accounts when given `Accounts` in place of `OnLogin`:
+
+```go
+oauth.New(oauth.Options{
+	Secret:    secret,
+	Providers: []*oauth.Provider{oauth.GitHub(id, secret), oauth.Google(id, secret)},
+	Accounts:  acc,
+})
+```
+
+A provider's sign-in finds its user like this:
+
+1. **Signed in already:** it connects the provider to the current user. This is how a "Connect GitHub" button on the account page works: link to `/auth/github/login?next=/account`.
+2. **Connected before:** it signs in that user, by the provider's id for them, whatever the email says now.
+3. **First time:** it joins the account with the same email if the provider verified the address, or creates an account without a password. An account with that email whose address the provider didn't verify isn't joined: the user signs in another way and connects the provider from there.
+
+Accounts with two-step sign-in still ask for the code: the provider counts as the first step. When a sign-in can't go ahead, the user goes to `ErrorURL` with `?error=unverified`, `taken`, `no_email` or `limited`, and the `SignIn` block explains each.
+
+`acc.Identities(ctx)` lists a user's connected providers, and `acc.Unlink(ctx, provider)` disconnects one, unless it's the only way left to sign in (`ErrLastSignIn`). The `LinkedAccounts` block shows both, with Connect buttons for the others. In your own code, `acc.SignInWith(ctx, accounts.Identity{…})` does the same for any provider.
 
 ## Changing the email address
 

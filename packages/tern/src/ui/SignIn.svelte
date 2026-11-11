@@ -35,7 +35,7 @@
 		rules?: FormField[];
 		/** The page's form prop, for the server's errors. */
 		form?: unknown;
-		/** The ?error= code plugins/oauth sends back after a failed sign-in. */
+		/** The ?error= code plugins/oauth sends back after a failed sign-in, such as denied or unverified. */
 		error?: string | null;
 		/** A "Keep me signed in" checkbox, posted as remember. */
 		remember?: boolean;
@@ -71,7 +71,19 @@
 
 	let submitting = $state(false);
 	const errorText = $derived(
-		!error ? null : error === 'access_denied' ? tb('tern.ui.signIn.cancelled') : tb('tern.ui.signIn.failed')
+		!error
+			? null
+			: error === 'access_denied' || error === 'denied'
+				? tb('tern.ui.signIn.cancelled')
+				: error === 'unverified'
+					? tb('tern.ui.signIn.unverified')
+					: error === 'taken'
+						? tb('tern.ui.signIn.taken')
+						: error === 'no_email'
+							? tb('tern.ui.signIn.noEmail')
+							: error === 'limited'
+								? tb('tern.accounts.error.tooMany')
+								: tb('tern.ui.signIn.failed')
 	);
 	let el = $state<HTMLElement>();
 	let passkeyBusy = $state(false);

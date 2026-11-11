@@ -41,6 +41,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/Unfield/Tern/accounts"
 	"github.com/Unfield/Tern/internal/seal"
 	"github.com/Unfield/Tern/kit"
 )
@@ -185,6 +186,13 @@ type Options struct {
 	// kit.Error(403, ...), stops the sign-in; otherwise the user is sent to
 	// the next URL given to the login link, or "/".
 	OnLogin func(ctx *kit.Ctx, id Identity) error
+	// Accounts signs users in to the accounts package instead of OnLogin:
+	// a provider's account links to the user with the same verified email,
+	// or creates one, or links to the signed-in user. A failure sends the
+	// user to ErrorURL with ?error= one of unverified (an account with that
+	// email exists: sign in to it and link the provider from there), taken
+	// (linked to someone else), no_email and limited.
+	Accounts *accounts.Accounts
 	// Path is where the plugin's routes are; the default is "/auth".
 	Path string
 	// URL is the app's public URL, such as "https://example.com", used to
@@ -230,8 +238,8 @@ func (*Plugin) Name() string { return "oauth" }
 
 // Setup implements kit.Plugin.
 func (p *Plugin) Setup(s *kit.Setup) error {
-	if p.opts.OnLogin == nil {
-		return errors.New("oauth: Options.OnLogin is required")
+	if p.opts.OnLogin == nil && p.opts.Accounts == nil {
+		return errors.New("oauth: Options.OnLogin or Options.Accounts is required")
 	}
 	box, err := seal.New(p.opts.Secret, "oauth-state")
 	if err != nil {
@@ -422,10 +430,34 @@ func (p *Plugin) callback(ctx *kit.Ctx) error {
 		}
 	}
 	id.Provider, id.Token = pr.Name, token
+	if p.opts.OnLogin == nil {
+		return p.signInToAccounts(ctx, id, f.Next)
+	}
 	if err := p.opts.OnLogin(ctx, id); err != nil {
 		return err
 	}
 	return kit.Redirect(http.StatusSeeOther, f.Next)
+}
+
+func (p *Plugin) signInToAccounts(ctx *kit.Ctx, id Identity, next string) error {
+	_, err := p.opts.Accounts.SignInWith(ctx, accounts.Identity{
+		Provider: id.Provider, Subject: id.Subject, Email: id.Email, EmailVerified: id.EmailVerified, Name: id.Name,
+	})
+	switch {
+	case err == nil:
+		return kit.Redirect(http.StatusSeeOther, next)
+	case errors.Is(err, accounts.ErrTwoStepRequired):
+		return kit.Redirect(http.StatusSeeOther, ctx.BasePath()+p.opts.Accounts.TwoStepPath()+"?next="+url.QueryEscape(next))
+	case errors.Is(err, accounts.ErrEmailUnverified):
+		return p.fail(ctx, "unverified", err)
+	case errors.Is(err, accounts.ErrIdentityTaken):
+		return p.fail(ctx, "taken", err)
+	case errors.Is(err, accounts.ErrIdentityNoEmail):
+		return p.fail(ctx, "no_email", err)
+	case errors.Is(err, accounts.ErrTooManyAttempts):
+		return p.fail(ctx, "limited", err)
+	}
+	return err
 }
 
 func fromClaims(c map[string]any) Identity {

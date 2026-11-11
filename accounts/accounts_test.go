@@ -98,6 +98,11 @@ func newHarness(t *testing.T) *harness {
 			})},
 			{ID: "/2fa/code", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.CompleteSignIn(c, form(c, "code")) })},
 			{ID: "/2fa/off", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.TurnOffTwoStep(c, form(c, "code")) })},
+			{ID: "/with", Endpoint: post(func(c *kit.Ctx) (any, error) {
+				return acc.SignInWith(c, Identity{Provider: form(c, "provider"), Subject: form(c, "subject"), Email: form(c, "email"), EmailVerified: form(c, "verified") == "1", Name: "X"})
+			})},
+			{ID: "/identities", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Identities(c) })},
+			{ID: "/unlink", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.Unlink(c, form(c, "provider")) })},
 			{ID: "/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteAccount(c) })},
 		},
 	}
@@ -710,5 +715,50 @@ func TestTwoStepAfterReset(t *testing.T) {
 	}
 	if code, _ := h.post(c, "/2fa/code", "code", totp(key, time.Now().Unix()/totpStep+1)); code != 200 {
 		t.Fatal("code after reset")
+	}
+}
+
+func TestSignInWith(t *testing.T) {
+	h := newHarness(t)
+	// A first sign-in creates an account without a password.
+	gh := h.client()
+	if code, out := h.post(gh, "/with", "provider", "github", "subject", "42", "email", "Octo@Example.com", "verified", "1"); code != 200 || out["email"] != "octo@example.com" || out["hasPassword"] != false || out["emailVerified"] != true {
+		t.Fatalf("first: %d %v", code, out)
+	}
+	// Its only way to sign in can't be removed.
+	if _, out := h.post(gh, "/unlink", "provider", "github"); out["error"] != ErrLastSignIn.Error() {
+		t.Fatalf("unlink last: %v", out)
+	}
+	// Again: the same user, by its subject, whatever the email says now.
+	again := h.client()
+	if _, out := h.post(again, "/with", "provider", "github", "subject", "42", "email", "changed@example.com"); out["email"] != "octo@example.com" {
+		t.Fatalf("again: %v", out)
+	}
+
+	// An existing password account joins only with a verified email.
+	pw := h.client()
+	h.post(pw, "/signup", "email", "ada@example.com", "password", "long enough")
+	if _, out := h.post(h.client(), "/with", "provider", "google", "subject", "g1", "email", "ada@example.com"); out["error"] != ErrEmailUnverified.Error() {
+		t.Fatalf("unverified: %v", out)
+	}
+	if _, out := h.post(h.client(), "/with", "provider", "google", "subject", "g1", "email", "ada@example.com", "verified", "1"); out["email"] != "ada@example.com" {
+		t.Fatalf("verified join: %v", out)
+	}
+	// Signed in, a provider links to the current user, and only once.
+	if _, out := h.post(pw, "/with", "provider", "gitlab", "subject", "x", "email", "other@example.com"); out["email"] != "ada@example.com" {
+		t.Fatalf("link: %v", out)
+	}
+	if _, out := h.post(pw, "/with", "provider", "github", "subject", "42"); out["error"] != ErrIdentityTaken.Error() {
+		t.Fatalf("taken: %v", out)
+	}
+	_, out := h.post(pw, "/identities")
+	if list := out["list"].([]any); len(list) != 2 {
+		t.Fatalf("identities: %v", out)
+	}
+	if code, _ := h.post(pw, "/unlink", "provider", "gitlab"); code != 200 {
+		t.Fatal("unlink with a password left")
+	}
+	if _, out := h.post(h.client(), "/with", "provider", "x", "subject", "1"); out["error"] != ErrIdentityNoEmail.Error() {
+		t.Fatalf("no email: %v", out)
 	}
 }

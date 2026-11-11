@@ -146,6 +146,7 @@ Whole screens, wired to Tern's plugins:
 | `ForgotPassword` | asks for the email to send a reset link to, then says it's on its way |
 | `ResetPassword` | a new password, and its confirmation, for the token in the email's link; or, for an expired link, a way to ask for another |
 | `Devices` | the devices a user is signed in on, from `acc.Sessions`, with a sign-out button on each and one for all the others |
+| `LinkedAccounts` | the providers connected to an account, from `acc.Identities`, with Disconnect, and Connect buttons for the others |
 | `TwoStep` | two-step sign-in on an account page: a QR code and the secret while setting up, the recovery codes once, and turning it off |
 | `TwoStepCode` | the code page after a password sign-in: six boxes that post when full, or a recovery code |
 | `Passkeys` | a user's passkeys, from `acc.Passkeys`: add one (the browser asks for a fingerprint, face or screen lock), see when each was last used, remove one |

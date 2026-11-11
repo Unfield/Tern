@@ -1,7 +1,10 @@
 package oauth
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -10,7 +13,9 @@ import (
 	"testing"
 
 	"golang.org/x/oauth2"
+	_ "modernc.org/sqlite"
 
+	"github.com/Unfield/Tern/accounts"
 	"github.com/Unfield/Tern/kit"
 )
 
@@ -127,5 +132,57 @@ func TestOptionsValidated(t *testing.T) {
 	}
 	if _, err := kit.New(m, kit.WithPlugins(New(Options{Secret: "short", OnLogin: func(*kit.Ctx, Identity) error { return nil }}))); err == nil {
 		t.Error("a short secret is refused")
+	}
+}
+
+func TestSignInToAccounts(t *testing.T) {
+	gh := fakeGitHub(t)
+	p := GitHub("id", "secret")
+	p.Config.Endpoint = oauth2.Endpoint{AuthURL: gh.URL + "/login/oauth/authorize", TokenURL: gh.URL + "/login/oauth/access_token"}
+	p.UserInfo = githubUser(gh.URL)
+	db, err := sql.Open("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	defer func() { _ = db.Close() }()
+	acc, err := accounts.New(db, accounts.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := acc.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	app, err := kit.New(&kit.Manifest{
+		AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`,
+		Routes: []kit.RouteDef{{ID: "/me", Endpoint: map[string]kit.HandlerFunc{"GET": func(c *kit.Ctx) error {
+			if u := accounts.Current(c); u != nil {
+				return c.Text(200, u.Email)
+			}
+			return c.Text(401, "signed out")
+		}}}},
+	}, kit.WithPlugins(acc, New(Options{Secret: strings.Repeat("s", 32), Providers: []*Provider{p}, Accounts: acc})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app)
+	defer srv.Close()
+	for range 2 { // the first sign-in creates the account, the second finds it
+		jar, _ := cookiejar.New(nil)
+		b := &http.Client{Jar: jar}
+		res, err := b.Get(srv.URL + "/auth/github/login?next=/me")
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(res.Body)
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK || string(body) != "octo@example.com" {
+			t.Fatalf("%d %s at %s", res.StatusCode, body, res.Request.URL)
+		}
+	}
+	var users int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM tern_users WHERE email_verified IS NOT NULL`).Scan(&users)
+	if users != 1 {
+		t.Fatalf("%d verified users", users)
 	}
 }

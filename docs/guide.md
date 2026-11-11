@@ -873,6 +873,7 @@ A link to `/auth/github/login?next=/dashboard` starts the sign-in. Register `htt
 - **Identifying users:** look users up by `Provider` and `Subject`. Use the email only if `EmailVerified` is true.
 - **Identity fields:** `Identity` also carries the provider's claims and its OAuth token, for calling its API.
 - **Proxies:** behind a proxy that changes the host, set `URL` to the app's public address.
+- **With the `accounts` package:** set `Accounts: acc` instead of `OnLogin`, and sign-ins become accounts users. See [docs/accounts.md](accounts.md#sign-in-with-github-google-or-openid-connect).
 
 ### Be an OpenID Connect provider
 

@@ -23,6 +23,8 @@ func FormError(c *kit.Ctx, err error) error {
 		return kit.FieldError("email", c.TB("tern.accounts.error.emailTaken", nil))
 	case errors.Is(err, ErrInvalidToken):
 		return kit.FormError(c.TB("tern.accounts.error.invalidToken", nil))
+	case errors.Is(err, ErrLastSignIn):
+		return kit.FormError(c.TB("tern.accounts.error.lastSignIn", nil))
 	case errors.Is(err, ErrInvalidCode):
 		return kit.FieldError("code", c.TB("tern.accounts.error.invalidCode", nil))
 	case errors.Is(err, ErrTooManyAttempts):

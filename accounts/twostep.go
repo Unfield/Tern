@@ -357,3 +357,6 @@ func (a *Accounts) CompleteSignIn(c *kit.Ctx, code string) (*User, error) {
 	}
 	return u, nil
 }
+
+// TwoStepPath is Options.TwoStepPath, for redirects to the code page.
+func (a *Accounts) TwoStepPath() string { return a.opts.TwoStepPath }

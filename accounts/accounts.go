@@ -188,6 +188,15 @@ func (a *Accounts) Migrate(ctx context.Context) error {
 			user_id BIGINT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS tern_recovery_codes_user ON tern_recovery_codes (user_id)`,
+		`CREATE TABLE IF NOT EXISTS tern_identities (
+			provider TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			user_id BIGINT NOT NULL,
+			email TEXT NOT NULL,
+			created_at BIGINT NOT NULL,
+			PRIMARY KEY (provider, subject)
+		)`,
+		`CREATE INDEX IF NOT EXISTS tern_identities_user ON tern_identities (user_id)`,
 	}
 	for _, s := range stmts {
 		if _, err := a.db.ExecContext(ctx, s); err != nil {
@@ -306,10 +315,22 @@ func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSp
 // SignUp creates an account with a password and signs it in. password
 // may be "" for an account that signs in with passkeys only.
 func (a *Accounts) SignUp(c *kit.Ctx, email, name, password string) (*User, error) {
-	email = normalizeEmail(email)
 	if err := a.limit(c, "signup", ""); err != nil {
 		return nil, err
 	}
+	u, err := a.createUser(c, email, name, password)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.startSession(c, u, false); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// createUser adds a user, without signing them in.
+func (a *Accounts) createUser(c *kit.Ctx, email, name, password string) (*User, error) {
+	email = normalizeEmail(email)
 	hash := ""
 	if password != "" {
 		var err error
@@ -338,11 +359,7 @@ func (a *Accounts) SignUp(c *kit.Ctx, email, name, password string) (*User, erro
 			return nil, err
 		}
 	}
-	u := &User{ID: id, Email: email, Name: strings.TrimSpace(name), CreatedAt: time.UnixMilli(now).UTC(), HasPassword: hash != ""}
-	if err := a.startSession(c, u, false); err != nil {
-		return nil, err
-	}
-	return u, nil
+	return &User{ID: id, Email: email, Name: strings.TrimSpace(name), CreatedAt: time.UnixMilli(now).UTC(), HasPassword: hash != ""}, nil
 }
 
 func (a *Accounts) uniqueErr(err error) error {
@@ -451,7 +468,7 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 		return ErrSignedOut
 	}
 	ctx := c.Request.Context()
-	for _, q := range []string{`DELETE FROM tern_two_step WHERE user_id = ?`, `DELETE FROM tern_recovery_codes WHERE user_id = ?`, `DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
+	for _, q := range []string{`DELETE FROM tern_identities WHERE user_id = ?`, `DELETE FROM tern_two_step WHERE user_id = ?`, `DELETE FROM tern_recovery_codes WHERE user_id = ?`, `DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
 		if _, err := a.exec(ctx, q, st.user.ID); err != nil {
 			return err
 		}

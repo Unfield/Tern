@@ -11,7 +11,7 @@ The plan, at a glance:
 | [v1.9](#v19-logging-security-signals-and-deploying-released) | Logging, security signals, `tern deploy`, tern.land (released) |
 | [v1.10](#v110-production-confidence-released) | Production confidence: tracing, error reports, test helpers (released) |
 | [v1.11](#v111-teams-and-billing-released) | Teams and billing, for SaaS apps (released) |
-| [v1.12](#v112-rendering-on-demand-and-caching) | Rendering on demand, and caching |
+| [v1.12](#v112-rendering-on-demand-and-caching-released) | Rendering on demand, and caching (released) |
 | [v1.13](#v113-native-rendering-phase-3) | Native rendering, phase 3: no JavaScript engine for most apps |
 | [Later](#later) | Search, feature flags, admin screens, AI, editor support, hosting |
 
@@ -225,7 +225,7 @@ What the SaaS template still leaves to you.
 - [x] Limits per plan, checked in loads and actions
 - [x] Pricing and billing screens in Tern UI, and both in the saas template
 
-## v1.12: Rendering on demand and caching
+## v1.12: Rendering on demand and caching (released)
 
 Pages as fast as prerendered ones, with data that changes.
 

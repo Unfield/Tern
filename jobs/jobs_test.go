@@ -43,7 +43,8 @@ func start(t *testing.T, qs ...*jobs.Queue) {
 
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	// Generous: SQLite on Windows CI runners is slow under contention.
+	deadline := time.Now().Add(30 * time.Second)
 	for !cond() {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)

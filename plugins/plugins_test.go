@@ -22,6 +22,10 @@ import (
 	"github.com/Unfield/Tern/plugins/secure"
 )
 
+// releaseSlow lets the deferred value of /stream resolve, so a test can
+// read the first chunk while it is still pending.
+var releaseSlow = make(chan struct{})
+
 type slowData struct {
 	Fast string               `json:"fast"`
 	Slow kit.Deferred[string] `json:"slow"`
@@ -37,7 +41,10 @@ func app(t *testing.T, opts ...kit.Option) *kit.App {
 			})}},
 			{ID: "/stream", Page: &kit.PageDef{Load: kit.LoadOf(func(c *kit.Ctx) (slowData, error) {
 				return slowData{Fast: "now", Slow: kit.Defer(c, func() (string, error) {
-					time.Sleep(150 * time.Millisecond)
+					select {
+					case <-releaseSlow:
+					case <-time.After(5 * time.Second):
+					}
 					return "later", nil
 				})}, nil
 			})}},
@@ -160,8 +167,15 @@ func TestCompress(t *testing.T) {
 	if _, err := io.ReadAtLeast(zr, first, 10); err != nil {
 		t.Fatal(err)
 	}
-	if took := time.Since(start); took > 120*time.Millisecond {
+	// The deferred value waits for releaseSlow (or 5s): a first chunk read
+	// before then wasn't buffered behind it.
+	if took := time.Since(start); took > 2*time.Second {
 		t.Errorf("first chunk took %v; compression must not buffer streamed responses", took)
+	}
+	select {
+	case <-releaseSlow:
+	default:
+		close(releaseSlow)
 	}
 	rest, _ := io.ReadAll(zr)
 	if !strings.Contains(string(rest), `"data":"later"`) {

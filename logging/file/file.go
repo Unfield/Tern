@@ -204,6 +204,10 @@ func gzipFile(name string) error {
 	if err := out.Close(); err != nil {
 		return err
 	}
+	// Windows can't remove a file that is still open.
+	if err := in.Close(); err != nil {
+		return err
+	}
 	return os.Remove(name)
 }
 

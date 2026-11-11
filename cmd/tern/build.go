@@ -82,18 +82,7 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	native := cfg.NativeEnabled() && os.Getenv("TERN_NATIVE") != "0"
 	var gen *codegen.Result
 	compile := func(log io.Writer) (string, error) {
-		goBuild := func(w io.Writer) error {
-			args := []string{"build", "-trimpath", "-ldflags=-s -w"}
-			if native {
-				// No inlining in the main package, which holds the compiled
-				// renderer: a tenth of the binary, and no slower renders, since
-				// the hot paths are in native/js.
-				args = append(args, "-gcflags=-l")
-			}
-			cmd := exec.Command("go", append(args, "-o", *out, ".")...)
-			cmd.Stdout, cmd.Stderr = w, w
-			return cmd.Run()
-		}
+		goBuild := func(w io.Writer) error { return goBuildTo(w, *out, native, nil) }
 		var first bytes.Buffer
 		if err := goBuild(&first); err != nil {
 			if _, statErr := os.Stat(nativeFile); statErr != nil || !bytes.Contains(first.Bytes(), []byte(nativeFile)) {
@@ -137,7 +126,21 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 			if err != nil {
 				return "", err
 			}
-			n, err := prerender(*out, cfg.BasePath)
+			bin := *out
+			if crossBuild() {
+				// The binary is for another system: prerender with one for
+				// this one.
+				bin = filepath.Join(os.TempDir(), "tern-prerender-"+strconv.Itoa(os.Getpid()))
+				if runtime.GOOS == "windows" {
+					bin += ".exe"
+				}
+				defer func() { _ = os.Remove(bin) }()
+				var log bytes.Buffer
+				if err := goBuildTo(&log, bin, native, []string{"GOOS=" + runtime.GOOS, "GOARCH=" + runtime.GOARCH}); err != nil {
+					return "", fmt.Errorf("building a binary to prerender with: %w\n%s", err, log.String())
+				}
+			}
+			n, err := prerender(bin, cfg.BasePath)
 			return plural(n, "page"), err
 		}) && step("Compressing prerendered pages", func(io.Writer) (string, error) {
 			return "", precompress(codegen.ClientOut)
@@ -170,6 +173,29 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	p.Printf("    %s %s %s\n", p.Dim("client "), ui.Size(raw), p.Dim("("+ui.Size(gz)+" gzipped)"))
 	p.Printf("\n  Run it with %s\n\n", p.Cyan("./"+filepath.ToSlash(*out)))
 	return 0
+}
+
+// goBuildTo builds the app's binary to out, with env added to the
+// environment.
+func goBuildTo(w io.Writer, out string, native bool, env []string) error {
+	args := []string{"build", "-trimpath", "-ldflags=-s -w"}
+	if native {
+		// No inlining in the main package, which holds the compiled
+		// renderer: a tenth of the binary, and no slower renders, since
+		// the hot paths are in native/js.
+		args = append(args, "-gcflags=-l")
+	}
+	cmd := exec.Command("go", append(args, "-o", out, ".")...)
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdout, cmd.Stderr = w, w
+	return cmd.Run()
+}
+
+// crossBuild reports whether GOOS or GOARCH name another system than this
+// one, as for GOOS=linux tern build on a Mac.
+func crossBuild() bool {
+	goos, goarch := os.Getenv("GOOS"), os.Getenv("GOARCH")
+	return goos != "" && goos != runtime.GOOS || goarch != "" && goarch != runtime.GOARCH
 }
 
 func plural(n int, noun string) string {

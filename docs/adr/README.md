@@ -19,6 +19,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0013](0013-native-rendering-phase-2.md) | Native rendering, phase 2 | Accepted |
 | [0014](0014-logging.md) | Logging | Accepted |
 | [0015](0015-security-signals.md) | Security signals | Accepted |
+| [0016](0016-tern-deploy.md) | tern deploy | Accepted |
 
 ## Template
 

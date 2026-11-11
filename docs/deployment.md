@@ -13,6 +13,106 @@ The binary needs no Node.js, no files next to it, and no cgo, so it cross-compil
 GOOS=linux GOARCH=arm64 go tool tern build -o build/my-app-linux-arm64
 ```
 
+## tern deploy
+
+`tern deploy` builds the app and puts it on a server, on Fly.io, or in a container registry. Targets are named in `tern.json`:
+
+```json
+{
+  "deploy": {
+    "production": {
+      "provider": "ssh",
+      "host": "root@203.0.113.5",
+      "domains": ["example.com", "www.example.com"],
+      "envFile": ".env.production"
+    }
+  }
+}
+```
+
+```sh
+go tool tern deploy              # the only target, or: tern deploy production
+go tool tern deploy -rollback    # back to the release before
+go tool tern deploy -releases    # list the releases on the target
+go tool tern deploy -logs        # follow the app's logs
+```
+
+Without a `tern.json` entry, `tern deploy -host root@203.0.113.5 -domain example.com` deploys over SSH all the same.
+
+Every target takes these fields:
+- `provider` is required: `ssh`, `fly`, `container`, or the name of an external provider.
+- `name` is the app's name on the target. The default is the project directory's.
+- `env` and `envFile` set the app's environment. `env` wins over the file. Keep the file out of git.
+- `domains` are the app's domains.
+
+### To a server over SSH
+
+The `ssh` provider needs a Linux server with systemd, any of the common distributions, and `ssh` on your machine. It uses your `~/.ssh/config`, keys and agent, as `ssh` in a terminal does. On every deploy it:
+1. Connects and finds the server's architecture, then builds for it (`linux/amd64`, `arm64`…).
+2. Creates a system user for the app and a systemd unit, `<name>@.service`, the first time. It needs root or sudo without a password.
+3. Uploads the binary, compressed, as a new release in `/srv/<name>/releases/`, and writes the environment to `/srv/<name>/shared/.env`. `shared` is the app's working directory, kept across releases: put SQLite databases there.
+4. Starts the new release next to the running one, on the same port, and waits until it reports that it is ready: its migrations and start functions have run and it is listening. Only then is the old release stopped, and it finishes the requests it has. No request is refused while this happens.
+5. Keeps the last five releases for `-rollback`.
+
+If the new release doesn't start, its log is shown, it is stopped, and the old release keeps serving.
+
+With `domains`, the app serves HTTPS itself on ports 443 and 80, with certificates from Let's Encrypt ([HTTPS without a proxy](#https-without-a-proxy)), so the server needs nothing but systemd. Point the domains' DNS at the server first. Without domains, the app listens on port 3000 (`appPort`), for a proxy in front.
+
+The ssh provider's own fields:
+
+| Field | Default | |
+|---|---|---|
+| `host` | | Where to connect: `user@address`, or a Host from `~/.ssh/config` |
+| `port`, `identity`, `sshArgs` | | ssh's `-p`, `-i`, and more arguments |
+| `dir` | `/srv/<name>` | Where the app lives on the server |
+| `user` | `<name>` | The system user that runs the app |
+| `appPort` | `3000` | The port without domains |
+| `keep` | `5` | Releases kept |
+
+The unit runs the app with `ProtectSystem=strict`: it can write only to `shared`, and binds ports below 1024 through `CAP_NET_BIND_SERVICE` alone.
+
+### To Fly.io
+
+```json
+"fly": { "provider": "fly", "app": "my-app", "region": "fra" }
+```
+
+The `fly` provider needs [flyctl](https://fly.io/docs/flyctl/install/), signed in. It writes a `fly.toml` and a `Dockerfile` if the project has none, creates the app if it doesn't exist, stages `env` as secrets, and runs `fly deploy`. `-releases` and `-logs` work too.
+
+### To a container registry
+
+```json
+"image": {
+  "provider": "container",
+  "image": "ghcr.io/you/my-app",
+  "after": ["gcloud run deploy my-app --image {image} --region europe-west1"]
+}
+```
+
+The `container` provider builds the `Dockerfile` with docker or podman, for `linux/amd64` (`platform`), tags the image with the release's version and `latest`, and pushes both (`noPush` skips that). `after` runs commands once the image is pushed, with `{image}` replaced: the deploy command of Cloud Run, ECS, Azure Container Apps, Kubernetes or Railway.
+
+### Providers of your own
+
+Any other `provider` value runs a program named `tern-deploy-<provider>` from the `PATH`. A hosting platform can ship its own provider this way. The program gets the deployment as JSON on its standard input, and its output is shown:
+
+```json
+{
+  "action": "deploy",
+  "target": "production",
+  "name": "my-app",
+  "root": "/home/you/my-app",
+  "version": "v1.4.0-3-g1a2b3c4",
+  "env": { "DATABASE_URL": "…" },
+  "domains": ["example.com"],
+  "config": { "provider": "acme", "project": "p_123" }
+}
+```
+
+- `action` is `deploy`, `rollback`, `releases` or `logs`.
+- `config` is the target's entry from `tern.json`, with any fields the provider wants.
+- The program builds the app as it needs. `GOOS=linux GOARCH=amd64 go tool tern build -o …` cross-compiles, or it can use the Dockerfile.
+- A nonzero exit status fails the deploy.
+
 ## Configuration
 
 | Variable | Default | Meaning |

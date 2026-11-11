@@ -58,6 +58,7 @@ func (a *App) Serve(ctx context.Context) error {
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
+	sdNotify("READY=1")
 	if t := a.tls; t != nil && t.redirect != nil {
 		rctx, stopRedirects := context.WithCancel(context.Background())
 		defer stopRedirects()
@@ -75,6 +76,7 @@ func (a *App) Serve(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 	}
+	sdNotify("STOPPING=1")
 	if a.dev == nil {
 		a.logger.Info("tern: shutting down")
 	}
@@ -103,7 +105,7 @@ func (a *App) listen() (net.Listener, error) {
 		}
 		addr = net.JoinHostPort(os.Getenv("HOST"), port)
 	}
-	return net.Listen("tcp", addr)
+	return listenTCP(addr)
 }
 
 func displayAddr(addr net.Addr) string {

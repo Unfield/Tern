@@ -169,13 +169,13 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] `plugins/signals`: JA4, HTTP/2 and header-order fingerprints, a score with reasons, a client check with a proof of work, device IDs
 - [x] Rate limits per client fingerprint, and emails about sign-ins from new devices
 
+**Deploying** ([ADR 0016](adr/0016-tern-deploy.md))
+- [x] `tern deploy` to a server over SSH, with zero-downtime restarts, releases, rollbacks and logs
+- [x] To Fly.io, and to container registries with the platform's deploy command after
+- [x] Providers of your own, as `tern-deploy-<name>` programs
+
 ## Next
 
 **Native rendering**
 - [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: what most of a render's remaining time is
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
-
-**Deploying**
-- [ ] `tern deploy`: to a server over SSH with zero-downtime restarts, to Fly.io, and to container platforms from the Dockerfile
-
-

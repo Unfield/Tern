@@ -23,6 +23,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   It also gives each browser a device ID. `signals.Of(c)` returns them, `Options.Block` refuses scripted form posts, and `signals.Key` makes rate limits per client.
 - `accounts`: `Options.NotifyNewDevices` emails users about sign-ins from a device their account hadn't been used on, and `OnNewDevice` is called then.
 - kit plugins can wrap connections (`Setup.WrapConn`), see TLS ClientHellos (`Setup.OnClientHello`) and add to a connection's context (`Setup.ConnContext`). `kit.IsHTTPS` and `kit.FromTrustedProxy` are exported.
+- **`tern deploy`** ([ADR 0016](docs/adr/0016-tern-deploy.md), [docs/deployment.md](docs/deployment.md#tern-deploy)) deploys to targets named in `tern.json`:
+  - `ssh` puts the app on a Linux server under systemd, creating its user and unit, and serves HTTPS itself when the target has domains. Restarts have zero downtime: the new release starts next to the old one on the same port, and the old one stops only once the new one is ready. Releases are kept for `-rollback`, and `-releases` and `-logs` work too.
+  - `fly` deploys to Fly.io.
+  - `container` builds and pushes an image, then runs the platform's deploy command.
+  - Any other provider runs a `tern-deploy-<name>` program with the deployment as JSON.
+- kit tells systemd when the app is ready and when it stops (`Type=notify`), and with `TERN_REUSEPORT=1` listens with SO_REUSEPORT, so two releases can share a port.
+- `tern build` cross-compiles apps that prerender pages: with GOOS or GOARCH set, it prerenders with a binary for the machine it runs on.
 - `tern dev` has a live log view at `/__tern/dev/logs`: the app's records and the requests it serves, filterable by level, text and request.
 
 ### Changed

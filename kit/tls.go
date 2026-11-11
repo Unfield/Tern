@@ -277,7 +277,14 @@ func serveRedirects(ctx context.Context, t *tlsSetup, errc chan<- error) {
 		defer cancel()
 		_ = srv.Shutdown(sctx)
 	}()
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	// SO_REUSEPORT as for HTTPS, so a new release can take over port 80
+	// too.
+	ln, err := listenTCP(t.httpAddr)
+	if err != nil {
+		errc <- err
+		return
+	}
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		errc <- err
 	}
 }

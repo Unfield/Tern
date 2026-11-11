@@ -19,6 +19,7 @@ var commands = []command{
 	{"new", "<dir>", "Create a new project"},
 	{"dev", "", "Start the development server"},
 	{"build", "", "Build a production binary"},
+	{"deploy", "[target]", "Deploy to a server over SSH, Fly.io or a container registry"},
 	{"gen", "", "Generate route wiring and TypeScript types"},
 	{"check", "", "Generate code and type-check the app"},
 	{"routes", "[dir]", "List the app's routes"},
@@ -79,6 +80,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdDev(args[1:], stdout, stderr)
 	case "build":
 		return cmdBuild(args[1:], stdout, stderr)
+	case "deploy":
+		return cmdDeploy(args[1:], stdout, stderr)
 	case "new":
 		return cmdNew(args[1:], stdout, stderr)
 	case "mcp":

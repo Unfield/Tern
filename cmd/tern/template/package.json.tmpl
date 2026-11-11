@@ -5,9 +5,12 @@
 	"scripts": {
 		"dev": "go tool tern dev",
 		"build": "go tool tern build",
-		"check": "go tool tern check"
+		"check": "go tool tern check",
+		"test": "go tool tern gen && go test ./...",
+		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.65.0",
 		"@ternkit/tern": "{{.ClientVersion}}",
 		"svelte": "^5.57.3",
 		"svelte-check": "^4.7.8",

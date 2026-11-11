@@ -1,0 +1,42 @@
+package main
+
+import (
+	"log/slog"
+	"io"
+	"net/url"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Unfield/Tern/kit/kittest"
+)
+
+// These tests run the whole app, as a browser would use it, against a
+// database made for each test: npm test, or go tool tern gen && go test ./...
+
+func newClient(t *testing.T) *kittest.Client {
+	t.Setenv("DATABASE_PATH", filepath.Join(t.TempDir(), "test.db"))
+	server, err := newServer(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return kittest.NewClient(t, server)
+}
+
+func TestSignUpAndProjects(t *testing.T) {
+	client := newClient(t)
+	if page := client.Get("/dashboard"); page.Status/100 != 3 || !strings.HasPrefix(page.Location(), "/login") {
+		t.Fatalf("the dashboard isn't protected: %d %s", page.Status, page.Location())
+	}
+	page := client.PostForm("/signup", url.Values{"name": {"Ada"}, "email": {"ada@example.com"}, "password": {"a long enough password"}})
+	if page.Status != 303 {
+		t.Fatalf("sign-up: %d", page.Status)
+	}
+	if page := client.Get("/dashboard"); page.Status != 200 || !strings.Contains(page.Body, "Getting started") {
+		t.Fatalf("the dashboard after sign-up: %d", page.Status)
+	}
+	client.PostForm("/projects?/create", url.Values{"name": {"From a test"}, "description": {"made by main_test.go"}})
+	if page := client.Get("/projects"); !strings.Contains(page.Body, "From a test") {
+		t.Error("the new project isn't listed")
+	}
+}

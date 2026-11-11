@@ -33,6 +33,9 @@ npm run check
 echo "==> build"
 npm run build
 
+echo "==> go test"
+npm test
+
 echo "==> run"
 port=4321
 PORT=$port DATABASE_PATH="$work/app.db" ./build/app >"$work/server.log" 2>&1 &

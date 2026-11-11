@@ -205,10 +205,10 @@ Knowing what an app does in production, and that it still does it after a change
 - [x] Browser errors reported to the server the same way
 - [x] A list in `tern dev`'s log view, as they happen
 
-**Testing**
-- [ ] `kit/kittest`: call loads, actions and endpoints from Go tests, as a signed-in user, with a test database that resets
-- [ ] Render a page in a test and query its HTML
-- [ ] Browser tests in the templates, with Playwright set up and an example test
+**Testing** ([docs/testing.md](testing.md))
+- [x] `kit/kittest`: call loads, actions and endpoints from Go tests, as a signed-in user, with a test database that resets
+- [x] Render a page in a test and query its HTML
+- [x] Browser tests in the templates, with Playwright set up and an example test
 
 ## v1.11: Teams and billing
 

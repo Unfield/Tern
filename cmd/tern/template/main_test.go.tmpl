@@ -1,0 +1,41 @@
+package main
+
+import (
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/Unfield/Tern/kit/kittest"
+)
+
+// These tests run the whole app, as a browser would use it: npm test, or
+// go tool tern gen && go test ./...
+
+func TestHome(t *testing.T) {
+	app, err := ternApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := kittest.NewClient(t, app)
+	page := client.Get("/")
+	if page.Status != 200 {
+		t.Fatalf("GET /: %d", page.Status)
+	}
+	if !strings.Contains(page.Body, "Hello from Go!") {
+		t.Error("the page lacks its load's message")
+	}
+}
+
+func TestGreeting(t *testing.T) {
+	app, err := ternApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := kittest.NewClient(t, app)
+	if page := client.PostForm("/", url.Values{"name": {"Ada"}}); !strings.Contains(page.Body, "Nice to meet you, Ada!") {
+		t.Errorf("POST /: %d", page.Status)
+	}
+	if page := client.PostForm("/", url.Values{"name": {""}}); page.Status != 400 {
+		t.Errorf("an empty name: %d, want 400", page.Status)
+	}
+}

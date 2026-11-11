@@ -1,0 +1,28 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/Unfield/Tern/kit/kittest"
+)
+
+// These tests run the whole app, as a browser would use it: npm test, or
+// go tool tern gen && go test ./...
+
+func TestPosts(t *testing.T) {
+	app, err := ternApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := kittest.NewClient(t, app)
+	if page := client.Get("/"); page.Status != 200 || !strings.Contains(page.Body, "Writing posts") {
+		t.Fatalf("GET /: %d", page.Status)
+	}
+	if page := client.Get("/posts/hello-world"); page.Status != 200 || !strings.Contains(page.Body, "Hello, world") {
+		t.Errorf("GET /posts/hello-world: %d", page.Status)
+	}
+	if page := client.Get("/posts/nonesuch"); page.Status != 404 {
+		t.Errorf("a missing post: %d, want 404", page.Status)
+	}
+}

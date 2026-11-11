@@ -1,0 +1,38 @@
+package main
+
+import (
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/kit/kittest"
+)
+
+// These tests run the whole app, as a client of the API would use it:
+// npm test, or go tool tern gen && go test ./...
+
+func TestTodos(t *testing.T) {
+	app, err := ternApp(kit.WithOpenAPI("/api/openapi.json", "test", "1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := kittest.NewClient(t, app)
+	post := func(body string) *kittest.Page {
+		req, err := http.NewRequest(http.MethodPost, client.URL("/api/todos"), strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return client.Do(req)
+	}
+	if page := post(`{"title":"Write tests"}`); page.Status/100 != 2 || !strings.Contains(page.Body, `"title":"Write tests"`) {
+		t.Fatalf("POST /api/todos: %d %s", page.Status, page.Body)
+	}
+	if page := post(`{"title":" "}`); page.Status != 400 {
+		t.Errorf("a blank title: %d, want 400", page.Status)
+	}
+	if page := client.Get("/api/todos"); !strings.Contains(page.Body, "Write tests") {
+		t.Errorf("GET /api/todos: %d %s", page.Status, page.Body)
+	}
+}

@@ -23,10 +23,22 @@ func main() {
 	// sinks, such as logging/otlp, to send the logs to a collector.
 	logger := logging.New(logging.Options{})
 	slog.SetDefault(logger)
+	server, err := newServer(logger)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// newServer opens the app and assembles the server: main runs it, and the
+// tests in main_test.go call it too.
+func newServer(logger *slog.Logger) (*kit.App, error) {
 	// Open reads the settings from the environment: see .env.example.
 	a, err := app.Open(logger)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	var proxies []string
 	if p := os.Getenv("TRUSTED_PROXIES"); p != "" {
@@ -44,17 +56,11 @@ func main() {
 	if a.OAuth != nil {
 		plugins = append(plugins, a.OAuth)
 	}
-	server, err := ternApp(
+	return ternApp(
 		kit.WithLogger(logger),
 		// Behind a reverse proxy, set TRUSTED_PROXIES so rate limits and
 		// the devices list see visitors' own addresses.
 		kit.WithTrustedProxies(proxies...),
 		kit.WithPlugins(plugins...),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
-	}
 }

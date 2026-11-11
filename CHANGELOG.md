@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Sent to Sentry** or any service that takes its protocol.
   - **Wiring:** `kit.WithReporter` turns it on. `report.WithStack` and `report.Errorf` give returned errors a stack.
   - **In dev:** `tern dev`'s log view lists the groups.
+- **Testing** ([docs/testing.md](docs/testing.md)):
+  - **Loads and actions:** `kit/kittest` calls loads, actions and endpoints from Go tests, with a request made of options (path, form, JSON, route parameters, layout data) and the app's hooks run. Helpers read redirects, failures and statuses.
+  - **A database per test:** `kittest.SQLite` gives each test its own in-memory database, migrated.
+  - **Pages:** `kittest.NewClient` runs the whole app and queries its HTML with CSS selectors.
+  - **Signed-in users:** `accounts.ActAs` makes a user the signed-in one for a request.
+  - **Building blocks:** `kit.App.NewCtx` makes a request's Ctx, which kittest builds on.
+- New projects come with tests: Go tests of their pages (`npm test`), and Playwright set up with a browser test of the home page (`npm run test:e2e`).
 
 ### Changed
 

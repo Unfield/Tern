@@ -488,3 +488,12 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 	}
 	return a.SignOut(c)
 }
+
+// ActAs makes u the signed-in user for the rest of c's request, without a
+// session: Current returns u and Require lets it through. For tests (see
+// kit/kittest), and for support tools that act for a user once their own
+// checks have passed. c must have run the plugin's hook, as a Ctx from
+// kit.App.NewCtx does.
+func (a *Accounts) ActAs(c *kit.Ctx, u *User) {
+	stateOf(c).user = u
+}

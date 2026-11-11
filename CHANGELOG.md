@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Page data, action results, typed endpoint output and live component state are encoded by Tern's own JSON encoder: byte for byte what encoding/json writes, with nil slices as `[]`, about 6× faster, without copying the data first. An uncached render of the benchmark's 100-row table takes 17% less time.
+- `tern build` compiles the main package, which holds the native renderer, without inlining: the dashboard example's binary is 11% smaller (45 → 40 MB) and builds faster, with renders as fast as before.
 - Native rendering builds the page data's objects at their final shape, and property reads that miss their cache no longer allocate.
 
 ### Fixed

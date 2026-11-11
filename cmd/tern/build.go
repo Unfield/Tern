@@ -83,7 +83,14 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	var gen *codegen.Result
 	compile := func(log io.Writer) (string, error) {
 		goBuild := func(w io.Writer) error {
-			cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", *out, ".")
+			args := []string{"build", "-trimpath", "-ldflags=-s -w"}
+			if native {
+				// No inlining in the main package, which holds the compiled
+				// renderer: a tenth of the binary, and no slower renders, since
+				// the hot paths are in native/js.
+				args = append(args, "-gcflags=-l")
+			}
+			cmd := exec.Command("go", append(args, "-o", *out, ".")...)
 			cmd.Stdout, cmd.Stderr = w, w
 			return cmd.Run()
 		}

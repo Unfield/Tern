@@ -1,9 +1,12 @@
 name: Docs
 
+# tern.land: the website in website/, a Tern app whose every page is
+# prerendered, served by GitHub Pages as static files.
+
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "website/**", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", ".github/workflows/docs.yml"]
+    paths: ["docs/**", "website/**", "packages/tern/**", "kit/**", "cmd/tern/**", "examples/*/README.md", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -22,12 +25,29 @@ jobs:
         with:
           go-version: stable
           cache-dependency-path: website/go.sum
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the Tern package
+        working-directory: packages/tern
+        run: pnpm build
       - name: Build the site
         working-directory: website
-        run: go run . -out dist -base /Tern/
+        run: go tool tern build
+      - name: Collect the static files
+        run: |
+          mkdir -p dist
+          cp -R website/.tern/output/client/. dist/
+          rm -rf dist/.vite
+          find dist -name '*.gz' -delete
+          cp dist/not-found/index.html dist/404.html
+          touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: website/dist
+          path: dist
 
   deploy:
     needs: build

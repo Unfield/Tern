@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Tern logo">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#g)"/>
+  <!-- A tern in flight: swept wings, a slim body and a forked tail. -->
+  <path fill="#ffffff" d="M9 25c8.5 1.2 15.8 4.6 21.4 10.3 2.5-6.9 8.6-13.8 18.9-19.9 1.9-1.1 3.6.9 2.2 2.5-5.6 6.4-9.3 12.4-10.7 18.8 3.6-.3 7.1.4 10.4 2.2.8.4.6 1.6-.3 1.7-3.8.5-7.2 1.8-10.3 4.1l4 9.8c.4 1-.8 1.8-1.6 1.1l-6.7-6.6-3.4 8.2c-.4 1-1.9.8-2-.3L30 46.4c-6.2-3.2-13.1-9.4-21.6-19.5-.6-.8 0-2 1-1.9z"/>
+  <circle cx="45.6" cy="40.3" r="1.1" fill="#0f766e"/>
+</svg>

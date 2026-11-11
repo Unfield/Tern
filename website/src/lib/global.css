@@ -1,0 +1,266 @@
+/* tern.land's design tokens and base styles.
+ *
+ * Spacing is a 4px scale; sections breathe at 128px on wide screens and
+ * 80px on phones. Text colors are checked for contrast on every surface
+ * they sit on: --text-2 is at least 7:1 and --text-3 at least 4.5:1, in
+ * both themes. */
+
+:root {
+	--s-1: 4px;
+	--s-2: 8px;
+	--s-3: 12px;
+	--s-4: 16px;
+	--s-5: 20px;
+	--s-6: 24px;
+	--s-8: 32px;
+	--s-10: 40px;
+	--s-12: 48px;
+	--s-16: 64px;
+	--s-20: 80px;
+	--s-24: 96px;
+	--s-32: 128px;
+
+	--radius-s: 6px;
+	--radius: 10px;
+	--radius-l: 16px;
+	--radius-xl: 24px;
+
+	--container: 1200px;
+	--gutter: 24px;
+	--header: 64px;
+
+	--font: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	--ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+	--bg: #ffffff;
+	--bg-2: #fafafa; /* sections that step back */
+	--surface: #ffffff; /* cards */
+	--surface-2: #f4f4f5; /* insets, hovers */
+	--code-bg: #f8f8f9;
+	--border: #e4e4e7;
+	--border-strong: #d4d4d8;
+	--text: #09090b;
+	--text-2: #3f3f46; /* 10.4:1 on white */
+	--text-3: #63636b; /* 5.9:1 on white, 5.4:1 on --surface-2 */
+	--accent: #0f766e; /* links and actions: 5.5:1 on white */
+	--accent-hover: #115e59;
+	--accent-soft: #f0fdfa;
+	--accent-line: #99f6e4;
+	--brand: #14b8a6;
+	--on-accent: #ffffff;
+	--shadow: 0 1px 2px rgb(9 9 11 / 0.04), 0 4px 16px -4px rgb(9 9 11 / 0.08);
+	--shadow-l: 0 2px 4px rgb(9 9 11 / 0.04), 0 24px 48px -16px rgb(9 9 11 / 0.18);
+	--glow: rgb(20 184 166 / 0.16);
+	--grid-line: rgb(9 9 11 / 0.05);
+	--chart-mark: #0d9488; /* validated: see BenchmarkChart.svelte */
+	--chart-other: #b4b4bc;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--bg: #09090b;
+	--bg-2: #0c0c0e;
+	--surface: #111113;
+	--surface-2: #1a1a1d;
+	--code-bg: #0d0d10;
+	--border: #26262b;
+	--border-strong: #34343b;
+	--text: #fafafa;
+	--text-2: #c4c4cc; /* 11.5:1 on --bg */
+	--text-3: #94949e; /* 6.6:1 on --bg, 5.7:1 on --surface-2 */
+	--accent: #5eead4; /* 13:1 on --bg */
+	--accent-hover: #99f6e4;
+	--accent-soft: rgb(45 212 191 / 0.1);
+	--accent-line: rgb(45 212 191 / 0.35);
+	--brand: #2dd4bf;
+	--on-accent: #042f2e;
+	--shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px -4px rgb(0 0 0 / 0.5);
+	--shadow-l: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 64px -16px rgb(0 0 0 / 0.7);
+	--glow: rgb(45 212 191 / 0.14);
+	--grid-line: rgb(255 255 255 / 0.045);
+	--chart-mark: #14a394;
+	--chart-other: #46464e;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	scroll-padding-top: calc(var(--header) + var(--s-6));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	html {
+		scroll-behavior: smooth;
+	}
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font);
+	font-size: 16px;
+	line-height: 1.6;
+	font-feature-settings: 'cv11', 'ss01';
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	margin: 0;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
+	text-wrap: balance;
+}
+
+p {
+	margin: 0;
+	text-wrap: pretty;
+}
+
+a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--accent-hover);
+}
+
+code,
+kbd,
+pre {
+	font-family: var(--mono);
+	font-feature-settings: 'calt' 0;
+}
+
+img,
+svg {
+	display: block;
+	max-width: 100%;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+::selection {
+	background: color-mix(in srgb, var(--brand) 30%, transparent);
+}
+
+.container {
+	width: 100%;
+	max-width: calc(var(--container) + 2 * var(--gutter));
+	margin: 0 auto;
+	padding: 0 var(--gutter);
+}
+
+@media (max-width: 640px) {
+	:root {
+		--gutter: 16px;
+		--header: 56px;
+	}
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Buttons */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--s-2);
+	height: 44px;
+	padding: 0 var(--s-5);
+	border-radius: var(--radius);
+	border: 1px solid var(--border-strong);
+	background: var(--surface);
+	color: var(--text);
+	font-size: 15px;
+	font-weight: 560;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		background 160ms var(--ease),
+		border-color 160ms var(--ease),
+		transform 160ms var(--ease),
+		box-shadow 160ms var(--ease);
+}
+
+.btn:hover {
+	color: var(--text);
+	background: var(--surface-2);
+	border-color: var(--text-3);
+}
+
+.btn:active {
+	transform: translateY(1px);
+}
+
+.btn-primary {
+	background: var(--text);
+	border-color: var(--text);
+	color: var(--bg);
+}
+
+.btn-primary:hover {
+	background: color-mix(in srgb, var(--text) 86%, var(--bg));
+	border-color: color-mix(in srgb, var(--text) 86%, var(--bg));
+	color: var(--bg);
+}
+
+.btn svg {
+	width: 16px;
+	height: 16px;
+	flex: none;
+}
+
+/* Small uppercase labels above section titles */
+.eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-2);
+	color: var(--accent);
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+/* Highlighted code, wherever it is */
+.chroma {
+	background: transparent !important;
+}

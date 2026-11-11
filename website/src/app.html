@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="light dark" />
+		<link rel="icon" href="%tern.assets%/logo.svg" type="image/svg+xml" />
+		<script>
+			// The theme before the first paint: the saved choice, or the system's.
+			(() => {
+				let t = null;
+				try { t = localStorage.getItem('tern-theme'); } catch {}
+				if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				document.documentElement.dataset.theme = t;
+			})();
+		</script>
+		%tern.head%
+	</head>
+	<body data-tern-preload="hover">
+		%tern.body%
+	</body>
+</html>

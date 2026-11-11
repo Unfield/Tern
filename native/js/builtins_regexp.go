@@ -44,7 +44,7 @@ func (rt *Realm) NewRegExp(source, flags string) *Object {
 			opts |= regexp2.Multiline
 		case 's':
 			opts |= regexp2.Singleline
-		case 'u':
+		case 'u', 'v':
 			opts |= regexp2.Unicode
 		case 'g', 'y', 'd':
 		default:
@@ -54,7 +54,14 @@ func (rt *Realm) NewRegExp(source, flags string) *Object {
 	if strings.ContainsRune(flags, 's') {
 		opts &^= regexp2.ECMAScript // regexp2's ECMAScript mode has no dotAll
 	}
+	if strings.ContainsRune(flags, 'u') && strings.ContainsRune(flags, 'v') {
+		panic(SyntaxErrorf("Invalid regular expression flags"))
+	}
 	re, err := regexp2.Compile(source, opts)
+	if err != nil && strings.ContainsRune(flags, 'v') {
+		// Set operations and string classes: the engine has them.
+		panic(NotSupported("the v flag's class syntax in /%s/", source))
+	}
 	if err != nil {
 		panic(SyntaxErrorf("Invalid regular expression: /%s/: %s", source, err.Error()))
 	}
@@ -136,6 +143,11 @@ type match struct {
 	end    int
 	groups []Value // the whole match, then each group (undefined if it didn't take part)
 	names  map[string]Value
+	// spans are each group's UTF-16 start and end, for the d flag; -1 when
+	// the group didn't take part.
+	spans      [][2]int
+	nameSpans  map[string][2]int
+	hasIndices bool
 }
 
 // exec runs the regexp once, honoring lastIndex for g and y.
@@ -160,14 +172,24 @@ func (rt *Realm) exec(r *Object, s string) *match {
 		}
 		return nil
 	}
-	res := &match{index: rt.utf16Offset(s, m.RuneIndex)}
+	res := &match{index: rt.utf16Offset(s, m.RuneIndex), hasIndices: strings.ContainsRune(d.flags, 'd')}
 	res.end = res.index + rt.Len16(m.String())
 	gs := m.Groups()
-	for _, g := range gs {
+	span := func(g *regexp2.Group) [2]int {
+		if len(g.Captures) == 0 {
+			return [2]int{-1, -1}
+		}
+		return [2]int{rt.utf16Offset(s, g.RuneIndex), rt.utf16Offset(s, g.RuneIndex+g.RuneLength)}
+	}
+	for i := range gs {
+		g := &gs[i]
 		if len(g.Captures) == 0 {
 			res.groups = append(res.groups, Undefined)
 		} else {
 			res.groups = append(res.groups, g.String())
+		}
+		if res.hasIndices {
+			res.spans = append(res.spans, span(g))
 		}
 	}
 	for _, name := range d.re.GetGroupNames() {
@@ -181,6 +203,16 @@ func (rt *Realm) exec(r *Object, s string) *match {
 			res.names[name] = g.String()
 		} else {
 			res.names[name] = Undefined
+		}
+		if res.hasIndices {
+			if res.nameSpans == nil {
+				res.nameSpans = map[string][2]int{}
+			}
+			if g := m.GroupByName(name); g != nil {
+				res.nameSpans[name] = span(g)
+			} else {
+				res.nameSpans[name] = [2]int{-1, -1}
+			}
 		}
 	}
 	if global {
@@ -208,7 +240,7 @@ func (rt *Realm) execClass(r *Object, d *regexpData, s string, start int, global
 			if global {
 				r.Set("lastIndex", float64(idx+1))
 			}
-			return &match{index: idx, end: idx + 1, groups: []Value{s[i : i+1]}}
+			return &match{index: idx, end: idx + 1, groups: []Value{s[i : i+1]}, hasIndices: strings.ContainsRune(d.flags, 'd'), spans: [][2]int{{idx, idx + 1}}}
 		}
 		if sticky {
 			break
@@ -248,6 +280,29 @@ func (m *match) array(rt *Realm, s string) *Object {
 		a.Define("groups", g)
 	} else {
 		a.Define("groups", Undefined)
+	}
+	if m.hasIndices {
+		pair := func(sp [2]int) Value {
+			if sp[0] < 0 {
+				return Undefined
+			}
+			return rt.NewArray([]Value{float64(sp[0]), float64(sp[1])})
+		}
+		ind := make([]Value, len(m.spans))
+		for i, sp := range m.spans {
+			ind[i] = pair(sp)
+		}
+		ia := rt.NewArray(ind)
+		if m.names != nil {
+			g := NewObject(nil)
+			for _, k := range sortedNames(m.names) {
+				g.Define(k, pair(m.nameSpans[k]))
+			}
+			ia.Define("groups", g)
+		} else {
+			ia.Define("groups", Undefined)
+		}
+		a.Define("indices", ia)
 	}
 	return a
 }
@@ -316,7 +371,7 @@ func (rt *Realm) setupRegExp() {
 	}
 	getter("source", func(d *regexpData) Value { return d.source })
 	getter("flags", func(d *regexpData) Value { return d.flags })
-	for name, f := range map[string]rune{"global": 'g', "ignoreCase": 'i', "multiline": 'm', "dotAll": 's', "unicode": 'u', "sticky": 'y', "hasIndices": 'd'} {
+	for name, f := range map[string]rune{"global": 'g', "ignoreCase": 'i', "multiline": 'm', "dotAll": 's', "unicode": 'u', "sticky": 'y', "hasIndices": 'd', "unicodeSets": 'v'} {
 		getter(name, func(d *regexpData) Value { return strings.ContainsRune(d.flags, f) })
 	}
 }

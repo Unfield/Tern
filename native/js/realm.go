@@ -13,6 +13,7 @@ type Realm struct {
 	ObjectPrototype, FunctionPrototype, ArrayPrototype, StringPrototype *Object
 	NumberPrototype, BooleanPrototype, SymbolPrototype, ErrorPrototype  *Object
 	IteratorPrototype, DatePrototype, RegExpPrototype, PromisePrototype *Object
+	listIteratorPrototype                                               *Object
 	ArrayBufferPrototype, TypedArrayPrototype, DataViewPrototype        *Object
 	GeneratorPrototype, GeneratorFunctionPrototype                      *Object
 	ObjectCtor, FunctionCtor, ArrayCtor, StringCtor, NumberCtor         *Object
@@ -110,6 +111,7 @@ func (rt *Realm) setup() {
 	rt.setupBigInt()
 	rt.setupAsyncGenerators()
 	rt.setupGlobals()
+	rt.setupModern()
 	rt.Global.sh()
 	rt.Global.reshape() // globals change; reads of them have their own cache
 	hi := rt.method(rt.FunctionPrototype, "[Symbol.hasInstance]", 1, func(this Value, args []Value) Value {
@@ -167,6 +169,16 @@ func (rt *Realm) setupSymbol() {
 		s := &Symbol{Description: k}
 		registry[k] = s
 		return s
+	})
+	rt.method(rt.SymbolCtor, "keyFor", 1, func(_ Value, args []Value) Value {
+		s, ok := Arg(args, 0).(*Symbol)
+		if !ok {
+			panic(TypeErrorf("%s is not a symbol", describeForError(Arg(args, 0))))
+		}
+		if registry[s.Description] == s {
+			return s.Description
+		}
+		return Undefined
 	})
 	thisSym := func(v Value) *Symbol {
 		switch x := v.(type) {

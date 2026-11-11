@@ -613,7 +613,12 @@ func (rt *Realm) sortValues(a []Value, cmp Value) {
 
 // NewIterator makes an iterator object from a next function.
 func (rt *Realm) NewIterator(next func() (Value, bool)) *Object {
-	it := NewObject(rt.IteratorPrototype)
+	if rt.listIteratorPrototype == nil {
+		// The built-in iterators' own prototype, as %ArrayIteratorPrototype%
+		// is: its prototype is Iterator.prototype.
+		rt.listIteratorPrototype = NewObject(rt.IteratorPrototype)
+	}
+	it := NewObject(rt.listIteratorPrototype)
 	rt.method(it, "next", 0, func(Value, []Value) Value {
 		v, ok := next()
 		r := rt.NewPlainObject()

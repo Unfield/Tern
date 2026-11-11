@@ -171,7 +171,12 @@ func (n *Native) hostFuncs(rt *js.Realm, s *realmSlot) {
 }
 
 // fallbackError is a render the realm couldn't do, for the engine to redo.
-type fallbackError struct{ reason string }
+type fallbackError struct {
+	reason string
+	// thrown is a JavaScript exception, which the engine may throw too:
+	// then it's the page's own error, not native rendering's.
+	thrown bool
+}
 
 func (e *fallbackError) Error() string { return "ssr: native rendering failed: " + e.reason }
 
@@ -189,6 +194,16 @@ func (n *Native) Render(ctx context.Context, payload []byte, href string) (Resul
 	res, err := n.renderNative(ctx, payload, href)
 	var fe *fallbackError
 	if errors.As(err, &fe) {
+		p, perr := n.fallbackPool()
+		if perr != nil {
+			return Result{}, perr
+		}
+		res, err := p.Render(ctx, payload, href)
+		if fe.thrown && err != nil {
+			// The engine throws too: the page's error, which renders
+			// natively next time as well.
+			return res, err
+		}
 		if _, seen := n.reasons.LoadOrStore(fe.reason, true); !seen {
 			n.opts.Logger.Warn("ssr: rendering with the JavaScript engine: native rendering failed", "reason", fe.reason, "url", href)
 		}
@@ -197,11 +212,7 @@ func (n *Native) Render(ctx context.Context, payload []byte, href string) (Resul
 				n.engineN.Add(1)
 			}
 		}
-		p, perr := n.fallbackPool()
-		if perr != nil {
-			return Result{}, perr
-		}
-		return p.Render(ctx, payload, href)
+		return res, err
 	}
 	if err != nil {
 		return Result{}, err
@@ -271,7 +282,8 @@ func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href str
 			}
 			return
 		}
-		err = &fallbackError{reason: describePanic(r)}
+		_, thrown := r.(*js.Throw)
+		err = &fallbackError{reason: describePanic(r), thrown: thrown}
 	}()
 	if s.raw != nil {
 		v := js.Call(s.raw, js.Undefined, string(payload), href)

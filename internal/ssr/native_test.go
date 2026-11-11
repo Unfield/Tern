@@ -13,7 +13,10 @@ import (
 )
 
 // engineBundle is what the QuickJS fallback renders.
-const engineBundle = `globalThis.__tern_render = (p, href) => JSON.stringify({ head: "", body: "engine " + p })`
+const engineBundle = `globalThis.__tern_render = (p, href) => {
+	if (p === "both") throw new Error("the page's own error");
+	return JSON.stringify({ head: "", body: "engine " + p });
+}`
 
 // fakeRealm stands for compiled modules: __tern_render is a Go function.
 func fakeRealm(render func(rt *js.Realm, payload string) js.Value) NewRealm {
@@ -32,7 +35,7 @@ func TestNativeRenders(t *testing.T) {
 		if p == "unsupported" {
 			panic(js.NotSupported("an async function"))
 		}
-		if p == "throws" {
+		if p == "throws" || p == "both" {
 			panic(js.TypeErrorf("boom"))
 		}
 		// Host functions are there, as in the engine's VMs.
@@ -52,6 +55,13 @@ func TestNativeRenders(t *testing.T) {
 	// A path that fell back goes to the engine from then on.
 	if _, ok := r.(*Native).engineOnly.Load("/unsupported"); !ok {
 		t.Error("the path that fell back isn't remembered")
+	}
+	// An error the engine throws too is the page's: it stays native.
+	if _, err := r.Render(context.Background(), []byte("both"), "http://x/both"); err == nil {
+		t.Error("the page's error was lost")
+	}
+	if _, ok := r.(*Native).engineOnly.Load("/both"); ok {
+		t.Error("a page's own error sent it to the engine for good")
 	}
 }
 

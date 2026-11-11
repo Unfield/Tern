@@ -10,7 +10,7 @@ The plan, at a glance:
 |---|---|
 | [v1.9](#v19-logging-security-signals-and-deploying-released) | Logging, security signals, `tern deploy`, tern.land (released) |
 | [v1.10](#v110-production-confidence-released) | Production confidence: tracing, error reports, test helpers (released) |
-| [v1.11](#v111-teams-and-billing) | Teams and billing, for SaaS apps |
+| [v1.11](#v111-teams-and-billing-released) | Teams and billing, for SaaS apps (released) |
 | [v1.12](#v112-rendering-on-demand-and-caching) | Rendering on demand, and caching |
 | [v1.13](#v113-native-rendering-phase-3) | Native rendering, phase 3: no JavaScript engine for most apps |
 | [Later](#later) | Search, feature flags, admin screens, AI, editor support, hosting |
@@ -210,7 +210,7 @@ Knowing what an app does in production, and that it still does it after a change
 - [x] Render a page in a test and query its HTML
 - [x] Browser tests in the templates, with Playwright set up and an example test
 
-## v1.11: Teams and billing
+## v1.11: Teams and billing (released)
 
 What the SaaS template still leaves to you.
 

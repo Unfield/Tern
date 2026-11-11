@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-12
+
 ### Added
 
 - **Teams in `accounts`** ([ADR 0019](docs/adr/0019-teams.md), [docs/accounts.md](docs/accounts.md#teams)):
@@ -13,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Invitations by email:** only the invited address can accept, and accepting verifies it.
   - **Roles:** owner, admin and member are built in, with fixed rules, and a team never loses its last owner. Apps add roles of their own and check them with `rbac` through `accounts.TeamRoles`.
   - **The app's data:** `Options.OnDeleteTeam` deletes it before a team goes.
+- **An audit log in `accounts`:** sign-ins and failed ones, password, email and two-step changes, passkeys, sessions, and team and member events, with the IP and device. Users see their own (`acc.Activity`), team admins their team's (`acc.TeamActivity`), and support tools anyone's (`acc.AuditEntries`). Apps add events with `acc.Audit`.
 - **Team screens in Tern UI:** `NewTeam`, `TeamSwitcher`, `TeamMembers`, `TeamInvitations`, `TeamSettings`, `AcceptInvitation` and `ActivityLog`.
 - **The saas template has teams:** everyone gets a team at sign-up, projects belong to the team, and `/settings/team` has the members, invitations and the team's activity. The security page shows the user's own activity, and the dashboard counts members.
 - **Billing with Stripe** ([ADR 0020](docs/adr/0020-billing.md), [docs/billing.md](docs/billing.md)):
@@ -23,7 +26,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Screens:** Tern UI's `PricingTable` and `BillingSettings`.
 - **The saas template bills teams:** a free plan with limits and a per-member Pro plan with a trial, a `/pricing` page, `/settings/billing` with the usage, and seats kept in step with members. Without Stripe's key, every team is on the free plan.
 - `kittest.Client.Browser` returns a second client of the same app, with no cookies of its own.
-- **An audit log in `accounts`:** sign-ins and failed ones, password, email and two-step changes, passkeys, sessions, and team and member events, with the IP and device. Users see their own (`acc.Activity`), team admins their team's (`acc.TeamActivity`), and support tools anyone's (`acc.AuditEntries`). Apps add events with `acc.Audit`.
 
 ### Fixed
 
@@ -382,7 +384,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/Unfield/Tern/releases/tag/v1.11.0
 [1.10.0]: https://github.com/Unfield/Tern/releases/tag/v1.10.0
 [1.9.0]: https://github.com/Unfield/Tern/releases/tag/v1.9.0
 [1.8.0]: https://github.com/Unfield/Tern/releases/tag/v1.8.0

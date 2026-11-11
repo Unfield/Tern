@@ -2,10 +2,17 @@
 // An app translates them in src/locales like its own messages. Generated
 // from internal/i18n/builtin.json; a Go test keeps the two the same.
 export const builtin: Record<string, string> = {
+	"tern.accounts.change.button": "Confirm my new address",
+	"tern.accounts.change.subject": "Confirm your new email address",
+	"tern.accounts.change.text": "Hello {name},\n\nConfirm that this is your account’s new email address by opening this link:\n{link}\n\nIf you didn’t ask for this, ignore this email: your address stays as it is.",
+	"tern.accounts.changed.button": "",
+	"tern.accounts.changed.subject": "Your email address was changed",
+	"tern.accounts.changed.text": "Hello {name},\n\nYour account’s email address was changed, and this address no longer signs in. If you didn’t do this, contact us right away.",
 	"tern.accounts.error.credentials": "Wrong email or password.",
 	"tern.accounts.error.emailTaken": "An account with this email address already exists.",
 	"tern.accounts.error.invalidToken": "This link is invalid or has expired.",
 	"tern.accounts.error.passkey": "That passkey didn’t work.",
+	"tern.accounts.error.tooMany": "Too many attempts. Try again in a few minutes.",
 	"tern.accounts.error.wrongPassword": "That isn’t your current password.",
 	"tern.accounts.reset.button": "Choose a new password",
 	"tern.accounts.reset.subject": "Reset your password",

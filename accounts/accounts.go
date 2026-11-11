@@ -53,13 +53,17 @@ type Options struct {
 	// RPName is the app's name the browser shows when creating a passkey.
 	// The default is the host name.
 	RPName string
+	// NoRateLimits turns off the built-in limits on attempts (see
+	// ErrTooManyAttempts), for tests or a limiter of your own.
+	NoRateLimits bool
 }
 
 // Accounts is the accounts plugin. Create it with New.
 type Accounts struct {
-	db   *sql.DB
-	d    sqldb.Dialect
-	opts Options
+	db     *sql.DB
+	d      sqldb.Dialect
+	opts   Options
+	limits *limiter
 }
 
 // User is an account.
@@ -109,7 +113,7 @@ func New(db *sql.DB, opts Options) (*Accounts, error) {
 		opts.PasskeyPath = "/_tern/passkeys"
 	}
 	opts.BaseURL = strings.TrimSuffix(opts.BaseURL, "/")
-	return &Accounts{db: db, d: d, opts: opts}, nil
+	return &Accounts{db: db, d: d, opts: opts, limits: newLimiter()}, nil
 }
 
 // Migrate creates the tables, if they don't exist yet.
@@ -271,6 +275,9 @@ func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSp
 // may be "" for an account that signs in with passkeys only.
 func (a *Accounts) SignUp(c *kit.Ctx, email, name, password string) (*User, error) {
 	email = normalizeEmail(email)
+	if err := a.limit(c, "signup", ""); err != nil {
+		return nil, err
+	}
 	hash := ""
 	if password != "" {
 		var err error
@@ -317,6 +324,9 @@ func (a *Accounts) uniqueErr(err error) error {
 // session for Options.SessionLength instead of a day.
 func (a *Accounts) SignIn(c *kit.Ctx, email, password string, remember bool) (*User, error) {
 	ctx := c.Request.Context()
+	if err := a.limit(c, "signin", normalizeEmail(email)); err != nil {
+		return nil, err
+	}
 	u, hash, err := scanUser(a.queryRow(ctx, `SELECT `+userColumns+` FROM tern_users u WHERE u.email = ?`, normalizeEmail(email)))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && hash == "") {
 		CheckPassword(dummyHash, password) // as slow as a real check
@@ -329,6 +339,7 @@ func (a *Accounts) SignIn(c *kit.Ctx, email, password string, remember bool) (*U
 	if !ok {
 		return nil, ErrInvalidCredentials
 	}
+	a.succeeded("signin", u.Email)
 	if rehash {
 		if h, err := HashPassword(password); err == nil {
 			_, _ = a.exec(ctx, `UPDATE tern_users SET password = ? WHERE id = ?`, h, u.ID)
@@ -367,6 +378,9 @@ func (a *Accounts) ChangePassword(c *kit.Ctx, current, password string) error {
 		return err
 	}
 	if hash != "" {
+		if err := a.limit(c, "signin", st.user.Email); err != nil {
+			return err
+		}
 		if ok, _ := CheckPassword(hash, current); !ok {
 			return ErrWrongPassword
 		}

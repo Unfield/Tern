@@ -25,6 +25,7 @@ app, err := ternApp(kit.WithPlugins(acc))
 | `Cookie` | `tern_session` | the session cookie's name |
 | `SessionLength` | 30 days | how long a "keep me signed in" session lasts without use. Other sessions last a day. Sessions in use stay signed in. |
 | `PasskeyPath` | `/_tern/passkeys` | where the passkey endpoints are |
+| `NoRateLimits` | false | turns off the built-in limits on attempts |
 
 ## Who is signed in
 
@@ -70,6 +71,24 @@ Changing or resetting a password signs out the user's other devices.
 `acc.SendVerification(ctx)` emails the signed-in user a link to `VerifyPath`; it's valid for two days. `acc.RequestPasswordReset(ctx, email)` emails a link to `ResetPath`, valid for an hour, and does nothing for an email without an account, so the page can't be used to find out who has one. Each link works once.
 
 The emails' texts are Tern's own (`tern.accounts.verify.*`, `tern.accounts.reset.*`), in the request's language: translate them in `src/locales` like the app's messages. To send your own emails instead, pass a `Send` function: it gets an `accounts.Email` with the recipient, the link, a subject, and text and HTML bodies.
+
+## Changing the email address
+
+`acc.RequestEmailChange(ctx, newEmail)` emails a confirmation link to the new address. The account keeps its old address until the link is opened at `VerifyPath`, where `acc.VerifyEmail` confirms it, so a typo can't lock anyone out. The old address then gets a notice, and links sent to it stop working. A new address that already has an account fails with `ErrEmailTaken`.
+
+## Rate limits
+
+Attempts are limited per account and per client IP, so passwords and codes can't be guessed and emails can't be sent in bulk:
+
+| Attempt | Per account | Per IP |
+|---|---|---|
+| Signing in, and the current password when changing it | 10 per 15 minutes | 50 per 15 minutes |
+| Signing up | | 20 per hour |
+| Verification, reset and email change emails | 5 per hour | 30 per hour |
+| Passkey sign-ins | | 50 per 15 minutes |
+| Two-step codes | 6 per 15 minutes | 50 per 15 minutes |
+
+Past a limit, the method returns `ErrTooManyAttempts`, which `FormError` shows as "Too many attempts". Signing in clears the account's count. The counts are kept in memory, per process. Behind a proxy, set `kit.WithTrustedProxies` so the client's own IP is counted, not the proxy's. `NoRateLimits` turns the limits off.
 
 ## Devices
 

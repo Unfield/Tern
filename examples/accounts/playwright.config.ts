@@ -11,7 +11,7 @@ export default defineConfig({
 	use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure' },
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 	webServer: {
-		command: `go tool tern build -o build/e2e && rm -f build/e2e.db* && DATABASE=build/e2e.db PORT=${port} ./build/e2e`,
+		command: `go tool tern build -o build/e2e && rm -f build/e2e.db* && ACCOUNTS_NO_RATE_LIMITS=1 DATABASE=build/e2e.db PORT=${port} ./build/e2e`,
 		url: `http://localhost:${port}/`,
 		reuseExistingServer: !process.env.CI,
 		timeout: 180_000

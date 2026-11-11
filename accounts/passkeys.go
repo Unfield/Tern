@@ -257,6 +257,9 @@ func (a *Accounts) register(c *kit.Ctx) error {
 }
 
 func (a *Accounts) signInOptions(c *kit.Ctx) error {
+	if err := a.limit(c, "passkey", ""); err != nil {
+		return kit.Error(http.StatusTooManyRequests, ErrTooManyAttempts.Error())
+	}
 	ch, err := a.challenge(c, "passkey-signin", 0)
 	if err != nil {
 		return err

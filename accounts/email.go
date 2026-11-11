@@ -112,7 +112,9 @@ func (a *Accounts) send(c *kit.Ctx, kind string, u *User, link string) error {
 	var b strings.Builder
 	for _, para := range paras {
 		para = html.EscapeString(para)
-		para = strings.ReplaceAll(para, html.EscapeString(link), fmt.Sprintf(`<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(c.TB(key+".button", p))))
+		if link != "" {
+			para = strings.ReplaceAll(para, html.EscapeString(link), fmt.Sprintf(`<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(c.TB(key+".button", p))))
+		}
 		fmt.Fprintf(&b, "<p>%s</p>\n", strings.ReplaceAll(para, "\n", "<br>"))
 	}
 	e.HTML = b.String()
@@ -129,6 +131,9 @@ func (a *Accounts) SendVerification(c *kit.Ctx) error {
 	if u.EmailVerified {
 		return nil
 	}
+	if err := a.limit(c, "email", u.Email); err != nil {
+		return err
+	}
 	token, err := a.issue(c.Request.Context(), "verify", u.ID, u.Email, verifyFor)
 	if err != nil || token == "" {
 		return err
@@ -136,10 +141,14 @@ func (a *Accounts) SendVerification(c *kit.Ctx) error {
 	return a.send(c, "verify", u, a.link(c, a.opts.VerifyPath, token))
 }
 
-// VerifyEmail verifies the address a verification link was sent to.
+// VerifyEmail verifies the address a verification link was sent to, or
+// confirms a new address from RequestEmailChange's link.
 func (a *Accounts) VerifyEmail(c *kit.Ctx, token string) (*User, error) {
 	ctx := c.Request.Context()
 	id, email, err := a.redeem(ctx, "verify", token)
+	if errors.Is(err, ErrInvalidToken) {
+		return a.confirmEmailChange(c, token)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +167,9 @@ func (a *Accounts) VerifyEmail(c *kit.Ctx, token string) (*User, error) {
 func (a *Accounts) RequestPasswordReset(c *kit.Ctx, email string) error {
 	if a.opts.Send == nil {
 		return ErrNoEmail
+	}
+	if err := a.limit(c, "email", normalizeEmail(email)); err != nil {
+		return err
 	}
 	u, err := a.UserByEmail(c.Request.Context(), email)
 	if err != nil || u == nil {
@@ -197,4 +209,61 @@ func (a *Accounts) ResetPassword(c *kit.Ctx, token, password string) (*User, err
 		return nil, err
 	}
 	return u, nil
+}
+
+// RequestEmailChange emails a link to newEmail that makes it the signed-in
+// user's address. The address only changes once the link is opened, at
+// VerifyPath, so a typo can't lock anyone out. The old address is told.
+func (a *Accounts) RequestEmailChange(c *kit.Ctx, newEmail string) error {
+	u := Current(c)
+	if u == nil {
+		return ErrSignedOut
+	}
+	if a.opts.Send == nil {
+		return ErrNoEmail
+	}
+	newEmail = normalizeEmail(newEmail)
+	if newEmail == u.Email {
+		return nil
+	}
+	if err := a.limit(c, "email", u.Email); err != nil {
+		return err
+	}
+	if other, err := a.UserByEmail(c.Request.Context(), newEmail); err != nil {
+		return err
+	} else if other != nil {
+		return ErrEmailTaken
+	}
+	token, err := a.issue(c.Request.Context(), "email-change", u.ID, newEmail, verifyFor)
+	if err != nil || token == "" {
+		return err
+	}
+	to := *u
+	to.Email = newEmail
+	return a.send(c, "change", &to, a.link(c, a.opts.VerifyPath, token))
+}
+
+func (a *Accounts) confirmEmailChange(c *kit.Ctx, token string) (*User, error) {
+	ctx := c.Request.Context()
+	id, email, err := a.redeem(ctx, "email-change", token)
+	if err != nil {
+		return nil, err
+	}
+	old, err := a.UserByID(ctx, id)
+	if err != nil || old == nil {
+		return nil, ErrInvalidToken
+	}
+	if _, err := a.exec(ctx, `UPDATE tern_users SET email = ?, email_verified = ? WHERE id = ?`, email, time.Now().UnixMilli(), id); err != nil {
+		return nil, a.uniqueErr(err)
+	}
+	// Links sent to the old address no longer apply.
+	_, _ = a.exec(ctx, `DELETE FROM tern_tokens WHERE user_id = ? AND purpose IN ('verify', 'reset', 'email-change')`, id)
+	if a.opts.Send != nil {
+		notice := *old
+		_ = a.send(c, "changed", &notice, "")
+	}
+	if cur := Current(c); cur != nil && cur.ID == id {
+		cur.Email, cur.EmailVerified = email, true
+	}
+	return a.UserByID(ctx, id)
 }

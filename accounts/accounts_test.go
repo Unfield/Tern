@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -89,6 +90,7 @@ func newHarness(t *testing.T) *harness {
 				return acc.ResetPassword(c, form(c, "token"), form(c, "password"))
 			})},
 			{ID: "/passkeys", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Passkeys(c) })},
+			{ID: "/email/change", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.RequestEmailChange(c, form(c, "email")) })},
 			{ID: "/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteAccount(c) })},
 		},
 	}
@@ -521,5 +523,78 @@ func TestPasskeySignedOut(t *testing.T) {
 	code, _ := h.postJSON(h.client(), "/_tern/passkeys/register/options", nil)
 	if code != http.StatusUnauthorized {
 		t.Fatalf("register options while signed out: %d", code)
+	}
+}
+
+func TestEmailChange(t *testing.T) {
+	h := newHarness(t)
+	b := h.client()
+	h.post(b, "/signup", "email", "old@example.com", "password", "long enough")
+	h.post(h.client(), "/signup", "email", "taken@example.com", "password", "long enough")
+	if code, out := h.post(b, "/email/change", "email", "taken@example.com"); code != 400 || out["error"] != ErrEmailTaken.Error() {
+		t.Fatalf("taken: %d %v", code, out)
+	}
+	if code, out := h.post(b, "/email/change", "email", "New@Example.com"); code != 200 {
+		t.Fatalf("request: %d %v", code, out)
+	}
+	e := h.lastEmail()
+	if e.To != "new@example.com" || e.Kind != "change" {
+		t.Fatalf("email: %+v", e)
+	}
+	// Nothing changes until the link is opened.
+	if _, out := h.post(b, "/me"); out["email"] != "old@example.com" {
+		t.Fatalf("changed early: %v", out)
+	}
+	if code, out := h.post(h.client(), "/verify", "token", tokenIn(t, e)); code != 200 || out["email"] != "new@example.com" || out["emailVerified"] != true {
+		t.Fatalf("confirm: %d %v", code, out)
+	}
+	notice := h.lastEmail()
+	if notice.To != "old@example.com" || notice.Kind != "changed" || notice.Link != "" || strings.Contains(notice.HTML, "<a") {
+		t.Fatalf("notice: %+v", notice)
+	}
+	if code, _ := h.post(h.client(), "/signin", "email", "new@example.com", "password", "long enough"); code != 200 {
+		t.Fatal("new address doesn't sign in")
+	}
+	if code, _ := h.post(h.client(), "/signin", "email", "old@example.com", "password", "long enough"); code == 200 {
+		t.Fatal("old address still signs in")
+	}
+}
+
+func TestRateLimits(t *testing.T) {
+	h := newHarness(t)
+	h.post(h.client(), "/signup", "email", "a@example.com", "password", "long enough")
+	b := h.client()
+	for i := range 10 {
+		if code, out := h.post(b, "/signin", "email", "a@example.com", "password", "wrong"); out["error"] != ErrInvalidCredentials.Error() {
+			t.Fatalf("attempt %d: %d %v", i, code, out)
+		}
+	}
+	if _, out := h.post(b, "/signin", "email", "a@example.com", "password", "long enough"); out["error"] != ErrTooManyAttempts.Error() {
+		t.Fatalf("11th attempt: %v", out)
+	}
+	// Another account from the same client isn't locked.
+	h.post(h.client(), "/signup", "email", "b@example.com", "password", "long enough")
+	if code, _ := h.post(b, "/signin", "email", "b@example.com", "password", "long enough"); code != 200 {
+		t.Fatal("other account locked")
+	}
+}
+
+func TestLimiter(t *testing.T) {
+	l := newLimiter()
+	now := time.Now()
+	for i := range 3 {
+		if !l.allow("k", 3, time.Minute, now.Add(time.Duration(i)*time.Second)) {
+			t.Fatal("blocked early")
+		}
+	}
+	if l.allow("k", 3, time.Minute, now.Add(5*time.Second)) {
+		t.Fatal("4th allowed")
+	}
+	if !l.allow("k", 3, time.Minute, now.Add(61*time.Second)) {
+		t.Fatal("window didn't move")
+	}
+	l.reset("k")
+	if len(l.hits) != 0 {
+		t.Fatal("reset")
 	}
 }

@@ -30,7 +30,12 @@ func Open() (*accounts.Accounts, error) {
 	}
 	// A real app sends email: accounts.SendWith(mailer, queue) with the
 	// mail and jobs packages. This one keeps it in the outbox at /outbox.
-	acc, err := accounts.New(db, accounts.Options{Send: send, RPName: "Tern accounts example"})
+	acc, err := accounts.New(db, accounts.Options{
+		Send:   send,
+		RPName: "Tern accounts example",
+		// The browser tests sign up many users from one address.
+		NoRateLimits: os.Getenv("ACCOUNTS_NO_RATE_LIMITS") == "1",
+	})
 	if err != nil {
 		return nil, err
 	}

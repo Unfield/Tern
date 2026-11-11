@@ -10,7 +10,8 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 cleanup() {
 	status=$?
-	kill "${server:-0}" 2>/dev/null || true
+	# Only the server: "kill 0" would end the whole process group.
+	if [ -n "${server:-}" ]; then kill "$server" 2>/dev/null || true; fi
 	# A failed check prints what the server logged, to find flaky ones.
 	if [ "$status" -ne 0 ] && [ -f "$work/server.log" ]; then
 		echo "==> server log"

@@ -1,5 +1,5 @@
-// Package app holds what the routes share: the database, user accounts,
-// email and background jobs.
+// Package app holds what the routes share: the database, user accounts
+// and their teams, email and background jobs.
 package app
 
 import (
@@ -50,10 +50,13 @@ func Open(logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	projects := &Projects{db: db}
 	acc, err := accounts.New(db, accounts.Options{
 		Send:    sender(logger, q),
 		BaseURL: os.Getenv("BASE_URL"),
 		RPName:  env("APP_NAME", "{{.Name}}"),
+		// A team's data goes with it.
+		OnDeleteTeam: projects.DeleteAll,
 	})
 	if err != nil {
 		return nil, err
@@ -61,7 +64,7 @@ func Open(logger *slog.Logger) (*App, error) {
 	if err := acc.Migrate(context.Background()); err != nil {
 		return nil, err
 	}
-	a := &App{DB: db, Accounts: acc, Jobs: q, Projects: &Projects{db: db}}
+	a := &App{DB: db, Accounts: acc, Jobs: q, Projects: projects}
 	if err := a.setUpOAuth(); err != nil {
 		return nil, err
 	}

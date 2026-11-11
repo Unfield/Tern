@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// Project is the example of the app's own data: each belongs to one
-// user, who alone sees and changes it. Replace it with what your app keeps.
+// Project is the example of the app's own data: each belongs to a team,
+// whose members see and change it. Replace it with what your app keeps.
 type Project struct {
 	ID          int64     `json:"id"`
 	Name        string    `json:"name"`
@@ -24,9 +24,9 @@ type Projects struct{ db *sql.DB }
 // ErrNotFound is a project that doesn't exist, or isn't the user's.
 var ErrNotFound = errors.New("project not found")
 
-// List returns the user's projects, the most recently changed first.
-func (p *Projects) List(ctx context.Context, userID int64) ([]Project, error) {
-	rows, err := p.db.QueryContext(ctx, `SELECT id, name, description, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY updated_at DESC, id DESC`, userID)
+// List returns the team's projects, the most recently changed first.
+func (p *Projects) List(ctx context.Context, teamID int64) ([]Project, error) {
+	rows, err := p.db.QueryContext(ctx, `SELECT id, name, description, created_at, updated_at FROM projects WHERE team_id = ? ORDER BY updated_at DESC, id DESC`, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -44,18 +44,18 @@ func (p *Projects) List(ctx context.Context, userID int64) ([]Project, error) {
 	return out, rows.Err()
 }
 
-// Count is how many projects the user has.
-func (p *Projects) Count(ctx context.Context, userID int64) (int, error) {
+// Count is how many projects the team has.
+func (p *Projects) Count(ctx context.Context, teamID int64) (int, error) {
 	var n int
-	err := p.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM projects WHERE user_id = ?`, userID).Scan(&n)
+	err := p.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM projects WHERE team_id = ?`, teamID).Scan(&n)
 	return n, err
 }
 
-// Create adds a project for the user.
-func (p *Projects) Create(ctx context.Context, userID int64, name, description string) (Project, error) {
+// Create adds a project to the team, made by the user.
+func (p *Projects) Create(ctx context.Context, teamID, userID int64, name, description string) (Project, error) {
 	now := time.Now()
-	res, err := p.db.ExecContext(ctx, `INSERT INTO projects (user_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, strings.TrimSpace(name), strings.TrimSpace(description), now.UnixMilli(), now.UnixMilli())
+	res, err := p.db.ExecContext(ctx, `INSERT INTO projects (team_id, created_by, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		teamID, userID, strings.TrimSpace(name), strings.TrimSpace(description), now.UnixMilli(), now.UnixMilli())
 	if err != nil {
 		return Project{}, err
 	}
@@ -67,21 +67,21 @@ func (p *Projects) Create(ctx context.Context, userID int64, name, description s
 }
 
 // Update renames a project and changes its description.
-func (p *Projects) Update(ctx context.Context, userID, id int64, name, description string) error {
-	res, err := p.db.ExecContext(ctx, `UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
-		strings.TrimSpace(name), strings.TrimSpace(description), time.Now().UnixMilli(), id, userID)
+func (p *Projects) Update(ctx context.Context, teamID, id int64, name, description string) error {
+	res, err := p.db.ExecContext(ctx, `UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
+		strings.TrimSpace(name), strings.TrimSpace(description), time.Now().UnixMilli(), id, teamID)
 	return found(res, err)
 }
 
 // Delete removes a project.
-func (p *Projects) Delete(ctx context.Context, userID, id int64) error {
-	res, err := p.db.ExecContext(ctx, `DELETE FROM projects WHERE id = ? AND user_id = ?`, id, userID)
+func (p *Projects) Delete(ctx context.Context, teamID, id int64) error {
+	res, err := p.db.ExecContext(ctx, `DELETE FROM projects WHERE id = ? AND team_id = ?`, id, teamID)
 	return found(res, err)
 }
 
-// DeleteAll removes the user's projects, when they delete their account.
-func (p *Projects) DeleteAll(ctx context.Context, userID int64) error {
-	_, err := p.db.ExecContext(ctx, `DELETE FROM projects WHERE user_id = ?`, userID)
+// DeleteAll removes the team's projects, when the team is deleted.
+func (p *Projects) DeleteAll(ctx context.Context, teamID int64) error {
+	_, err := p.db.ExecContext(ctx, `DELETE FROM projects WHERE team_id = ?`, teamID)
 	return err
 }
 

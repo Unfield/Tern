@@ -60,7 +60,9 @@ func (a *Accounts) startSession(c *kit.Ctx, u *User, remember bool) error {
 	c.SetCookie(ck)
 	st := stateOf(c)
 	st.user, st.session = u, id
+	st.teamMu.Lock()
 	st.teamID, st.team, st.teamLoaded = 0, nil, false
+	st.teamMu.Unlock()
 	a.Audit(c, Event{Action: "user.signed_in"})
 	a.noteDevice(c, u)
 	return nil

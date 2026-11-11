@@ -5,11 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Unfield/Tern/internal/dbtest"
+	"github.com/Unfield/Tern/kit"
 )
 
 // signUp makes an account in a browser of its own.
@@ -220,5 +225,39 @@ func testAuditLog(t *testing.T, db *sql.DB) {
 	entries, err := h.acc.AuditEntries(context.Background(), AuditFilter{Action: "user.sign"})
 	if err != nil || len(entries) != 3 {
 		t.Fatalf("filtered %v %v", entries, err)
+	}
+}
+
+// A page's loads run at the same time, and each asks for the team.
+func TestCurrentTeamFromConcurrentLoads(t *testing.T) {
+	h := newHarness(t)
+	ada, _ := h.signUp("ada@example.com")
+	h.ok(ada, "/teams/create", "name", "Acme")
+	app, err := kit.New(&kit.Manifest{AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`}, kit.WithPlugins(h.acc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = app.Close() }()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	u, _ := url.Parse(h.srv.URL)
+	for _, ck := range ada.Jar.Cookies(u) {
+		req.AddCookie(ck)
+	}
+	c, err := app.NewCtx(httptest.NewRecorder(), req, kit.CtxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	var missing atomic.Int32
+	for range 8 {
+		wg.Go(func() {
+			if CurrentTeam(c) == nil {
+				missing.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	if n := missing.Load(); n > 0 {
+		t.Fatalf("%d of 8 concurrent loads saw no team", n)
 	}
 }

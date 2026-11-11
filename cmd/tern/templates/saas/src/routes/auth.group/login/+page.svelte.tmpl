@@ -17,5 +17,5 @@
 	passkey
 	remember
 	forgotHref="/forgot-password"
-	signUpHref="/signup"
+	signUpHref={data.next === '/dashboard' ? '/signup' : `/signup?next=${encodeURIComponent(data.next)}`}
 />

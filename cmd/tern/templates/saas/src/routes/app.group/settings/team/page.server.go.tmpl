@@ -1,0 +1,117 @@
+package team
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	Team        accounts.Membership   `json:"team"`
+	Me          int64                 `json:"me"`
+	Members     []accounts.Member     `json:"members"`
+	Invitations []accounts.Invitation `json:"invitations"`
+	Activity    []accounts.AuditEntry `json:"activity"`
+	// Older is the ID to page back from, 0 when there's nothing older.
+	Older int64 `json:"older"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	acc := app.Current.Accounts
+	m, err := acc.RequireTeam(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	p := Page{Team: *m, Me: accounts.Current(ctx).ID, Invitations: []accounts.Invitation{}, Activity: []accounts.AuditEntry{}}
+	if p.Members, err = acc.Members(ctx); err != nil {
+		return Page{}, err
+	}
+	// Invitations and the team's activity are for those who manage it.
+	if m.Manages() {
+		if p.Invitations, err = acc.Invitations(ctx); err != nil {
+			return Page{}, err
+		}
+		before, _ := strconv.ParseInt(ctx.URL().Query().Get("before"), 10, 64)
+		if p.Activity, err = acc.TeamActivity(ctx, before); err != nil {
+			return Page{}, err
+		}
+		if n := len(p.Activity); n == 50 {
+			p.Older = p.Activity[n-1].ID
+		}
+	}
+	return p, nil
+}
+
+type Rename struct {
+	Name string `form:"name" validate:"required,max=100" label:"Team name"`
+}
+
+type Invite struct {
+	Email string `form:"email" validate:"required,email,max=254" label:"Email address"`
+	Role  string `form:"role" validate:"required"`
+}
+
+type Member struct {
+	User int64  `form:"user" validate:"required"`
+	Role string `form:"role"`
+}
+
+type Invitation struct {
+	ID string `form:"id" validate:"required"`
+}
+
+type Done struct {
+	Done    string `json:"done"`
+	Invited string `json:"invited,omitempty"`
+}
+
+// do runs fn for a signed-in user in a team, with the errors users cause,
+// such as removing the last owner, as form errors.
+func do(ctx *kit.Ctx, done string, fn func() error) (Done, error) {
+	if _, err := app.Current.Accounts.RequireTeam(ctx); err != nil {
+		return Done{}, err
+	}
+	if err := fn(); err != nil {
+		return Done{}, accounts.FormError(ctx, err)
+	}
+	return Done{Done: done}, nil
+}
+
+var Actions = kit.Actions{
+	"rename": kit.FormAction(func(ctx *kit.Ctx, in Rename) (Done, error) {
+		return do(ctx, "renamed", func() error { return app.Current.Accounts.RenameTeam(ctx, in.Name) })
+	}),
+	"invite": kit.FormAction(func(ctx *kit.Ctx, in Invite) (Done, error) {
+		d, err := do(ctx, "invited", func() error {
+			_, err := app.Current.Accounts.Invite(ctx, in.Email, in.Role)
+			return err
+		})
+		d.Invited = in.Email
+		return d, err
+	}),
+	"cancel": kit.FormAction(func(ctx *kit.Ctx, in Invitation) (Done, error) {
+		return do(ctx, "cancelled", func() error { return app.Current.Accounts.CancelInvitation(ctx, in.ID) })
+	}),
+	"role": kit.FormAction(func(ctx *kit.Ctx, in Member) (Done, error) {
+		return do(ctx, "role", func() error { return app.Current.Accounts.SetRole(ctx, in.User, in.Role) })
+	}),
+	"remove": kit.FormAction(func(ctx *kit.Ctx, in Member) (Done, error) {
+		return do(ctx, "removed", func() error { return app.Current.Accounts.RemoveMember(ctx, in.User) })
+	}),
+	"leave": kit.FormAction(func(ctx *kit.Ctx, _ struct{}) (Done, error) {
+		if _, err := do(ctx, "left", func() error { return app.Current.Accounts.LeaveTeam(ctx) }); err != nil {
+			return Done{}, err
+		}
+		return Done{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+	}),
+	"delete": kit.FormAction(func(ctx *kit.Ctx, _ struct{}) (Done, error) {
+		if _, err := do(ctx, "deleted", func() error { return app.Current.Accounts.DeleteTeam(ctx) }); err != nil {
+			return Done{}, err
+		}
+		return Done{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+	}),
+}

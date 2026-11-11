@@ -40,3 +40,23 @@ func TestSignUpAndProjects(t *testing.T) {
 		t.Error("the new project isn't listed")
 	}
 }
+
+func TestInvitingATeammate(t *testing.T) {
+	ada := newClient(t)
+	ada.PostForm("/signup", url.Values{"name": {"Ada"}, "email": {"ada@example.com"}, "password": {"a long enough password"}})
+	if page := ada.Get("/settings/team"); page.Status != 200 || page.Text("h1") != "Ada’s team" {
+		t.Fatalf("the team page: %d %q", page.Status, page.Text("h1"))
+	}
+	page := ada.PostForm("/settings/team?/invite", url.Values{"email": {"bob@example.com"}, "role": {"member"}})
+	if page.Status != 200 {
+		t.Fatalf("inviting: %d", page.Status)
+	}
+	if page := ada.Get("/settings/team"); !strings.Contains(page.Body, "bob@example.com") {
+		t.Error("the invitation isn't listed")
+	}
+	// Someone signed out who opens an invitation link is asked to sign up.
+	visitor := ada.Browser()
+	if page := visitor.Get("/invitation?token=nope"); page.Status != 200 || !strings.Contains(page.Body, "doesn’t work") {
+		t.Errorf("an invalid invitation: %d", page.Status)
+	}
+}

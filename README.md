@@ -38,7 +38,7 @@ You need Go 1.26+ and Node.js 22+.
 npm create tern@latest
 ```
 
-It asks where to put the project and whether to start bare or with a full app. A bare app is the `minimal`, `blog` or `api` template, optionally styled with [Tern UI](docs/ui.md). The full app (`saas`) has accounts with passkeys and two-step sign-in, a dashboard, settings and per-user data in SQLite. Then it offers to create a git repository and install packages. Without npm, `go run github.com/Unfield/Tern/cmd/tern@latest new` does the same. Then:
+It asks where to put the project and whether to start bare or with a full app. A bare app is the `minimal`, `blog` or `api` template, optionally styled with [Tern UI](docs/ui.md). The full app (`saas`) has accounts with passkeys and two-step sign-in, teams with invitations and roles, a dashboard, settings and per-team data in SQLite. Then it offers to create a git repository and install packages. Without npm, `go run github.com/Unfield/Tern/cmd/tern@latest new` does the same. Then:
 
 ```sh
 cd my-app

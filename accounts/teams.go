@@ -157,9 +157,15 @@ func CurrentTeam(c *kit.Ctx) *Membership {
 	if st.user == nil {
 		return nil
 	}
+	st.teamMu.Lock()
+	defer st.teamMu.Unlock()
 	if !st.teamLoaded {
-		st.teamLoaded = true
-		st.team, _ = st.acc.loadTeam(c.Request.Context(), st.user.ID, st.teamID)
+		m, err := st.acc.loadTeam(c.Request.Context(), st.user.ID, st.teamID)
+		if err != nil {
+			c.Logger().Error("accounts: loading the current team", "err", err)
+			return nil // not cached: the next call tries again
+		}
+		st.team, st.teamLoaded = m, true
 	}
 	return st.team
 }
@@ -229,11 +235,13 @@ func (a *Accounts) CreateTeam(c *kit.Ctx, name string) (*Membership, error) {
 // setTeam makes m the request's current team, and the session's.
 func (a *Accounts) setTeam(c *kit.Ctx, m *Membership) error {
 	st := stateOf(c)
+	st.teamMu.Lock()
 	st.team, st.teamLoaded = m, true
 	st.teamID = 0
 	if m != nil {
 		st.teamID = m.Team.ID
 	}
+	st.teamMu.Unlock()
 	if st.session == "" {
 		return nil
 	}
@@ -483,7 +491,7 @@ func (a *Accounts) RemoveMember(c *kit.Ctx, userID int64) error {
 	if self {
 		action = "member.left"
 	}
-	a.Audit(c, Event{Action: action, TeamID: m.Team.ID, Target: target})
+	a.Audit(c, Event{Action: action, TeamID: m.Team.ID, Target: target, Data: map[string]string{"team": m.Team.Name}})
 	if self {
 		next, err := a.loadTeam(ctx, u.ID, 0)
 		if err != nil {
@@ -669,7 +677,7 @@ func (a *Accounts) AcceptInvitation(c *kit.Ctx, token string) (*Membership, erro
 		}
 		u.EmailVerified = true
 	}
-	a.Audit(c, Event{Action: "member.joined", TeamID: inv.TeamID, Target: u.Email, Data: map[string]string{"role": role}})
+	a.Audit(c, Event{Action: "member.joined", TeamID: inv.TeamID, Target: u.Email, Data: map[string]string{"role": role, "team": inv.TeamName}})
 	m, err := a.loadTeam(ctx, u.ID, inv.TeamID)
 	if err != nil {
 		return nil, err

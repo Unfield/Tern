@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Unfield/Tern/accounts"
 	"github.com/Unfield/Tern/kit"
 
 	"{{.Module}}/internal/app"
@@ -14,11 +15,11 @@ type Page struct {
 }
 
 func Load(ctx *kit.Ctx) (Page, error) {
-	u, err := app.Current.Accounts.Require(ctx)
+	m, err := app.Current.Accounts.RequireTeam(ctx)
 	if err != nil {
 		return Page{}, err
 	}
-	list, err := app.Current.Projects.List(ctx.Request.Context(), u.ID)
+	list, err := app.Current.Projects.List(ctx.Request.Context(), m.Team.ID)
 	return Page{Projects: list}, err
 }
 
@@ -42,7 +43,7 @@ type Done struct {
 	ID   int64  `json:"id"`
 }
 
-// notFound turns another user's project, or a deleted one, into a 404.
+// notFound turns another team's project, or a deleted one, into a 404.
 func notFound(err error) error {
 	if errors.Is(err, app.ErrNotFound) {
 		return kit.Error(http.StatusNotFound, "This project doesn’t exist.")
@@ -52,25 +53,25 @@ func notFound(err error) error {
 
 var Actions = kit.Actions{
 	"create": kit.FormAction(func(ctx *kit.Ctx, in NewProject) (Done, error) {
-		u, err := app.Current.Accounts.Require(ctx)
+		m, err := app.Current.Accounts.RequireTeam(ctx)
 		if err != nil {
 			return Done{}, err
 		}
-		p, err := app.Current.Projects.Create(ctx.Request.Context(), u.ID, in.Name, in.Description)
+		p, err := app.Current.Projects.Create(ctx.Request.Context(), m.Team.ID, accounts.Current(ctx).ID, in.Name, in.Description)
 		return Done{Done: "created", ID: p.ID}, err
 	}),
 	"update": kit.FormAction(func(ctx *kit.Ctx, in Edit) (Done, error) {
-		u, err := app.Current.Accounts.Require(ctx)
+		m, err := app.Current.Accounts.RequireTeam(ctx)
 		if err != nil {
 			return Done{}, err
 		}
-		return Done{Done: "updated", ID: in.ID}, notFound(app.Current.Projects.Update(ctx.Request.Context(), u.ID, in.ID, in.Name, in.Description))
+		return Done{Done: "updated", ID: in.ID}, notFound(app.Current.Projects.Update(ctx.Request.Context(), m.Team.ID, in.ID, in.Name, in.Description))
 	}),
 	"delete": kit.FormAction(func(ctx *kit.Ctx, in ID) (Done, error) {
-		u, err := app.Current.Accounts.Require(ctx)
+		m, err := app.Current.Accounts.RequireTeam(ctx)
 		if err != nil {
 			return Done{}, err
 		}
-		return Done{Done: "deleted"}, notFound(app.Current.Projects.Delete(ctx.Request.Context(), u.ID, in.ID))
+		return Done{Done: "deleted"}, notFound(app.Current.Projects.Delete(ctx.Request.Context(), m.Team.ID, in.ID))
 	}),
 }

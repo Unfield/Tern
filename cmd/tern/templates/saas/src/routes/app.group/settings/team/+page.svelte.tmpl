@@ -1,0 +1,50 @@
+<script lang="ts">
+	import { ActivityLog, Alert, Card, TeamInvitations, TeamMembers, TeamSettings } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+	const done = $derived((form as { done?: string } | null)?.done);
+	const manages = $derived(data.team.role === 'owner' || data.team.role === 'admin');
+</script>
+
+<svelte:head><title>Team · {{.Name}}</title></svelte:head>
+
+<h1>{data.team.team.name}</h1>
+<p class="lead">Who’s in the team, and what each of them can do.</p>
+
+<div class="sections">
+	{#if manages}
+		<Card>
+			<TeamSettings team={data.team.team} role={data.team.role} renameAction="?/rename" deleteAction="?/delete" {form} level={2} />
+			{#if done === 'renamed'}<Alert tone="success" live>Saved.</Alert>{/if}
+		</Card>
+	{/if}
+
+	<Card>
+		<TeamMembers members={data.members} me={data.me} role={data.team.role} roleAction="?/role" removeAction="?/remove" leaveAction="?/leave" {form} level={2} />
+	</Card>
+
+	{#if manages}
+		<Card>
+			<TeamInvitations invitations={data.invitations} role={data.team.role} inviteAction="?/invite" cancelAction="?/cancel" {form} level={2} />
+		</Card>
+
+		<Card>
+			<ActivityLog
+				entries={data.activity}
+				showActor
+				title="Team activity"
+				description="Who joined, left and changed what in the team."
+				moreHref={data.older ? `?before=${data.older}` : undefined}
+				level={2}
+			/>
+		</Card>
+	{/if}
+</div>
+
+<style>
+	.sections {
+		display: grid;
+		gap: 1rem;
+	}
+</style>

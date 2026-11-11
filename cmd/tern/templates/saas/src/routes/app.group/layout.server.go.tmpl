@@ -11,14 +11,22 @@ import (
 )
 
 type Shell struct {
-	User accounts.User `json:"user"`
+	User  accounts.User         `json:"user"`
+	Team  accounts.Membership   `json:"team"`
+	Teams []accounts.Membership `json:"teams"`
 }
 
-// LayoutLoad sends signed-out visitors to sign in, and back here after.
+// LayoutLoad sends signed-out visitors to sign in, and back here after,
+// and users without a team to make one.
 func LayoutLoad(ctx *kit.Ctx) (Shell, error) {
-	u, err := app.Current.Accounts.Require(ctx)
+	acc := app.Current.Accounts
+	m, err := acc.RequireTeam(ctx)
 	if err != nil {
 		return Shell{}, err
 	}
-	return Shell{User: *u}, nil
+	teams, err := acc.Teams(ctx)
+	if err != nil {
+		return Shell{}, err
+	}
+	return Shell{User: *accounts.Current(ctx), Team: *m, Teams: teams}, nil
 }

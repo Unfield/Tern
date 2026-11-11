@@ -13,7 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Invitations by email:** only the invited address can accept, and accepting verifies it.
   - **Roles:** owner, admin and member are built in, with fixed rules, and a team never loses its last owner. Apps add roles of their own and check them with `rbac` through `accounts.TeamRoles`.
   - **The app's data:** `Options.OnDeleteTeam` deletes it before a team goes.
+- **Team screens in Tern UI:** `NewTeam`, `TeamSwitcher`, `TeamMembers`, `TeamInvitations`, `TeamSettings`, `AcceptInvitation` and `ActivityLog`.
+- **The saas template has teams:** everyone gets a team at sign-up, projects belong to the team, and `/settings/team` has the members, invitations and the team's activity. The security page shows the user's own activity, and the dashboard counts members.
+- `kittest.Client.Browser` returns a second client of the same app, with no cookies of its own.
 - **An audit log in `accounts`:** sign-ins and failed ones, password, email and two-step changes, passkeys, sessions, and team and member events, with the IP and device. Users see their own (`acc.Activity`), team admins their team's (`acc.TeamActivity`), and support tools anyone's (`acc.AuditEntries`). Apps add events with `acc.Audit`.
+
+### Fixed
+
+- Link buttons in Tern UI's sign-in and account cards kept the cards' link color, so their text was hard to read.
+- `scripts/test-template.sh` no longer stops the shell that runs it when a step fails before the server starts.
 
 ### Changed
 

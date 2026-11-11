@@ -2,6 +2,7 @@ package signup
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Unfield/Tern/accounts"
 	"github.com/Unfield/Tern/kit"
@@ -10,14 +11,15 @@ import (
 )
 
 type Page struct {
+	Next      string         `json:"next"`
 	Providers []app.Provider `json:"providers"`
 }
 
 func Load(ctx *kit.Ctx) (Page, error) {
 	if accounts.Current(ctx) != nil {
-		return Page{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+		return Page{}, kit.Redirect(http.StatusSeeOther, app.SafeNext(ctx.URL().Query().Get("next")))
 	}
-	return Page{Providers: app.Current.Providers}, nil
+	return Page{Next: app.SafeNext(ctx.URL().Query().Get("next")), Providers: app.Current.Providers}, nil
 }
 
 type Account struct {
@@ -32,9 +34,18 @@ var Actions = kit.Actions{
 		if _, err := acc.SignUp(ctx, in.Email, in.Name, in.Password); err != nil {
 			return struct{}{}, accounts.FormError(ctx, err)
 		}
+		// Everyone starts with a team of their own, to rename or invite to.
+		if _, err := acc.CreateTeam(ctx, strings.TrimSpace(in.Name)+"’s team"); err != nil {
+			return struct{}{}, err
+		}
+		next := app.SafeNext(ctx.URL().Query().Get("next"))
+		// Someone invited confirms their address by accepting.
+		if strings.HasPrefix(next, "/invitation?") {
+			return struct{}{}, kit.Redirect(http.StatusSeeOther, next)
+		}
 		if err := acc.SendVerification(ctx); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, next)
 	}),
 }

@@ -43,6 +43,13 @@ func NewClient(t testing.TB, h http.Handler) *Client {
 	}}
 }
 
+// Browser returns another client of the same app, with no cookies: a
+// second user, or a visitor who isn't signed in.
+func (c *Client) Browser() *Client {
+	jar, _ := cookiejar.New(nil)
+	return &Client{t: c.t, srv: c.srv, client: &http.Client{Jar: jar, CheckRedirect: c.client.CheckRedirect}}
+}
+
 // URL is the test server's address for path.
 func (c *Client) URL(path string) string { return c.srv.URL + path }
 

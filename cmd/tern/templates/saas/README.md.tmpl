@@ -3,8 +3,9 @@
 A [Tern](https://github.com/Unfield/Tern) app with accounts, settings and a dashboard built: the starting point of a product, ready to change.
 
 - **Accounts:** sign-up with email verification, password resets, passkeys, two-step sign-in with an authenticator app, and sign-in with GitHub or Google when their keys are set. See [docs/accounts.md](https://github.com/Unfield/Tern/blob/main/docs/accounts.md).
-- **Settings:** profile, email address, password, the devices you're signed in on, connected accounts, and deleting the account.
-- **Projects:** an example of your app's own data, per user, in SQLite with a migration. Replace it with what your app keeps.
+- **Teams:** everyone gets a team at sign-up, invites others by email, and gives each an owner, admin or member role. Users switch between their teams in the sidebar. `/settings/team` has the members, invitations and the team's activity.
+- **Settings:** profile, email address, password, the devices you're signed in on, connected accounts, recent activity, and deleting the account.
+- **Projects:** an example of your app's own data, per team, in SQLite with a migration. Replace it with what your app keeps, with a `team_id` on each row.
 
 ## Develop
 

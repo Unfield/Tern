@@ -15,6 +15,7 @@ type Page struct {
 	Sessions   []accounts.Session        `json:"sessions"`
 	Identities []accounts.LinkedIdentity `json:"identities"`
 	Providers  []app.Provider            `json:"providers"`
+	Activity   []accounts.AuditEntry     `json:"activity"`
 }
 
 func Load(ctx *kit.Ctx) (Page, error) {
@@ -37,6 +38,9 @@ func Load(ctx *kit.Ctx) (Page, error) {
 		return Page{}, err
 	}
 	if p.Identities, err = acc.Identities(ctx); err != nil {
+		return Page{}, err
+	}
+	if p.Activity, err = acc.Activity(ctx, 0); err != nil {
 		return Page{}, err
 	}
 	return p, nil

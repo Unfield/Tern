@@ -43,11 +43,12 @@
 		color: var(--tern-muted);
 		font-size: 0.875rem;
 	}
-	.tern-auth :global(a) {
+	/* Links in the text, not link buttons, which keep their own colors. */
+	.tern-auth :global(a:not(.tern-btn)) {
 		color: var(--tern-accent);
 		font-weight: 550;
 	}
-	.tern-auth :global(a:focus-visible) {
+	.tern-auth :global(a:not(.tern-btn):focus-visible) {
 		outline: 2px solid var(--tern-ring);
 		outline-offset: 2px;
 		border-radius: 2px;

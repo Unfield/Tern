@@ -8,12 +8,12 @@
 
 <svelte:head><title>Create an account · {{.Name}}</title></svelte:head>
 
-<SignUp rules={forms.default} {form} signInHref="/login">
+<SignUp rules={forms.default} {form} signInHref={data.next === '/dashboard' ? '/login' : `/login?next=${encodeURIComponent(data.next)}`}>
 	{#snippet footer()}
 		{#if data.providers.length}
 			<div class="providers">
 				{#each data.providers as p (p.name)}
-					<Button variant="secondary" href="/auth/{p.name}/login?next=/dashboard">Continue with {p.label}</Button>
+					<Button variant="secondary" href="/auth/{p.name}/login?next={encodeURIComponent(data.next)}">Continue with {p.label}</Button>
 				{/each}
 			</div>
 		{/if}

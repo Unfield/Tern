@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Unfield/Tern/kit"
@@ -269,7 +270,9 @@ type state struct {
 	acc     *Accounts
 	user    *User
 	session string // its id, the hash of the cookie's token
-	// teamID is the session's team; team is loaded from it on first use.
+	// teamID is the session's team; team is loaded from it on first use,
+	// under teamMu: a page's loads run at the same time.
+	teamMu     sync.Mutex
 	teamID     int64
 	team       *Membership
 	teamLoaded bool
@@ -537,5 +540,7 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 // kit.App.NewCtx does.
 func (a *Accounts) ActAs(c *kit.Ctx, u *User) {
 	st := stateOf(c)
+	st.teamMu.Lock()
 	st.user, st.team, st.teamLoaded = u, nil, false
+	st.teamMu.Unlock()
 }

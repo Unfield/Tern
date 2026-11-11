@@ -1,0 +1,21 @@
+<script lang="ts">
+	import { AcceptInvitation } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+	const here = $derived(`/invitation?token=${encodeURIComponent(data.token)}`);
+	const back = $derived(encodeURIComponent(here));
+</script>
+
+<svelte:head><title>Invitation · {{.Name}}</title></svelte:head>
+
+<AcceptInvitation
+	invitation={data.invitation}
+	token={data.token}
+	email={data.email}
+	{form}
+	signInHref="/login?next={back}"
+	signUpHref="/signup?next={back}"
+	signOutAction="/logout"
+	signOutNext={here}
+/>

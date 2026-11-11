@@ -5,6 +5,11 @@
 
 	let { data, form }: PageProps = $props();
 	const done = $derived((form as { done?: string } | null)?.done);
+	// Why the account wasn't deleted, such as a team that needs another owner.
+	const deleteError = $derived.by(() => {
+		const f = form as { message?: string; values?: { form?: string } } | null;
+		return f?.values?.form === 'delete' ? f.message : undefined;
+	});
 	let deleteOpen = $state(false);
 	let deleteForm = $state<HTMLFormElement>();
 </script>
@@ -57,10 +62,12 @@
 	</Card>
 
 	<Card title="Delete your account" level={2}>
-		<p>Your account, projects, passkeys and sessions are deleted for good.</p>
+		<p>Your account, passkeys and sessions are deleted for good, with the teams only you are in. A team you own with others in it needs another owner first.</p>
 		<form method="POST" action="?/delete" bind:this={deleteForm}>
+			<input type="hidden" name="form" value="delete" />
 			<Button type="button" variant="danger" size="sm" onclick={() => (deleteOpen = true)}>Delete account</Button>
 		</form>
+		{#if deleteError}<Alert tone="danger" live>{deleteError}</Alert>{/if}
 	</Card>
 </div>
 

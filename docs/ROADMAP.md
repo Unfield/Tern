@@ -217,7 +217,7 @@ What the SaaS template still leaves to you.
 **Teams**
 - [x] Organizations in `accounts`: members, invitations by email, roles with `rbac`, and switching between teams
 - [x] An audit log of account and team events, for users and for support
-- [ ] Tern UI screens for team settings, members and invitations
+- [x] Tern UI screens for team settings, members and invitations
 
 **Billing**
 - [ ] A billing plugin for Stripe: Checkout, the customer portal, plans and subscriptions, trials, and seats per team

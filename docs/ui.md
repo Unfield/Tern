@@ -150,6 +150,13 @@ Whole screens, wired to Tern's plugins:
 | `TwoStep` | two-step sign-in on an account page: a QR code and the secret while setting up, the recovery codes once, and turning it off |
 | `TwoStepCode` | the code page after a password sign-in: six boxes that post when full, or a recovery code |
 | `Passkeys` | a user's passkeys, from `acc.Passkeys`: add one (the browser asks for a fingerprint, face or screen lock), see when each was last used, remove one |
+| `ActivityLog` | the audit log, from `acc.Activity` (a user's own) or `acc.TeamActivity` (with `showActor`): what happened, when, from which device and address, with failed sign-ins marked. `labels` words the app's own actions |
+| `NewTeam` | the page that makes a team, for `acc.CreateTeam` |
+| `TeamSwitcher` | a menu of the user's teams, from `acc.Teams`, that switches the current one, with a link to make a new team. It fits a `Sidebar`'s header |
+| `TeamMembers` | a team's members, from `acc.Members`, with their roles, a role menu where the user's own role allows changing it, Remove, and Leave on the user's own row. The last owner isn't offered Leave |
+| `TeamInvitations` | an invite form, by email and role, and the pending invitations with Cancel. Admins aren't offered the owner role |
+| `TeamSettings` | renaming the team, and deleting it after typing its name, for its owners |
+| `AcceptInvitation` | the page an invitation email links to: join, or sign up or in with the invited address first, or sign out of another account |
 | `ConsentScreen` | the approval page for `plugins/oidc`, showing who is signed in and what the app may do. It posts the decision back to the plugin, which checks the request again |
 
 ```svelte

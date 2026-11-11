@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"github.com/Unfield/Tern/accounts"
 	"github.com/Unfield/Tern/kit"
 
 	"{{.Module}}/internal/app"
@@ -14,6 +15,7 @@ type Step struct {
 
 type Page struct {
 	Projects      int           `json:"projects"`
+	Members       int           `json:"members"`
 	Devices       int           `json:"devices"`
 	Passkeys      int           `json:"passkeys"`
 	Recent        []app.Project `json:"recent"`
@@ -23,12 +25,16 @@ type Page struct {
 
 func Load(ctx *kit.Ctx) (Page, error) {
 	a := app.Current
-	u, err := a.Accounts.Require(ctx)
+	m, err := a.Accounts.RequireTeam(ctx)
 	if err != nil {
 		return Page{}, err
 	}
-	c := ctx.Request.Context()
-	projects, err := a.Projects.List(c, u.ID)
+	u := accounts.Current(ctx)
+	projects, err := a.Projects.List(ctx.Request.Context(), m.Team.ID)
+	if err != nil {
+		return Page{}, err
+	}
+	members, err := a.Accounts.Members(ctx)
 	if err != nil {
 		return Page{}, err
 	}
@@ -45,10 +51,11 @@ func Load(ctx *kit.Ctx) (Page, error) {
 		recent = recent[:5]
 	}
 	return Page{
-		Projects: len(projects), Devices: len(sessions), Passkeys: len(keys), Recent: recent, EmailVerified: u.EmailVerified,
+		Projects: len(projects), Members: len(members), Devices: len(sessions), Passkeys: len(keys), Recent: recent, EmailVerified: u.EmailVerified,
 		Steps: []Step{
 			{Label: "Confirm your email address", Href: "/settings", Done: u.EmailVerified},
 			{Label: "Create a project", Href: "/projects", Done: len(projects) > 0},
+			{Label: "Invite your team", Href: "/settings/team", Done: len(members) > 1},
 			{Label: "Add a passkey", Href: "/settings/security", Done: len(keys) > 0},
 			{Label: "Turn on two-step sign-in", Href: "/settings/security", Done: u.TwoStep},
 		},

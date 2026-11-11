@@ -10,7 +10,7 @@
 <svelte:head><title>Dashboard · {{.Name}}</title></svelte:head>
 
 <h1>Dashboard</h1>
-<p class="lead">What’s in your account.</p>
+<p class="lead">What’s in {data.team.team.name}.</p>
 
 {#if !data.emailVerified}
 	<Alert tone="warning" title="Confirm your email address">
@@ -24,6 +24,7 @@
 
 <div class="stats">
 	<Stat label="Projects" value={data.projects} />
+	<Stat label="Members" value={data.members} />
 	<Stat label="Signed-in devices" value={data.devices} />
 	<Stat label="Passkeys" value={data.passkeys} />
 </div>
@@ -61,7 +62,7 @@
 <style>
 	.stats {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
 		gap: 1rem;
 		margin: 1.5rem 0;
 	}

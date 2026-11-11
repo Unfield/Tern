@@ -13,6 +13,12 @@ var Actions = kit.Actions{
 		if err := app.Current.Accounts.SignOut(ctx); err != nil {
 			return nil, err
 		}
-		return nil, kit.Redirect(http.StatusSeeOther, "/")
+		// next, from a form that signs out to come back, such as an
+		// invitation for another address.
+		next := "/"
+		if form, err := ctx.Form(); err == nil && form.Get("next") != "" {
+			next = app.SafeNext(form.Get("next"))
+		}
+		return nil, kit.Redirect(http.StatusSeeOther, next)
 	},
 }

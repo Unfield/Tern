@@ -196,6 +196,17 @@ var policy = rbac.New(map[string][]string{
 
 Owners and admins invite; inviting an owner takes an owner. `FormError` turns each of these errors into a message for the form.
 
+### The screens
+
+Tern UI has a block for each: `NewTeam`, `TeamSwitcher`, `TeamMembers`, `TeamInvitations`, `TeamSettings`, `AcceptInvitation` and `ActivityLog` ([docs/ui.md](ui.md)). The full app that `tern new` makes (the saas template) uses all of them: everyone gets a team at sign-up, projects belong to the team, and the team's settings are at `/settings/team`.
+
+```svelte
+<TeamMembers members={data.members} me={data.me} role={data.team.role} roleAction="?/role" removeAction="?/remove" leaveAction="?/leave" {form} />
+<TeamInvitations invitations={data.invitations} role={data.team.role} inviteAction="?/invite" cancelAction="?/cancel" {form} />
+```
+
+Several blocks on one page share its `form` prop. Each block's forms post a hidden `tern_form` field naming the block, and each block shows only its own errors. Return `{ invited: email }` from the invite action to show "Invitation sent".
+
 ## The audit log
 
 accounts records what happens to accounts and teams: sign-ins and failed ones, sign-outs, password, email and two-step changes, passkeys, linked providers, sessions signed out, and teams created, renamed and deleted, with members invited, joined, changed, removed and leaving. Each entry has the time, who did it, the team, what it happened to, the IP and the device.

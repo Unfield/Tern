@@ -1,0 +1,38 @@
+package newteam
+
+import (
+	"net/http"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	// HasTeam is whether the user can go back to a team they're in.
+	HasTeam bool `json:"hasTeam"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	if _, err := app.Current.Accounts.Require(ctx); err != nil {
+		return Page{}, err
+	}
+	return Page{HasTeam: accounts.CurrentTeam(ctx) != nil}, nil
+}
+
+type NewTeam struct {
+	Name string `form:"name" validate:"required,max=100" label:"Team name"`
+}
+
+var Actions = kit.Actions{
+	"create": kit.FormAction(func(ctx *kit.Ctx, in NewTeam) (struct{}, error) {
+		if _, err := app.Current.Accounts.Require(ctx); err != nil {
+			return struct{}{}, err
+		}
+		if _, err := app.Current.Accounts.CreateTeam(ctx, in.Name); err != nil {
+			return struct{}{}, accounts.FormError(ctx, err)
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/settings/team")
+	}),
+}

@@ -1577,7 +1577,7 @@ Write links with `route()` from `$routes` and `href="%tern.assets%/favicon.svg"`
 
 `tern new` starts a project. Without a directory, it asks its questions, starting with a bare app or a full one; with one, it uses flags:
 
-- **`-template`:** `minimal` (the default), `blog` for Markdown posts with an RSS feed, `api` for typed JSON endpoints with OpenAPI, or `saas` for a full app: accounts with passkeys, two-step sign-in and sign-in with GitHub or Google, a dashboard, settings, and per-user data in SQLite with a migration, styled with Tern UI. Its README lists the settings it reads from the environment.
+- **`-template`:** `minimal` (the default), `blog` for Markdown posts with an RSS feed, `api` for typed JSON endpoints with OpenAPI, or `saas` for a full app: accounts with passkeys, two-step sign-in and sign-in with GitHub or Google, teams with invitations and roles, a dashboard, settings, and per-team data in SQLite with a migration, styled with Tern UI. Its README lists the settings it reads from the environment.
 - **`-ui`:** styles the starter with [Tern UI](ui.md).
 - **`-git`:** creates a git repository with a first commit.
 - **`-install`:** runs `npm install`.

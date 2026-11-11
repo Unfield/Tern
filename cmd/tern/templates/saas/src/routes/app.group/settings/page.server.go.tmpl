@@ -63,18 +63,13 @@ var Actions = kit.Actions{
 	"password": kit.FormAction(func(ctx *kit.Ctx, in Password) (Done, error) {
 		return do(ctx, "password", func() error { return app.Current.Accounts.ChangePassword(ctx, in.Current, in.Password) })
 	}),
-	"delete": func(ctx *kit.Ctx) (any, error) {
-		u, err := app.Current.Accounts.Require(ctx)
-		if err != nil {
-			return nil, err
+	// delete deletes the account, and the teams only this user is in, with
+	// their projects (Options.OnDeleteTeam). A team they own with others in
+	// it needs another owner first.
+	"delete": kit.FormAction(func(ctx *kit.Ctx, _ struct{}) (Done, error) {
+		if _, err := do(ctx, "deleted", func() error { return app.Current.Accounts.DeleteAccount(ctx) }); err != nil {
+			return Done{}, err
 		}
-		// The app's own data first, then the account.
-		if err := app.Current.Projects.DeleteAll(ctx.Request.Context(), u.ID); err != nil {
-			return nil, err
-		}
-		if err := app.Current.Accounts.DeleteAccount(ctx); err != nil {
-			return nil, err
-		}
-		return nil, kit.Redirect(http.StatusSeeOther, "/")
-	},
+		return Done{}, kit.Redirect(http.StatusSeeOther, "/")
+	}),
 }

@@ -150,4 +150,7 @@ func TestClient(t *testing.T) {
 	if p := client.PostForm("/", url.Values{"x": {"1"}}); p.Status != http.StatusSeeOther || p.Location() != "/done" {
 		t.Errorf("post: %d %s", p.Status, p.Location())
 	}
+	if other := client.Browser(); other.URL("/") != client.URL("/") || other.Get("/").Status != 200 {
+		t.Error("Browser isn't the same app")
+	}
 }

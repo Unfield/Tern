@@ -33,12 +33,16 @@ import (
 // used with any server or router; [App.ListenAndServe] runs it with
 // production-ready defaults.
 type App struct {
-	m       *Manifest
-	opts    options
-	router  *routes.Router
-	defs    map[*routes.Route]*RouteDef
-	handler http.Handler
-	logger  *slog.Logger
+	m    *Manifest
+	opts options
+	// cacheOnce makes the default cache on first use; cacheNonce stands
+	// in for the nonce in pages rendered for the cache.
+	cacheOnce  sync.Once
+	cacheNonce string
+	router     *routes.Router
+	defs       map[*routes.Route]*RouteDef
+	handler    http.Handler
+	logger     *slog.Logger
 	// browserErrs limits the browser error reports each address sends.
 	browserErrs browserErrors
 	// tls is how the server terminates TLS, once WrapListener has run.
@@ -106,7 +110,8 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		o.logger = slog.New(h)
 	}
 
-	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux(), ctxMux: http.NewServeMux()}
+	a := &App{m: m, opts: o, logger: o.logger, defs: map[*routes.Route]*RouteDef{}, prerendering: os.Getenv("TERN_PRERENDER") == "1", pluginMux: http.NewServeMux(), ctxMux: http.NewServeMux(),
+		cacheNonce: "tern-cache-nonce-" + newNonce()}
 	a.shutdownCtx, a.beginShutdown = context.WithCancel(context.Background())
 	if m.Live {
 		a.ctxMux.HandleFunc("GET "+LivePath, a.endpointHandler(a.serveLive))
@@ -280,6 +285,7 @@ const dataSuffix = "/__data.json"
 
 func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	orig := r
 
 	if a.dev != nil && a.dev.handles(r) {
 		a.dev.proxy.ServeHTTP(w, r)
@@ -369,11 +375,29 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 	var def *RouteDef
 	if ok {
 		def = a.defs[route]
-		c.routeID = def.ID
+		c.routeID, c.def = def.ID, def
 		nameRequest(r, def.ID)
 		c.params = params
 	}
 	a.resolveLocale(c)
+
+	if def != nil && def.Page != nil && safe {
+		switch {
+		case isData && def.Page.NoCSR:
+			// A page without JavaScript has no data for the client: an
+			// answer that isn't JSON makes the router load it in full.
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case def.Revalidate != 0 && a.dev == nil && !cached(r):
+			if a.servePageCache(w, r, orig, def, isData, c.locale) {
+				return
+			}
+		case cached(r):
+			if rec, ok := w.(*pageRecorder); ok {
+				defer func() { rec.tags = c.rootCtx().tagList() }()
+			}
+		}
+	}
 
 	for _, hook := range a.opts.hooks {
 		if err := a.safely(func() error { return hook(c) }); err != nil {

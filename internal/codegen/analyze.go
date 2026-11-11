@@ -36,9 +36,14 @@ type routePackage struct {
 	methods    []string
 	endpoints  map[string]endpointSig // typed endpoints by method
 	noSSR      bool                   // const SSR = false
+	noCSR      bool                   // const CSR = false
 	prerender  bool                   // const Prerender = true
-	entries    bool                   // func Entries([ctx *kit.Ctx]) ([]map[string]string, error)
-	entriesCtx bool                   // Entries takes a *kit.Ctx
+	// revalidate is how `const Revalidate` is written: "" for none,
+	// "seconds" for a number, "duration" for a time.Duration.
+	revalidate   string
+	cacheControl bool // const CacheControl = "…"
+	entries      bool // func Entries([ctx *kit.Ctx]) ([]map[string]string, error)
+	entriesCtx   bool // Entries takes a *kit.Ctx
 }
 
 // endpointSig is a typed endpoint's input and output; in is nil for
@@ -162,6 +167,35 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 	}
 	if v, ok := boolConst("Prerender"); ok {
 		rp.prerender = v
+	}
+	if v, ok := boolConst("CSR"); ok {
+		rp.noCSR = !v
+		if rp.noCSR && rp.noSSR {
+			errs = append(errs, fmt.Sprintf("%s: a page with SSR = false and CSR = false would render nothing", pos(scope.Lookup("CSR"))))
+		}
+	}
+	if obj := scope.Lookup("Revalidate"); obj != nil {
+		c, ok := obj.(*types.Const)
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Sprintf("%s: Revalidate must be a constant: seconds, or a time.Duration", pos(obj)))
+		case isDuration(c.Type()):
+			rp.revalidate = "duration"
+		default:
+			if b, ok := c.Type().Underlying().(*types.Basic); ok && b.Info()&types.IsInteger != 0 {
+				rp.revalidate = "seconds"
+			} else {
+				errs = append(errs, fmt.Sprintf("%s: Revalidate must be a number of seconds, or a time.Duration", pos(obj)))
+			}
+		}
+	}
+	if obj := scope.Lookup("CacheControl"); obj != nil {
+		c, ok := obj.(*types.Const)
+		if b, isBasic := obj.Type().Underlying().(*types.Basic); !ok || !isBasic || b.Info()&types.IsString == 0 {
+			errs = append(errs, fmt.Sprintf("%s: CacheControl must be a string constant, such as \"public, max-age=60\"", pos(obj)))
+		} else {
+			rp.cacheControl = constant.StringVal(c.Val()) != ""
+		}
 	}
 	if obj := scope.Lookup("Entries"); obj != nil {
 		fn, ok := obj.(*types.Func)
@@ -544,4 +578,10 @@ func routeFile(rel string) string {
 		return path.Join(MarkdownPagesDir, path.Dir(rel), "page.svelte")
 	}
 	return path.Join(RoutesDir, rel)
+}
+
+// isDuration reports whether t is time.Duration.
+func isDuration(t types.Type) bool {
+	n, ok := t.(*types.Named)
+	return ok && n.Obj().Pkg() != nil && n.Obj().Pkg().Path() == "time" && n.Obj().Name() == "Duration"
 }

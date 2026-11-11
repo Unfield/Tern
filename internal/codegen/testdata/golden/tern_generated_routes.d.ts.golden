@@ -7,6 +7,8 @@ export interface Routes {
 	"/api/items/[id]": { id: string | number };
 	"/blog/[slug]": { slug: string | number };
 	"/docs/[...path]": { path?: string | string[] };
+	"/news": Record<string, never>;
+	"/news/latest": Record<string, never>;
 }
 
 /** The app's base path from tern.json, such as '/app', or ''. */

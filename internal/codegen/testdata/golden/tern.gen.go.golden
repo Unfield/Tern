@@ -12,6 +12,8 @@ import (
 	route1 "example.com/app/src/routes/api/items/id.param.integer"
 	route2 "example.com/app/src/routes/blog/slug.param"
 	route3 "example.com/app/src/routes/docs/path.rest"
+	route4 "example.com/app/src/routes/news"
+	route5 "example.com/app/src/routes/news/latest"
 )
 
 //go:embed src/app.html
@@ -36,12 +38,25 @@ var ternManifest = &kit.Manifest{
 	},
 	Routes: []kit.RouteDef{
 		{
+			ID:         "/news/latest",
+			Layouts:    []int{0},
+			Page:       &kit.PageDef{Component: "src/routes/news/latest/+page.svelte"},
+			Revalidate: route5.Revalidate,
+		},
+		{
 			ID:      "/api/items/id.param.integer",
 			Layouts: []int{0},
 			Endpoint: map[string]kit.HandlerFunc{
 				"GET":    route1.GET,
 				"DELETE": route1.DELETE,
 			},
+		},
+		{
+			ID:           "/news",
+			Layouts:      []int{0},
+			Page:         &kit.PageDef{Component: "src/routes/news/+page.svelte", NoCSR: true},
+			Revalidate:   kit.Seconds(route4.Revalidate),
+			CacheControl: route4.CacheControl,
 		},
 		{
 			ID:      "/blog/slug.param",

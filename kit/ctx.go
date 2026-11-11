@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,11 @@ type Ctx struct {
 
 	locale          string
 	localeFromParam bool
+
+	// tags are what Tag named, for the page cache.
+	tags []string
+	// def is the matched route's, or nil.
+	def *RouteDef
 }
 
 var _ context.Context = (*Ctx)(nil)
@@ -274,6 +280,12 @@ func (c *Ctx) rootCtx() *Ctx {
 }
 
 // applyHeaders copies headers and cookies collected so far to the response.
+func (c *Ctx) tagList() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.tags)
+}
+
 func (c *Ctx) applyHeaders() {
 	r := c.rootCtx()
 	r.mu.Lock()

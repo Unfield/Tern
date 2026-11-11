@@ -260,10 +260,23 @@ func (g *generator) goFile() error {
 			if rp != nil && rp.noSSR {
 				b.WriteString(", NoSSR: true")
 			}
+			if rp != nil && rp.noCSR {
+				b.WriteString(", NoCSR: true")
+			}
 			b.WriteString("},\n")
 		}
 		if rp != nil && rp.prerender && (r.Page != "" || slices.Contains(rp.methods, "GET")) {
 			b.WriteString("\t\t\tPrerender: true,\n")
+		}
+		switch {
+		case rp == nil || r.Page == "":
+		case rp.revalidate == "duration":
+			fmt.Fprintf(&b, "\t\t\tRevalidate: %s.Revalidate,\n", rp.alias)
+		case rp.revalidate == "seconds":
+			fmt.Fprintf(&b, "\t\t\tRevalidate: kit.Seconds(%s.Revalidate),\n", rp.alias)
+		}
+		if rp != nil && rp.cacheControl {
+			fmt.Fprintf(&b, "\t\t\tCacheControl: %s.CacheControl,\n", rp.alias)
 		}
 		if rp != nil && rp.entries {
 			if rp.entriesCtx {

@@ -229,11 +229,11 @@ What the SaaS template still leaves to you.
 
 Pages as fast as prerendered ones, with data that changes.
 
-- [ ] Incremental prerendering: a page is rendered on its first request, served from the cache after, and rendered again after a time or when its data changes
-- [ ] Tags on loads and pages, and `kit.Revalidate(tag)` to refresh everything that used some data
-- [ ] A cache for load results, in memory, on disk or in Redis, shared by every process
-- [ ] Cache headers per route, for CDNs in front of the app
-- [ ] Pages with nothing interactive can ship no JavaScript at all
+- [x] Incremental prerendering: a page is rendered on its first request, served from the cache after, and rendered again after a time or when its data changes
+- [x] Tags on loads and pages, and `kit.Revalidate(tag)` to refresh everything that used some data
+- [x] A cache for load results, in memory, on disk or in Redis, shared by every process
+- [x] Cache headers per route, for CDNs in front of the app
+- [x] Pages with nothing interactive can ship no JavaScript at all
 
 ## v1.13: Native rendering, phase 3
 

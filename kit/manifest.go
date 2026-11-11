@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Unfield/Tern/cache"
 	"github.com/Unfield/Tern/goscript"
 	"github.com/Unfield/Tern/native/js"
 	"github.com/Unfield/Tern/report"
@@ -118,6 +119,13 @@ type RouteDef struct {
 	// Entries lists the parameters to prerender a dynamic route with; set
 	// by an exported Entries function in the route's package.
 	Entries func(*Ctx) ([]map[string]string, error)
+	// Revalidate renders the page on demand and caches it for this long,
+	// or until its tags are revalidated with Forever; set by
+	// `const Revalidate = 60` (seconds) in the route's package.
+	Revalidate time.Duration
+	// CacheControl is the Cache-Control header of the route's successful
+	// GET responses, for CDNs and browsers; set by `const CacheControl`.
+	CacheControl string
 }
 
 // PageDef is a route's page.
@@ -129,6 +137,9 @@ type PageDef struct {
 	// NoSSR disables server-side rendering for this page; set by
 	// `const SSR = false` in the route's package.
 	NoSSR bool
+	// NoCSR sends the page without JavaScript: the server's HTML is all
+	// there is, and links to it load it in full. Set by `const CSR = false`.
+	NoCSR bool
 }
 
 // FallbackDef renders 404s for URLs that match no route.
@@ -162,6 +173,7 @@ type options struct {
 	reporter        *report.Reporter
 	plugins         []Plugin
 	csp             string
+	cache           *cache.Cache
 	cspReportOnly   bool
 	ssr             bool
 	ssrWorkers      int

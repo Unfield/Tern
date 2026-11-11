@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Rendering on demand** ([ADR 0021](docs/adr/0021-rendering-on-demand.md), [docs/caching.md](docs/caching.md)):
+  - **Pages:** `const Revalidate = 300` renders a page on its first request and serves it from the cache, rendering it again in the background once it's stale. Cached pages are rendered without the visitor's cookies, so nothing personal can be cached.
+  - **Tags:** `c.Tag` names the data a page used, and `c.Revalidate(tags...)` refreshes everything that used it, in every process.
+  - **The `cache` package:** in memory, on disk or in Redis (`cache/redis`, with no dependency), with tags, stale-while-revalidate and one call per key at a time. `cache.Get` keeps load results in `c.Cache()`.
+  - **Cache headers:** `const CacheControl` sets `Cache-Control` for a route's pages and data, for CDNs.
+  - **No JavaScript:** `const CSR = false` sends a page without scripts.
+
 ## [1.11.0] - 2026-11-12
 
 ### Added

@@ -81,7 +81,11 @@ func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
 	c.applyHeaders()
 	h := c.writer.Header()
 	h.Set("Content-Type", "application/json")
-	h.Set("Cache-Control", "private, no-store")
+	if def := c.rootCtx().def; def != nil && def.CacheControl != "" && status == http.StatusOK {
+		h.Set("Cache-Control", def.CacheControl)
+	} else {
+		h.Set("Cache-Control", "private, no-store")
+	}
 	c.writer.WriteHeader(status)
 	_, _ = c.writer.Write(b)
 	if p.Type == "data" && len(c.pendingDeferreds()) > 0 {
@@ -221,6 +225,11 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 
 	nonce := newNonce()
+	if cached(c.Request) {
+		nonce = a.cacheNonce // each copy served gets a nonce of its own
+	}
+	// A page without JavaScript: its styles, and no scripts or data.
+	noCSR := def != nil && def.Page != nil && def.Page.NoCSR
 	var head strings.Builder
 	shell := a.shell
 	if a.dev != nil {
@@ -237,6 +246,9 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			fmt.Fprintf(&head, "\n\t\t<style data-tern-dev nonce=\"%s\">%s</style>", nonce, css)
 		}
 		for _, src := range a.dev.scripts(a.m.BasePath) {
+			if noCSR && !strings.Contains(src, "@vite/client") {
+				continue // Vite's client stays, for reloading on changes
+			}
 			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(src), nonce)
 		}
 	} else if a.assets != nil {
@@ -253,10 +265,12 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		for _, href := range styles {
 			fmt.Fprintf(&head, "\n\t\t<link rel=\"stylesheet\" href=\"%s\">", html.EscapeString(base+href))
 		}
-		for _, href := range scripts[1:] {
-			fmt.Fprintf(&head, "\n\t\t<link rel=\"modulepreload\" href=\"%s\">", html.EscapeString(base+href))
+		if !noCSR {
+			for _, href := range scripts[1:] {
+				fmt.Fprintf(&head, "\n\t\t<link rel=\"modulepreload\" href=\"%s\">", html.EscapeString(base+href))
+			}
+			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(base+scripts[0]), nonce)
 		}
-		fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(base+scripts[0]), nonce)
 	}
 	for _, fn := range a.head {
 		if h := fn(c, nonce); h != "" {
@@ -264,12 +278,15 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			head.WriteString(h)
 		}
 	}
-	streaming := len(c.pendingDeferreds()) > 0 && c.Request.Method != http.MethodHead
+	streaming := len(c.pendingDeferreds()) > 0 && c.Request.Method != http.MethodHead && !noCSR
 	if streaming {
 		fmt.Fprintf(&head, "\n\t\t<script nonce=\"%s\">%s</script>", nonce, resolveScript)
 	}
 	// The head: the rendered head first, then the assets and the data.
 	headParts := []string{head.String(), "\n\t\t<script type=\"application/json\" id=\"__tern_data\" nonce=\"", nonce, "\">", unsafeString(data), "</script>"}
+	if noCSR {
+		headParts = headParts[:1]
+	}
 	bodyParts := []string{`<div id="tern-root" style="display: contents"></div>`}
 	if a.ssr != nil && (def == nil || def.Page == nil || !def.Page.NoSSR) {
 		ctx := context.WithValue(c.Request.Context(), liveLocalsKey{}, maps.Clone(c.Locals))
@@ -306,6 +323,9 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			name += "-Report-Only"
 		}
 		h.Set(name, withNonce(a.opts.csp, nonce))
+	}
+	if def != nil && def.CacheControl != "" && status == http.StatusOK {
+		h.Set("Cache-Control", def.CacheControl)
 	}
 	if h.Get("Cache-Control") == "" {
 		h.Set("Cache-Control", "private, no-cache")

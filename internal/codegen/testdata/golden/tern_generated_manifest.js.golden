@@ -9,6 +9,18 @@ export const layouts = [
 ];
 
 export const routes = {
+	"/news/latest": {
+		layouts: [0],
+		page: () => import("../../src/routes/news/latest/+page.svelte"),
+		hasLoad: false,
+		errors: [{ layouts: 1, component: () => import("../../src/routes/+error.svelte") }],
+	},
+	"/news": {
+		layouts: [0],
+		page: () => import("../../src/routes/news/+page.svelte"),
+		hasLoad: false,
+		errors: [{ layouts: 1, component: () => import("../../src/routes/+error.svelte") }],
+	},
 	"/blog/slug.param": {
 		layouts: [0, 1],
 		page: () => import("../../src/routes/blog/slug.param/+page.svelte"),

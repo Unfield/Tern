@@ -42,7 +42,7 @@ jobs:
         run: go test -race -count=1 ./...
 
   postgres:
-    name: PostgreSQL and S3
+    name: PostgreSQL, Redis and S3
     # Service containers need a GitHub-hosted runner.
     runs-on: ubuntu-latest
     services:
@@ -55,6 +55,14 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U tern"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 20
@@ -75,11 +83,12 @@ jobs:
             sleep 2
           done
           curl -sf --aws-sigv4 "aws:amz:us-east-1:s3" --user tern:tern-secret-key "http://localhost:8333/tern?list-type=2"
-      - name: Test the database and storage packages against PostgreSQL and S3
+      - name: Test the database, cache and storage packages against PostgreSQL, Redis and S3
         env:
           TERN_TEST_POSTGRES: postgres://tern:tern@localhost:5432/tern?sslmode=disable
+          TERN_TEST_REDIS: redis://localhost:6379/0
           TERN_TEST_S3: http://localhost:8333|us-east-1|tern|tern|tern-secret-key
-        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/ ./storage/ ./realtime/pgbroker/
+        run: go test -race -count=1 -v ./migrate/ ./jobs/ ./sqldb/ ./plugins/oidc/ ./storage/ ./realtime/pgbroker/ ./accounts/ ./billing/ ./cache/...
 
   lint:
     name: Lint

@@ -119,6 +119,22 @@ func Entries() ([]map[string]string, error) {
 }
 `,
 	"src/routes/lang.optional/about/+page.svelte": ``,
+	"src/routes/news/+page.svelte":                ``,
+	"src/routes/news/page.server.go": `package news
+
+const Revalidate = 60
+
+const CacheControl = "public, max-age=60"
+
+const CSR = false
+`,
+	"src/routes/news/latest/+page.svelte": ``,
+	"src/routes/news/latest/page.server.go": `package latest
+
+import "time"
+
+const Revalidate = 5 * time.Minute
+`,
 	"src/routes/api/items/id.param.integer/server.go": `package items
 
 import "github.com/Unfield/Tern/kit"

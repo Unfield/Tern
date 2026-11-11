@@ -91,6 +91,9 @@ Colocated components, styles and Go helpers are fine. The route's Go package doe
 | `const SSR = false` | render this page on the client only |
 | `const Prerender = true` | render this page to static HTML at build time |
 | `func Entries(ctx *kit.Ctx) ([]map[string]string, error)` | parameters to prerender a dynamic route with; `ctx` is optional |
+| `const Revalidate = 300` | render this page on its first request and serve it from the cache for 300 seconds (or a `time.Duration`; `-1` until revalidated). See [docs/caching.md](caching.md) |
+| `const CacheControl = "public, max-age=60"` | the `Cache-Control` header of this route's successful responses |
+| `const CSR = false` | send this page without JavaScript |
 
 By convention the code lives in `page.server.go`, `layout.server.go` and `server.go`, but file names do not matter. Because route directories are normal Go packages, `go test ./...`, `go vet`, gopls and linters work on them as usual.
 
@@ -595,7 +598,7 @@ The function starts immediately. The page renders and is sent with the pending s
 
 ## Prerendering
 
-Pages whose content is the same for everyone can be rendered once at build time:
+Pages whose content is the same for everyone can be rendered once at build time. For pages that change without a build, render them on demand instead: see [docs/caching.md](caching.md).
 
 ```go
 package about

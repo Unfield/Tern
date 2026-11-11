@@ -3,12 +3,14 @@
 	import '@fontsource-variable/jetbrains-mono';
 	import '$lib/global.css';
 	import '$lib/code.css';
-	import { navigating } from '@ternkit/tern';
+	import { navigating, page } from '@ternkit/tern';
 	import Header from '$lib/Header.svelte';
 	import Footer from '$lib/Footer.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
+	// The page's address on tern.land, without a trailing slash.
+	const canonical = $derived('https://tern.land' + (page.url.pathname.replace(/\/+$/, '') || '/'));
 </script>
 
 <svelte:head>
@@ -16,7 +18,9 @@
 	<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 	<meta property="og:site_name" content="Tern" />
 	<meta property="og:type" content="website" />
-	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:card" content="summary" />
+	<link rel="canonical" href={canonical} />
+	<meta property="og:url" content={canonical} />
 </svelte:head>
 
 <a class="skip" href="#main">Skip to content</a>

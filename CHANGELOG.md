@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Sign in with GitHub, Google or OpenID Connect into `accounts`:** `plugins/oauth` takes `Accounts: acc` in place of `OnLogin`. A provider's sign-in joins the account with the same verified email, or creates one, or connects to the signed-in user; `acc.Identities` and `acc.Unlink` manage them, and Tern UI's `LinkedAccounts` shows them. `acc.SignInWith` does it for any provider.
 - `acc.RequestEmailChange` changes a user's email address once they open a link sent to the new one, and tells the old one.
 - `accounts` limits attempts per account and per IP: sign-ins, sign-ups, emails, passkey sign-ins and two-step codes. Past a limit, methods return `ErrTooManyAttempts`.
+- A Benchmarks workflow: every push and pull request renders the benchmark app's pages at the commit before and at the new one, and fails on a significant slowdown of more than 10%. Pushes to `main` also run the comparison with SvelteKit.
 - `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
 - `tern dev` says which routes were added and removed when route directories change.
 

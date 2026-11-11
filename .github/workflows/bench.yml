@@ -1,0 +1,83 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Runner routing is ci.yml's: the self-hosted runner only for pushes, when
+# the repository variable SELF_HOSTED_RUNNER is "true". See
+# infra/github-runner/README.md.
+
+jobs:
+  renders:
+    name: Render benchmarks against the commit before
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNER == 'true' && github.event_name == 'push') && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Compare
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then BASE=HEAD~1; fi
+          ./benchmarks/compare.sh "$BASE"
+
+  vs-sveltekit:
+    name: Tern vs SvelteKit
+    if: github.event_name == 'push'
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile && pnpm --filter @ternkit/tern build
+      - name: Build both apps
+        working-directory: benchmarks/vs-sveltekit
+        run: |
+          (cd tern && npm ci && npm run build)
+          (cd sveltekit && npm ci && npm run build)
+      - name: Run
+        working-directory: benchmarks/vs-sveltekit
+        env:
+          DUR: 5s
+          WARM: 2s
+          WORKERS: 4
+        run: ./run.sh
+      - name: Summary
+        working-directory: benchmarks/vs-sveltekit
+        run: |
+          {
+            echo "### Tern vs SvelteKit (requests per second, p50 / p99 ms, memory)"
+            echo
+            echo "| Scenario | Tern | SvelteKit, 1 process | SvelteKit, cluster |"
+            echo "|---|---|---|---|"
+            jq -rs 'group_by(.scenario)[] | [.[0].scenario, (map({(.server): "\(.rps | floor) · \(.p50_ms) / \(.p99_ms) · \(.rss_mb) MB"}) | add | .tern, .["sveltekit-1"], .["sveltekit-cluster"])] | "| " + join(" | ") + " |"' results.jsonl
+          } >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vs-sveltekit-results
+          path: benchmarks/vs-sveltekit/results.jsonl
+          retention-days: 90

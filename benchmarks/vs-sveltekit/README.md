@@ -42,6 +42,15 @@ With native rendering, Tern is faster than SvelteKit on ten Node processes in ev
   - **Cores:** VMs stop scaling at 4, because the C-to-Go runtime's allocator has one lock ([ADR 0007](../../docs/adr/0007-ssr-throughput-and-memory.md)).
   - **Who it affects:** pages that are different for every user and render a lot of markup, such as signed-in dashboards with big tables.
 
+## In CI
+
+The [Benchmarks workflow](../../.github/workflows/bench.yml) runs on every push and pull request:
+
+- **Render benchmarks:** [benchmarks/compare.sh](../compare.sh) builds this app at the commit before and at the new one, renders `/`, `/items` and `/items/__data.json` in-process (`render_bench_test.go`), alternating between the two on one machine, and compares them with benchstat. It fails when a page is significantly slower by more than 10%.
+- **Tern vs SvelteKit:** on pushes to `main`, `run.sh` runs for 5 seconds per scenario and the table lands in the job summary, with `results.jsonl` kept as an artifact for 90 days. Shared machines are noisy: compare runs with each other, not with the numbers above.
+
+Locally, `./benchmarks/compare.sh main` compares the working tree with `main`.
+
 ## Running it
 
 ```sh

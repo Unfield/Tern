@@ -1,6 +1,19 @@
 # Roadmap
 
-This is the planned order of work. It changes as we learn; the [issue tracker](https://github.com/Unfield/Tern/issues) is the live view.
+This is the planned order of work, released and to come. It changes as we learn; the [issue tracker](https://github.com/Unfield/Tern/issues) is the live view.
+
+Every release keeps the [stability promise](stability.md): apps written for v1.0 keep working, and new features arrive as additions you opt into. A release ships with its docs, tests and an example of the feature in use.
+
+The plan, at a glance:
+
+| Version | Theme |
+|---|---|
+| [v1.9](#v19-logging-security-signals-and-deploying) | Logging, security signals, `tern deploy`, tern.land (done, to be released) |
+| [v1.10](#v110-production-confidence) | Production confidence: tracing, error reports, test helpers |
+| [v1.11](#v111-teams-and-billing) | Teams and billing, for SaaS apps |
+| [v1.12](#v112-rendering-on-demand-and-caching) | Rendering on demand, and caching |
+| [v1.13](#v113-native-rendering-phase-3) | Native rendering, phase 3: no JavaScript engine for most apps |
+| [Later](#later) | Search, feature flags, admin screens, AI, editor support, hosting |
 
 ## v0.1: Foundations (client-rendered)
 
@@ -174,8 +187,84 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] To Fly.io, and to container registries with the platform's deploy command after
 - [x] Providers of your own, as `tern-deploy-<name>` programs
 
-## Next
+**tern.land**
+- [x] The website rebuilt as a Tern app, every page prerendered: a landing page, the docs with search, the decision records and the examples
+- [x] A styled first paint under `tern dev`
 
-**Native rendering**
-- [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: what most of a render's remaining time is
+## v1.10: Production confidence
+
+Knowing what an app does in production, and that it still does it after a change.
+
+**Tracing**
+- [ ] OpenTelemetry spans for each request, and the loads, actions, renders, SQL queries, jobs and outgoing HTTP calls in it, exported over OTLP next to the logs
+- [ ] A waterfall of each request in `tern dev`'s log view
+- [ ] Trace context passed on to outgoing requests and jobs, so a trace follows work across services
+
+**Error reports**
+- [ ] Unexpected errors and panics grouped by cause, with stack traces, the request and the user, and sent to Sentry-compatible services
+- [ ] Browser errors reported to the server the same way
+- [ ] A page in `tern dev` that lists them as they happen
+
+**Testing**
+- [ ] `kit/kittest`: call loads, actions and endpoints from Go tests, as a signed-in user, with a test database that resets
+- [ ] Render a page in a test and query its HTML
+- [ ] Browser tests in the templates, with Playwright set up and an example test
+
+## v1.11: Teams and billing
+
+What the SaaS template still leaves to you.
+
+**Teams**
+- [ ] Organizations in `accounts`: members, invitations by email, roles with `rbac`, and switching between teams
+- [ ] An audit log of account and team events, for users and for support
+- [ ] Tern UI screens for team settings, members and invitations
+
+**Billing**
+- [ ] A billing plugin for Stripe: Checkout, the customer portal, plans and subscriptions, trials, and seats per team
+- [ ] Webhooks verified and processed as jobs, so a slow or repeated event is safe
+- [ ] Limits per plan, checked in loads and actions
+- [ ] Pricing and billing screens in Tern UI, and both in the saas template
+
+## v1.12: Rendering on demand and caching
+
+Pages as fast as prerendered ones, with data that changes.
+
+- [ ] Incremental prerendering: a page is rendered on its first request, served from the cache after, and rendered again after a time or when its data changes
+- [ ] Tags on loads and pages, and `kit.Revalidate(tag)` to refresh everything that used some data
+- [ ] A cache for load results, in memory, on disk or in Redis, shared by every process
+- [ ] Cache headers per route, for CDNs in front of the app
+- [ ] Pages with nothing interactive can ship no JavaScript at all
+
+## v1.13: Native rendering, phase 3
+
+Every page rendered by Go, and smaller binaries.
+
+- [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: most of what a render still costs ([ADR 0013](adr/0013-native-rendering-phase-2.md))
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
+- [ ] `tern build` leaves the JavaScript engine out of apps that don't need it, for smaller binaries
+- [ ] Native rendering for emails and live components too
+
+## Later
+
+Planned, in no fixed order yet. Tell us in the issues which you need first.
+
+**Building**
+- [ ] Full-text search for content collections and app data, on SQLite or PostgreSQL, with a search box in Tern UI
+- [ ] Feature flags and gradual rollouts, decided on the server, per user or team
+- [ ] Admin screens generated from Go structs: lists, filters and forms for an app's own data
+- [ ] Presence and shared state for live components, for collaborative screens
+
+**AI**
+- [ ] Streaming endpoints for model responses, with typed partial results on the client
+- [ ] An app's actions and endpoints served over MCP, so assistants can use the app with the user's permissions
+
+**Tooling**
+- [ ] An editor extension: jump between a page and its Go load, see routes, and get `tern check` errors as you type
+- [ ] `tern add` for plugins, and a list of community plugins on tern.land
+
+**Hosting**
+- [ ] A managed platform made for Tern apps, as a `tern deploy` provider: previews per branch, logs and traces, and databases
+
+**Learning**
+- [ ] A tutorial on tern.land that builds a complete app, one step per page
+- [ ] A showcase of apps built with Tern

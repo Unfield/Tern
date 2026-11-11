@@ -95,14 +95,18 @@ func TestSSHDeploy(t *testing.T) {
 			t.Fatalf("call %v", c.args)
 		}
 	}
-	setup, env, upload, sw := fr.calls[1], fr.calls[2], fr.calls[3], fr.calls[4]
-	for _, want := range []string{"sudo -n useradd --system --home-dir /srv/shop", "/etc/systemd/system/shop@.service", "Type=notify", "Environment=TERN_REUSEPORT=1", "ExecStart=/srv/shop/releases/%i/app", "sudo -n systemctl daemon-reload"} {
+	setup, upload, env, sw := fr.calls[1], fr.calls[2], fr.calls[3], fr.calls[4]
+	for _, want := range []string{"sudo -n useradd --system --home-dir /srv/shop", "/etc/systemd/system/shop@.service", "Type=notify", "Environment=TERN_REUSEPORT=1", "ExecStart=/srv/shop/releases/%i/app", "EnvironmentFile=/srv/shop/releases/%i/.env", "sudo -n systemctl daemon-reload"} {
 		if !strings.Contains(setup.script, want) {
 			t.Errorf("setup lacks %q:\n%s", want, setup.script)
 		}
 	}
 	if got := string(env.stdin); got != "SECRET_KEY=\"s3cr3t value\"\nTERN_TLS_DOMAINS=shop.example.com\n" {
 		t.Errorf("env %q", got)
+	}
+	// Each release has its own environment.
+	if !strings.Contains(env.script, "tee /srv/shop/releases/") || !strings.Contains(env.script, "-v1.2.0-3-gabc/.env") {
+		t.Errorf("env script:\n%s", env.script)
 	}
 	zr, err := gzip.NewReader(bytes.NewReader(upload.stdin))
 	if err != nil {
@@ -114,7 +118,7 @@ func TestSSHDeploy(t *testing.T) {
 	if !strings.Contains(upload.script, "gzip -dc | sudo -n tee /srv/shop/releases/") {
 		t.Errorf("upload:\n%s", upload.script)
 	}
-	for _, want := range []string{"sudo -n systemctl start shop@", "-v1.2.0-3-gabc", "systemctl stop \"$u\"", "ln -sfn releases/", "tail -n +6"} {
+	for _, want := range []string{"sudo -n systemctl start shop@", "-v1.2.0-3-gabc", "systemctl stop \"$u\"", "ln -sfn releases/", "tail -n +6", "sudo -n rm -rf /srv/shop/releases/"} {
 		if !strings.Contains(sw.script, want) {
 			t.Errorf("switch lacks %q:\n%s", want, sw.script)
 		}
@@ -139,6 +143,10 @@ func TestSSHRollback(t *testing.T) {
 	last := fr.calls[len(fr.calls)-1].script
 	if !strings.Contains(last, "systemctl start shop@20261101-100000-a") || strings.Contains(last, "sudo") {
 		t.Errorf("rollback switch:\n%s", last)
+	}
+	// A release rolled back to is kept if it fails to start.
+	if strings.Contains(last, "rm -rf /srv/shop/releases/20261101") {
+		t.Errorf("rollback would remove the release:\n%s", last)
 	}
 }
 

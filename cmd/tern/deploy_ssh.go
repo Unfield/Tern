@@ -21,8 +21,10 @@ import (
 // terminal. On the server:
 //
 //	/srv/<name>/releases/<id>/app   each release's binary
-//	/srv/<name>/shared              the working directory: databases,
-//	                                certificates, .env, kept across releases
+//	/srv/<name>/releases/<id>/.env  and its environment, from tern.json
+//	/srv/<name>/shared              the working directory: databases and
+//	                                certificates, kept across releases
+//	/srv/<name>/shared/.env         variables of your own, if you add it
 //	/srv/<name>/current             → the running release
 //	/etc/systemd/system/<name>@.service
 //
@@ -164,6 +166,7 @@ NotifyAccess=main
 User=` + user + `
 WorkingDirectory=` + dir + `/shared
 EnvironmentFile=-` + dir + `/shared/.env
+EnvironmentFile=` + dir + `/releases/%i/.env
 Environment=TERN_REUSEPORT=1
 ExecStart=` + dir + `/releases/%i/app
 Restart=on-failure
@@ -234,15 +237,6 @@ printf '%%s' %[4]s | %[1]stee /etc/systemd/system/%[5]s@.service >/dev/null
 		}
 		env["PORT"] = strconv.Itoa(port)
 	}
-	envScript := fmt.Sprintf(`set -e
-%[1]stee %[2]s/shared/.env >/dev/null
-%[1]schmod 600 %[2]s/shared/.env
-%[1]schown %[3]s: %[2]s/shared/.env
-`, S, dir, user)
-	if _, err := s.sh(ctx, d, envScript, strings.NewReader(envLines(env))); err != nil {
-		return err
-	}
-
 	f, err := os.Open(bin)
 	if err != nil {
 		return err
@@ -268,9 +262,18 @@ gzip -dc | %[1]stee %[2]s/releases/%[3]s/app.new >/dev/null
 	if _, err := s.sh(ctx, d, upload, pr); err != nil {
 		return err
 	}
+	// The release's environment is part of it: a release that fails to
+	// start, or a restart of the running one, never sees another's.
+	envScript := fmt.Sprintf(`set -e
+%[1]stee %[2]s/releases/%[3]s/.env >/dev/null
+%[1]schmod 600 %[2]s/releases/%[3]s/.env
+`, S, dir, id)
+	if _, err := s.sh(ctx, d, envScript, strings.NewReader(envLines(env))); err != nil {
+		return err
+	}
 	p.Printf("  %s %s %s\n", p.Green("✓"), "Uploaded release "+id, p.Dim(sizeOf(info)+" in "+time.Since(began).Round(100*time.Millisecond).String()))
 
-	if err := s.switchTo(ctx, d, srv, dir, id); err != nil {
+	if err := s.switchTo(ctx, d, srv, dir, id, true); err != nil {
 		return err
 	}
 	if len(d.Domains) > 0 {
@@ -301,19 +304,28 @@ func sudoHint(err error, srv server) error {
 	return err
 }
 
-// switchTo starts release id, and once it is ready stops the others.
-func (s *sshProvider) switchTo(ctx context.Context, d *deployment, srv server, dir, id string) error {
+// errNotStarted is the exit status of the switch script when the new
+// release didn't start.
+const errNotStarted = "exit status 3"
+
+// switchTo starts release id, and once it is ready stops the others. A new
+// release that doesn't start is removed when discard is set.
+func (s *sshProvider) switchTo(ctx context.Context, d *deployment, srv server, dir, id string, discard bool) error {
 	p := d.ui
 	keep := s.c.Keep
 	if keep <= 0 {
 		keep = 5
 	}
 	script := fmt.Sprintf(`set -e
-old=$(systemctl list-units --type=service --state=active --plain --no-legend '%[2]s@*' | awk '{print $1}')
+# The running releases. Listing them can fail without root (no access to
+# the system bus): then stop, rather than leave the old release running.
+units=$(%[1]ssystemctl list-units --type=service --state=active --plain --no-legend '%[2]s@*') || { echo "tern: can't list the running releases" >&2; exit 4; }
+old=$(printf '%%s\n' "$units" | awk 'NF {print $1}')
 if ! %[1]ssystemctl start %[2]s@%[4]s; then
 	echo "tern: release %[4]s didn't start; the running release keeps serving" >&2
 	%[1]sjournalctl -u %[2]s@%[4]s -n 40 --no-pager -o cat >&2 || true
 	%[1]ssystemctl stop %[2]s@%[4]s >/dev/null 2>&1 || true
+	%[6]s
 	exit 3
 fi
 %[1]ssystemctl enable %[2]s@%[4]s >/dev/null 2>&1
@@ -327,19 +339,50 @@ done
 cd %[3]s/releases
 for r in $(ls -1 | sort -r | tail -n +%[5]d); do
 	[ "$r" = "%[4]s" ] && continue
-	systemctl is-active --quiet "%[2]s@$r" && continue
+	%[1]ssystemctl is-active --quiet "%[2]s@$r" && continue
 	%[1]srm -rf "%[3]s/releases/$r"
 done
-`, srv.sudo, d.Name, dir, id, keep+1)
+`, srv.sudo, d.Name, dir, id, keep+1, discardCmd(srv, dir, id, discard))
 	s0 := p.Spin("Starting release " + id)
 	out, err := s.sh(ctx, d, script, nil)
 	if err != nil {
 		s0.Fail()
+		if msg, ok := strings.CutPrefix(err.Error(), "ssh: "+errNotStarted+"\n"); ok {
+			// The script printed the release's log: show it under the error.
+			lines := strings.Split(strings.TrimSpace(msg), "\n")
+			var log []string
+			for _, l := range lines {
+				if !strings.HasPrefix(l, "tern: ") && !strings.HasPrefix(l, "Job for ") && !strings.HasPrefix(l, "See \"systemctl") {
+					log = append(log, "  "+l)
+				}
+			}
+			kept := "the running release keeps serving"
+			if discard {
+				kept += "; the new one was removed"
+			}
+			return fmt.Errorf("release %s didn't start, so %s. Its log:\n%s", id, kept, strings.Join(log, "\n"))
+		}
 		return err
 	}
-	s0.Done("ready; the old release stopped after its requests")
-	indent(p, out)
+	stopped := 0
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(l, "stopped ") {
+			stopped++
+		}
+	}
+	if stopped > 0 {
+		s0.Done("ready; the old release stopped after its requests")
+	} else {
+		s0.Done("ready")
+	}
 	return nil
+}
+
+func discardCmd(srv server, dir, id string, discard bool) string {
+	if !discard {
+		return ":"
+	}
+	return srv.sudo + "rm -rf " + dir + "/releases/" + id
 }
 
 // releaseID names a release by its time, then its version, so names sort
@@ -392,7 +435,7 @@ func (s *sshProvider) rollback(ctx context.Context, d *deployment) error {
 		return errors.New("there is no release before the current one to go back to")
 	}
 	d.ui.Printf("\n  %s %s → %s\n\n", d.ui.Brand(d.ui.Bold("tern deploy")), d.ui.Dim(current), d.ui.Bold(list[i-1]))
-	return s.switchTo(ctx, d, srv, dir, list[i-1])
+	return s.switchTo(ctx, d, srv, dir, list[i-1], false)
 }
 
 func (s *sshProvider) releases(ctx context.Context, d *deployment) error {
@@ -422,7 +465,9 @@ func (s *sshProvider) logs(ctx context.Context, d *deployment) error {
 	if _, _, err := s.settings(d); err != nil {
 		return err
 	}
-	args := append(s.sshArgs(), s.c.Host, "journalctl -u "+shQuote(d.Name+"@*")+" -n 100 -f --no-pager -o short-iso")
+	// Reading the system journal needs root, or sudo.
+	cmd := `S=; [ "$(id -u)" = 0 ] || S="sudo -n"; $S journalctl -u ` + shQuote(d.Name+"@*") + ` -n 100 -f --no-pager -o short-iso`
+	args := append(s.sshArgs(), s.c.Host, "sh -c "+shQuote(cmd))
 	err := s.run.stream(ctx, d.Root, nil, d.stdout, d.stderr, "ssh", args...)
 	if ctx.Err() != nil {
 		return nil //nolint:nilerr // stopped with ^C: not a failure
@@ -435,6 +480,8 @@ func buildFor(d *deployment, goos, goarch string) (string, error) {
 	out := filepath.Join("build", "deploy", d.Name+"-"+goos+"-"+goarch)
 	restore := setEnv(map[string]string{"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0"})
 	defer restore()
+	buildRunHint = false
+	defer func() { buildRunHint = true }()
 	if code := cmdBuild([]string{"-o", out}, d.stdout, d.stderr); code != 0 {
 		return "", errors.New("the build failed")
 	}

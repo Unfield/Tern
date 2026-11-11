@@ -171,7 +171,11 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	p.Printf("  %s %s %s\n", p.Green("✓"), p.Bold("Built "+*out), p.Dim("in "+ui.Duration(time.Since(start))))
 	p.Printf("    %s %s\n", p.Dim("binary "), ui.Size(binSize))
 	p.Printf("    %s %s %s\n", p.Dim("client "), ui.Size(raw), p.Dim("("+ui.Size(gz)+" gzipped)"))
-	p.Printf("\n  Run it with %s\n\n", p.Cyan("./"+filepath.ToSlash(*out)))
+	if buildRunHint {
+		p.Printf("\n  Run it with %s\n\n", p.Cyan("./"+filepath.ToSlash(*out)))
+	} else {
+		p.Println()
+	}
 	return 0
 }
 
@@ -197,6 +201,10 @@ func crossBuild() bool {
 	goos, goarch := os.Getenv("GOOS"), os.Getenv("GOARCH")
 	return goos != "" && goos != runtime.GOOS || goarch != "" && goarch != runtime.GOARCH
 }
+
+// buildRunHint is whether tern build ends by saying how to run the
+// binary; tern deploy, which runs it elsewhere, turns it off.
+var buildRunHint = true
 
 func plural(n int, noun string) string {
 	if n == 1 {

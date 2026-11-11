@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -404,14 +403,6 @@ func (execRunner) stream(ctx context.Context, dir string, stdin io.Reader, out, 
 		return fmt.Errorf("%s: %w", name, err)
 	}
 	return nil
-}
-
-// indent writes a command's output under a step, dimmed.
-func indent(p *ui.Printer, out []byte) {
-	sc := bufio.NewScanner(bytes.NewReader(out))
-	for sc.Scan() {
-		p.Printf("    %s\n", p.Dim(sc.Text()))
-	}
 }
 
 // externalProvider runs tern-deploy-<name> with the deployment as JSON on

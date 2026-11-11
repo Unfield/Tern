@@ -50,11 +50,11 @@ Every target takes these fields:
 The `ssh` provider needs a Linux server with systemd, any of the common distributions, and `ssh` on your machine. It uses your `~/.ssh/config`, keys and agent, as `ssh` in a terminal does. On every deploy it:
 1. Connects and finds the server's architecture, then builds for it (`linux/amd64`, `arm64`…).
 2. Creates a system user for the app and a systemd unit, `<name>@.service`, the first time. It needs root or sudo without a password.
-3. Uploads the binary, compressed, as a new release in `/srv/<name>/releases/`, and writes the environment to `/srv/<name>/shared/.env`. `shared` is the app's working directory, kept across releases: put SQLite databases there.
+3. Uploads the binary, compressed, as a new release in `/srv/<name>/releases/`, with the target's environment in the release's own `.env`. A release that fails, or a later restart, never sees another release's settings. `/srv/<name>/shared` is the app's working directory, kept across releases: put SQLite databases there. Variables you keep on the server, outside `tern.json`, go in `shared/.env`; the release's win over them.
 4. Starts the new release next to the running one, on the same port, and waits until it reports that it is ready: its migrations and start functions have run and it is listening. Only then is the old release stopped, and it finishes the requests it has. No request is refused while this happens.
 5. Keeps the last five releases for `-rollback`.
 
-If the new release doesn't start, its log is shown, it is stopped, and the old release keeps serving.
+If the new release doesn't start, its log is shown, it is stopped and removed, and the old release keeps serving.
 
 With `domains`, the app serves HTTPS itself on ports 443 and 80, with certificates from Let's Encrypt ([HTTPS without a proxy](#https-without-a-proxy)), so the server needs nothing but systemd. Point the domains' DNS at the server first. Without domains, the app listens on port 3000 (`appPort`), for a proxy in front.
 

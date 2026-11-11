@@ -99,6 +99,7 @@ func list() ([]*Page, error) {
 			{Source: "docs/guide.md", Slug: "guide", Title: "Guide", Section: "Getting started", Summary: "Everything a Tern app is made of, from routes to realtime."},
 			{Source: "docs/migrating-from-sveltekit.md", Slug: "migrating-from-sveltekit", Title: "Coming from SvelteKit", Section: "Getting started"},
 			{Source: "docs/accounts.md", Slug: "accounts", Title: "Accounts", Section: "Building"},
+			{Source: "docs/billing.md", Slug: "billing", Title: "Billing", Section: "Building"},
 			{Source: "docs/ui.md", Slug: "ui", Title: "Tern UI", Section: "Building"},
 			{Source: "docs/live-components.md", Slug: "live-components", Title: "Live components", Section: "Building"},
 			{Source: "docs/logging.md", Slug: "logging", Title: "Logging", Section: "Building"},

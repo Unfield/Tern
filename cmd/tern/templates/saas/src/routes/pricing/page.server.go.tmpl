@@ -1,0 +1,72 @@
+package pricing
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/billing"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Page struct {
+	Plans []billing.Plan `json:"plans"`
+	// Current is the team's plan, "" when signed out.
+	Current  string `json:"current"`
+	SignedIn bool   `json:"signedIn"`
+	// Manages is whether the user may change the team's plan.
+	Manages bool `json:"manages"`
+	// Trial is whether the plans' trials apply: to teams that never
+	// subscribed.
+	Trial bool `json:"trial"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	b := app.Current.Billing
+	p := Page{Plans: b.Plans(), SignedIn: accounts.Current(ctx) != nil, Trial: true}
+	if m := accounts.CurrentTeam(ctx); m != nil {
+		plan, sub, err := b.Current(ctx.Request.Context(), app.Owner(m.Team.ID))
+		if err != nil {
+			return Page{}, err
+		}
+		p.Current, p.Manages, p.Trial = plan.ID, m.Manages(), sub == nil
+	}
+	return p, nil
+}
+
+type Choice struct {
+	Plan     string `form:"plan" validate:"required"`
+	Interval string `form:"interval" validate:"required"`
+}
+
+var Actions = kit.Actions{
+	// checkout sends the team's owner or admin to Stripe Checkout, which
+	// comes back to the billing settings.
+	"checkout": kit.FormAction(func(ctx *kit.Ctx, in Choice) (struct{}, error) {
+		m, err := app.Current.Accounts.RequireTeam(ctx)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if !m.Manages() {
+			return struct{}{}, kit.FormError("Ask an owner or admin of the team to change its plan.")
+		}
+		members, err := app.Current.Accounts.Members(ctx)
+		if err != nil {
+			return struct{}{}, err
+		}
+		url, err := app.Current.Billing.Checkout(ctx, billing.CheckoutOptions{
+			Owner: app.Owner(m.Team.ID), Plan: in.Plan, Interval: billing.Interval(in.Interval),
+			Email: accounts.Current(ctx).Email, Seats: len(members),
+			SuccessURL: "/settings/billing?subscribed=1", CancelURL: "/pricing",
+		})
+		if errors.Is(err, billing.ErrNotSet) {
+			return struct{}{}, kit.FormError("Billing isn’t set up yet: set STRIPE_SECRET_KEY (see .env.example).")
+		}
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, url)
+	}),
+}

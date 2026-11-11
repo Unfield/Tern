@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/billing"
 	"github.com/Unfield/Tern/kit"
 
 	"{{.Module}}/internal/app"
@@ -57,7 +58,16 @@ var Actions = kit.Actions{
 		if err != nil {
 			return Done{}, err
 		}
-		p, err := app.Current.Projects.Create(ctx.Request.Context(), m.Team.ID, accounts.Current(ctx).ID, in.Name, in.Description)
+		// The plan's limit: the free plan has a few projects.
+		c := ctx.Request.Context()
+		n, err := app.Current.Projects.Count(c, m.Team.ID)
+		if err != nil {
+			return Done{}, err
+		}
+		if err := app.Current.Billing.Check(c, app.Owner(m.Team.ID), "projects", n); err != nil {
+			return Done{}, billing.FormError(ctx, err)
+		}
+		p, err := app.Current.Projects.Create(c, m.Team.ID, accounts.Current(ctx).ID, in.Name, in.Description)
 		return Done{Done: "created", ID: p.ID}, err
 	}),
 	"update": kit.FormAction(func(ctx *kit.Ctx, in Edit) (Done, error) {

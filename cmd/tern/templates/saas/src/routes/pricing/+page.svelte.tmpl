@@ -1,0 +1,88 @@
+<script lang="ts">
+	import { Button, PricingTable } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+	const limitLabels = { projects: '{n} projects', members: 'Up to {n} members' };
+</script>
+
+<svelte:head>
+	<title>Pricing · {{.Name}}</title>
+	<meta name="description" content="{{.Name}}’s plans and prices." />
+</svelte:head>
+
+<header class="top">
+	<a class="brand" href="/">{{.Name}}</a>
+	<nav aria-label="Account">
+		{#if data.signedIn}
+			<Button href="/dashboard" size="sm">Go to the dashboard</Button>
+		{:else}
+			<Button href="/login" variant="ghost" size="sm">Sign in</Button>
+			<Button href="/signup" size="sm">Get started</Button>
+		{/if}
+	</nav>
+</header>
+
+<main>
+	<div class="intro">
+		<h1>Pricing</h1>
+		<p>Start for free. Upgrade when your team needs more, and pay per member.</p>
+	</div>
+	<PricingTable
+		plans={data.plans}
+		current={data.current || undefined}
+		trial={data.trial}
+		action={data.manages ? '?/checkout' : undefined}
+		href={data.signedIn ? undefined : '/signup'}
+		{limitLabels}
+		{form}
+	/>
+	{#if data.signedIn && !data.manages}
+		<p class="note">Only the team’s owners and admins can change its plan.</p>
+	{/if}
+</main>
+
+<style>
+	.top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 1rem 1.5rem;
+	}
+	.brand {
+		font-weight: 700;
+		color: var(--tern-fg);
+		text-decoration: none;
+	}
+	nav {
+		display: flex;
+		gap: 0.5rem;
+	}
+	main {
+		max-width: 52rem;
+		margin: 0 auto;
+		padding: 2rem 1.5rem 5rem;
+	}
+	.intro {
+		margin-bottom: 2rem;
+		text-align: center;
+	}
+	h1 {
+		margin: 0 0 0.5rem;
+		font-size: clamp(2rem, 5vw, 2.75rem);
+		letter-spacing: -0.03em;
+	}
+	.intro p,
+	.note {
+		margin: 0;
+		color: var(--tern-muted);
+	}
+	.note {
+		margin-top: 1.5rem;
+		text-align: center;
+		font-size: 0.875rem;
+	}
+</style>

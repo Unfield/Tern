@@ -42,8 +42,13 @@ var Actions = kit.Actions{
 		if _, err := app.Current.Accounts.Require(ctx); err != nil {
 			return struct{}{}, err
 		}
-		if _, err := app.Current.Accounts.AcceptInvitation(ctx, in.Token); err != nil {
+		m, err := app.Current.Accounts.AcceptInvitation(ctx, in.Token)
+		if err != nil {
 			return struct{}{}, accounts.FormError(ctx, err)
+		}
+		// A per-member plan is charged for one more.
+		if err := app.Current.SyncSeats(ctx.Request.Context(), m.Team.ID); err != nil {
+			return struct{}{}, err
 		}
 		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
 	}),

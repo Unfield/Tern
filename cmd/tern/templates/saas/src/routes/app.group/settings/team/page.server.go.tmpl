@@ -3,8 +3,10 @@ package team
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/billing"
 	"github.com/Unfield/Tern/kit"
 
 	"{{.Module}}/internal/app"
@@ -87,6 +89,16 @@ var Actions = kit.Actions{
 	}),
 	"invite": kit.FormAction(func(ctx *kit.Ctx, in Invite) (Done, error) {
 		d, err := do(ctx, "invited", func() error {
+			// The plan's limit on members counts those invited, too.
+			m := accounts.CurrentTeam(ctx)
+			var n int
+			if err := app.Current.DB.QueryRowContext(ctx.Request.Context(), `SELECT (SELECT COUNT(*) FROM tern_members WHERE team_id = ?) + (SELECT COUNT(*) FROM tern_invitations WHERE team_id = ? AND expires_at > ?)`,
+				m.Team.ID, m.Team.ID, time.Now().UnixMilli()).Scan(&n); err != nil {
+				return err
+			}
+			if err := app.Current.Billing.Check(ctx.Request.Context(), app.Owner(m.Team.ID), "members", n); err != nil {
+				return billing.FormError(ctx, err)
+			}
 			_, err := app.Current.Accounts.Invite(ctx, in.Email, in.Role)
 			return err
 		})
@@ -100,11 +112,23 @@ var Actions = kit.Actions{
 		return do(ctx, "role", func() error { return app.Current.Accounts.SetRole(ctx, in.User, in.Role) })
 	}),
 	"remove": kit.FormAction(func(ctx *kit.Ctx, in Member) (Done, error) {
-		return do(ctx, "removed", func() error { return app.Current.Accounts.RemoveMember(ctx, in.User) })
+		team := accounts.CurrentTeam(ctx)
+		d, err := do(ctx, "removed", func() error { return app.Current.Accounts.RemoveMember(ctx, in.User) })
+		if err == nil && team != nil {
+			// A per-member plan is charged for one fewer.
+			err = app.Current.SyncSeats(ctx.Request.Context(), team.Team.ID)
+		}
+		return d, err
 	}),
 	"leave": kit.FormAction(func(ctx *kit.Ctx, _ struct{}) (Done, error) {
+		team := accounts.CurrentTeam(ctx)
 		if _, err := do(ctx, "left", func() error { return app.Current.Accounts.LeaveTeam(ctx) }); err != nil {
 			return Done{}, err
+		}
+		if team != nil {
+			if err := app.Current.SyncSeats(ctx.Request.Context(), team.Team.ID); err != nil {
+				return Done{}, err
+			}
 		}
 		return Done{}, kit.Redirect(http.StatusSeeOther, "/dashboard")
 	}),

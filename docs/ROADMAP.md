@@ -220,10 +220,10 @@ What the SaaS template still leaves to you.
 - [x] Tern UI screens for team settings, members and invitations
 
 **Billing**
-- [ ] A billing plugin for Stripe: Checkout, the customer portal, plans and subscriptions, trials, and seats per team
-- [ ] Webhooks verified and processed as jobs, so a slow or repeated event is safe
-- [ ] Limits per plan, checked in loads and actions
-- [ ] Pricing and billing screens in Tern UI, and both in the saas template
+- [x] A billing plugin for Stripe: Checkout, the customer portal, plans and subscriptions, trials, and seats per team
+- [x] Webhooks verified and processed as jobs, so a slow or repeated event is safe
+- [x] Limits per plan, checked in loads and actions
+- [x] Pricing and billing screens in Tern UI, and both in the saas template
 
 ## v1.12: Rendering on demand and caching
 

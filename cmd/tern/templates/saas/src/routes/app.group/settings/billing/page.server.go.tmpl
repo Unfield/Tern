@@ -1,0 +1,79 @@
+package billingsettings
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/billing"
+	"github.com/Unfield/Tern/kit"
+
+	"{{.Module}}/internal/app"
+)
+
+type Usage struct {
+	Limit string `json:"limit"`
+	Label string `json:"label"`
+	Used  int    `json:"used"`
+}
+
+type Page struct {
+	Plan         billing.Plan          `json:"plan"`
+	Subscription *billing.Subscription `json:"subscription"`
+	Usage        []Usage               `json:"usage"`
+	Manages      bool                  `json:"manages"`
+	// Subscribed is true back from Checkout, before the webhook may have
+	// arrived.
+	Subscribed bool `json:"subscribed"`
+}
+
+func Load(ctx *kit.Ctx) (Page, error) {
+	a := app.Current
+	m, err := a.Accounts.RequireTeam(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	c := ctx.Request.Context()
+	plan, sub, err := a.Billing.Current(c, app.Owner(m.Team.ID))
+	if err != nil {
+		return Page{}, err
+	}
+	projects, err := a.Projects.Count(c, m.Team.ID)
+	if err != nil {
+		return Page{}, err
+	}
+	members, err := a.Accounts.Members(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{
+		Plan: plan, Subscription: sub, Manages: m.Manages(),
+		Usage: []Usage{
+			{Limit: "projects", Label: "Projects", Used: projects},
+			{Limit: "members", Label: "Members", Used: len(members)},
+		},
+		Subscribed: ctx.URL().Query().Get("subscribed") == "1",
+	}, nil
+}
+
+var Actions = kit.Actions{
+	// portal opens Stripe's customer portal, to change the plan or the
+	// card, see invoices, or cancel.
+	"portal": kit.FormAction(func(ctx *kit.Ctx, _ struct{}) (struct{}, error) {
+		m, err := app.Current.Accounts.RequireTeam(ctx)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if !m.Manages() {
+			return struct{}{}, accounts.FormError(ctx, accounts.ErrNotAllowed)
+		}
+		url, err := app.Current.Billing.Portal(ctx, app.Owner(m.Team.ID), "/settings/billing")
+		if errors.Is(err, billing.ErrNotSet) {
+			return struct{}{}, kit.FormError("Billing isn’t set up yet: set STRIPE_SECRET_KEY (see .env.example).")
+		}
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, kit.Redirect(http.StatusSeeOther, url)
+	}),
+}

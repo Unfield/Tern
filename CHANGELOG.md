@@ -15,6 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **The app's data:** `Options.OnDeleteTeam` deletes it before a team goes.
 - **Team screens in Tern UI:** `NewTeam`, `TeamSwitcher`, `TeamMembers`, `TeamInvitations`, `TeamSettings`, `AcceptInvitation` and `ActivityLog`.
 - **The saas template has teams:** everyone gets a team at sign-up, projects belong to the team, and `/settings/team` has the members, invitations and the team's activity. The security page shows the user's own activity, and the dashboard counts members.
+- **Billing with Stripe** ([ADR 0020](docs/adr/0020-billing.md), [docs/billing.md](docs/billing.md)):
+  - **Plans in Go**, with Stripe's prices, trials, seats per member, limits and features.
+  - **Subscribing:** `b.Checkout` starts Stripe Checkout, and `b.Portal` opens the customer portal.
+  - **Webhooks:** verified, recorded once, and processed as jobs that fetch the subscription from Stripe, so repeated, late and out-of-order events are safe.
+  - **Limits:** `b.Check` and `b.Has` check a plan's limits and features in loads and actions, with messages for forms and a 402 for endpoints.
+  - **Screens:** Tern UI's `PricingTable` and `BillingSettings`.
+- **The saas template bills teams:** a free plan with limits and a per-member Pro plan with a trial, a `/pricing` page, `/settings/billing` with the usage, and seats kept in step with members. Without Stripe's key, every team is on the free plan.
 - `kittest.Client.Browser` returns a second client of the same app, with no cookies of its own.
 - **An audit log in `accounts`:** sign-ins and failed ones, password, email and two-step changes, passkeys, sessions, and team and member events, with the IP and device. Users see their own (`acc.Activity`), team admins their team's (`acc.TeamActivity`), and support tools anyone's (`acc.AuditEntries`). Apps add events with `acc.Audit`.
 

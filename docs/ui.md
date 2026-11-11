@@ -157,6 +157,8 @@ Whole screens, wired to Tern's plugins:
 | `TeamInvitations` | an invite form, by email and role, and the pending invitations with Cancel. Admins aren't offered the owner role |
 | `TeamSettings` | renaming the team, and deleting it after typing its name, for its owners |
 | `AcceptInvitation` | the page an invitation email links to: join, or sign up or in with the invited address first, or sign out of another account |
+| `PricingTable` | the plans from `billing`, by month or year with the yearly saving, each with its price, trial, limits and features, and a button that posts to a checkout action, or links to sign up |
+| `BillingSettings` | the plan that applies, when it renews, ends or its trial does, a failed payment, how much of each limit is used, and buttons for Stripe's portal and the pricing page |
 | `ConsentScreen` | the approval page for `plugins/oidc`, showing who is signed in and what the app may do. It posts the decision back to the plugin, which checks the request again |
 
 ```svelte

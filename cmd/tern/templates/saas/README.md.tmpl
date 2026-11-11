@@ -4,6 +4,7 @@ A [Tern](https://github.com/Unfield/Tern) app with accounts, settings and a dash
 
 - **Accounts:** sign-up with email verification, password resets, passkeys, two-step sign-in with an authenticator app, and sign-in with GitHub or Google when their keys are set. See [docs/accounts.md](https://github.com/Unfield/Tern/blob/main/docs/accounts.md).
 - **Teams:** everyone gets a team at sign-up, invites others by email, and gives each an owner, admin or member role. Users switch between their teams in the sidebar. `/settings/team` has the members, invitations and the team's activity.
+- **Billing:** a free plan and a paid one per member, with a trial, through Stripe Checkout and its customer portal. The free plan's limits are checked when creating projects and inviting. Plans are in `internal/app/plans.go`; `/pricing` shows them and `/settings/billing` the team's.
 - **Settings:** profile, email address, password, the devices you're signed in on, connected accounts, recent activity, and deleting the account.
 - **Projects:** an example of your app's own data, per team, in SQLite with a migration. Replace it with what your app keeps, with a `team_id` on each row.
 
@@ -37,6 +38,8 @@ The app reads them from the environment, and `tern dev` also from a `.env` file:
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | sign-in with GitHub; the callback URL is `<BASE_URL>/auth/github/callback` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | sign-in with Google; the callback URL is `<BASE_URL>/auth/google/callback` |
 | `OAUTH_SECRET` | at least 32 random characters, when GitHub or Google is set |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | billing with Stripe: the API key, and the webhook's signing secret. Without the key, every team is on the free plan |
+| `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | the IDs of the Pro plan's prices in Stripe |
 | `TRUSTED_PROXIES` | the addresses of your reverse proxies, comma-separated, so visitors' own addresses are seen |
 | `APP_NAME` | the name authenticator apps and passkey prompts show |
 
@@ -54,3 +57,12 @@ src/routes/
 ```
 
 `auth.group` and `app.group` give their pages a layout without adding to their URLs.
+
+## Billing
+
+1. In Stripe's dashboard (test mode first), make a product with a monthly and a yearly price, charged per unit, and set their IDs as `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`.
+2. Set `STRIPE_SECRET_KEY` to the secret key.
+3. Forward webhooks to the app: in development, `stripe listen --forward-to localhost:5173/_tern/billing/webhook` prints the secret for `STRIPE_WEBHOOK_SECRET`. In production, add an endpoint at `<BASE_URL>/_tern/billing/webhook` for the `customer.subscription.*`, `checkout.session.completed` and `invoice.*` events.
+4. Turn on the customer portal in Stripe's billing settings, so teams can change their plan, update the card and cancel.
+
+Webhooks are processed as background jobs, and each fetches the subscription from Stripe, so a repeated or late event is safe. See [docs/billing.md](https://github.com/Unfield/Tern/blob/main/docs/billing.md).

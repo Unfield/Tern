@@ -19,6 +19,7 @@
 <header class="top">
 	<a class="brand" href="/">{{.Name}}</a>
 	<nav aria-label="Account">
+		<Button href="/pricing" variant="ghost" size="sm">Pricing</Button>
 		{#if data.user}
 			<Button href="/dashboard" size="sm">Go to the dashboard</Button>
 		{:else}

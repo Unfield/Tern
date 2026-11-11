@@ -48,6 +48,7 @@ func newServer(logger *slog.Logger) (*kit.App, error) {
 		migrate.Plugin(a.DB, migrations.FS),
 		a.Jobs,
 		a.Accounts,
+		a.Billing,
 		health.New(health.Check("database", a.DB.PingContext)),
 		requestlog.New(requestlog.SkipAssets()),
 		compress.New(),

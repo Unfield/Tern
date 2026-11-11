@@ -69,6 +69,8 @@ export { default as TeamSwitcher } from './TeamSwitcher.svelte';
 export { default as NewTeam } from './NewTeam.svelte';
 export { default as AcceptInvitation } from './AcceptInvitation.svelte';
 export { default as ActivityLog } from './ActivityLog.svelte';
+export { default as PricingTable } from './PricingTable.svelte';
+export { default as BillingSettings } from './BillingSettings.svelte';
 export { default as Skeleton } from './Skeleton.svelte';
 export { default as Slider } from './Slider.svelte';
 export { default as Sparkline } from './Sparkline.svelte';

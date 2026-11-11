@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"io"
 	"net/url"
@@ -58,5 +59,25 @@ func TestInvitingATeammate(t *testing.T) {
 	visitor := ada.Browser()
 	if page := visitor.Get("/invitation?token=nope"); page.Status != 200 || !strings.Contains(page.Body, "doesn’t work") {
 		t.Errorf("an invalid invitation: %d", page.Status)
+	}
+}
+
+func TestFreePlanLimits(t *testing.T) {
+	client := newClient(t)
+	client.PostForm("/signup", url.Values{"name": {"Ada"}, "email": {"ada@example.com"}, "password": {"a long enough password"}})
+	for i := range 3 {
+		if page := client.PostForm("/projects?/create", url.Values{"name": {fmt.Sprint("Project ", i)}}); page.Status != 200 {
+			t.Fatalf("project %d: %d", i, page.Status)
+		}
+	}
+	// The free plan has three: the fourth asks to upgrade.
+	if page := client.PostForm("/projects?/create", url.Values{"name": {"One too many"}}); page.Status != 400 || !strings.Contains(page.Body, "Upgrade") {
+		t.Fatalf("past the limit: %d %s", page.Status, page.Body)
+	}
+	if page := client.Get("/pricing"); page.Status != 200 || !page.Has("form input[value=pro]") {
+		t.Errorf("the pricing page: %d", page.Status)
+	}
+	if page := client.Get("/settings/billing"); page.Status != 200 || !strings.Contains(page.Body, "3 of 3") {
+		t.Errorf("the billing page: %d", page.Status)
 	}
 }

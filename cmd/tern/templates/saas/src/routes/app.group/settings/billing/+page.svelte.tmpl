@@ -1,0 +1,36 @@
+<script lang="ts">
+	import { Alert, BillingSettings, Card } from '@ternkit/tern/ui';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+</script>
+
+<svelte:head><title>Billing · {{.Name}}</title></svelte:head>
+
+<h1>Billing</h1>
+<p class="lead">The team’s plan, what it uses of it, and its invoices.</p>
+
+{#if data.subscribed && !data.subscription}
+	<Alert tone="success" live>Thanks! Your subscription starts as soon as Stripe confirms it, in a moment.</Alert>
+{/if}
+
+<div class="sections">
+	<Card>
+		<BillingSettings
+			plan={data.plan}
+			subscription={data.subscription}
+			usage={data.usage}
+			portalAction={data.manages ? '?/portal' : undefined}
+			pricingHref={data.manages ? '/pricing' : undefined}
+			{form}
+		/>
+	</Card>
+</div>
+
+<style>
+	.sections {
+		display: grid;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+</style>

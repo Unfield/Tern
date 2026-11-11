@@ -1,5 +1,5 @@
 // Package app holds what the routes share: the database, user accounts
-// and their teams, email and background jobs.
+// and their teams, billing, email and background jobs.
 package app
 
 import (
@@ -13,6 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/billing"
 	"github.com/Unfield/Tern/jobs"
 	"github.com/Unfield/Tern/mail"
 	"github.com/Unfield/Tern/plugins/oauth"
@@ -22,6 +23,7 @@ import (
 type App struct {
 	DB       *sql.DB
 	Accounts *accounts.Accounts
+	Billing  *billing.Billing
 	Jobs     *jobs.Queue
 	// OAuth is sign-in with GitHub and Google, when their keys are set.
 	OAuth *oauth.Plugin
@@ -64,7 +66,19 @@ func Open(logger *slog.Logger) (*App, error) {
 	if err := acc.Migrate(context.Background()); err != nil {
 		return nil, err
 	}
-	a := &App{DB: db, Accounts: acc, Jobs: q, Projects: projects}
+	b, err := billing.New(db, billing.Options{
+		SecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
+		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		Jobs:          q,
+		Plans:         Plans(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := b.Migrate(context.Background()); err != nil {
+		return nil, err
+	}
+	a := &App{DB: db, Accounts: acc, Billing: b, Jobs: q, Projects: projects}
 	if err := a.setUpOAuth(); err != nil {
 		return nil, err
 	}

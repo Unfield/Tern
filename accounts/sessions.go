@@ -71,10 +71,11 @@ func (a *Accounts) loadSession(c *kit.Ctx, st *state, token string) {
 	var u User
 	var hash string
 	var verified sql.NullInt64
-	var created int64
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created, &lastSeen, &expires, &remember); err != nil {
+	var created, twoStep int64
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created, &twoStep, &lastSeen, &expires, &remember); err != nil {
 		return // unknown or deleted: signed out
 	}
+	u.TwoStep = twoStep > 0
 	now := time.Now()
 	if now.UnixMilli() > expires {
 		_, _ = a.exec(ctx, `DELETE FROM tern_sessions WHERE id = ?`, id)

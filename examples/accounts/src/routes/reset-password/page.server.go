@@ -1,6 +1,7 @@
 package resetpassword
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Unfield/Tern/accounts"
@@ -25,7 +26,11 @@ type NewPassword struct {
 
 var Actions = kit.Actions{
 	"default": kit.FormAction(func(ctx *kit.Ctx, in NewPassword) (struct{}, error) {
-		if _, err := auth.Acc.ResetPassword(ctx, in.Token, in.Password); err != nil {
+		_, err := auth.Acc.ResetPassword(ctx, in.Token, in.Password)
+		if errors.Is(err, accounts.ErrTwoStepRequired) {
+			return struct{}{}, kit.Redirect(http.StatusSeeOther, "/login/code?next=/account")
+		}
+		if err != nil {
 			return struct{}{}, accounts.FormError(ctx, err)
 		}
 		return struct{}{}, kit.Redirect(http.StatusSeeOther, "/account")

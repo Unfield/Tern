@@ -53,6 +53,13 @@ type Options struct {
 	// RPName is the app's name the browser shows when creating a passkey.
 	// The default is the host name.
 	RPName string
+	// TwoStepPath is the page that asks for the two-step code after a
+	// password sign-in, for apps to redirect to on ErrTwoStepRequired. The
+	// default is /login/code.
+	TwoStepPath string
+	// Issuer names the app in authenticator apps. The default is RPName,
+	// then the host name.
+	Issuer string
 	// NoRateLimits turns off the built-in limits on attempts (see
 	// ErrTooManyAttempts), for tests or a limiter of your own.
 	NoRateLimits bool
@@ -75,6 +82,9 @@ type User struct {
 	CreatedAt     time.Time `json:"createdAt"`
 	// HasPassword is false for accounts made with a passkey only.
 	HasPassword bool `json:"hasPassword"`
+	// TwoStep is whether signing in with a password also asks for a code
+	// from an authenticator app.
+	TwoStep bool `json:"twoStep"`
 }
 
 // The errors that tell users what went wrong. Show them as form errors.
@@ -86,6 +96,10 @@ var (
 	ErrSignedOut          = errors.New("accounts: not signed in")
 	ErrNoEmail            = errors.New("accounts: Options.Send is not set, so no email can be sent")
 	ErrPasskey            = errors.New("accounts: the passkey didn't work")
+	// ErrTwoStepRequired means the password was right and the account asks
+	// for a code too: send the user to a page that calls CompleteSignIn.
+	ErrTwoStepRequired = errors.New("accounts: enter the code from your authenticator app")
+	ErrInvalidCode     = errors.New("accounts: the code is wrong or has expired")
 )
 
 // New returns the accounts plugin.
@@ -108,6 +122,12 @@ func New(db *sql.DB, opts Options) (*Accounts, error) {
 	}
 	if opts.SessionLength <= 0 {
 		opts.SessionLength = 30 * 24 * time.Hour
+	}
+	if opts.TwoStepPath == "" {
+		opts.TwoStepPath = "/login/code"
+	}
+	if opts.Issuer == "" {
+		opts.Issuer = opts.RPName
 	}
 	if opts.PasskeyPath == "" {
 		opts.PasskeyPath = "/_tern/passkeys"
@@ -157,6 +177,17 @@ func (a *Accounts) Migrate(ctx context.Context) error {
 			last_used BIGINT
 		)`,
 		`CREATE INDEX IF NOT EXISTS tern_passkeys_user ON tern_passkeys (user_id)`,
+		`CREATE TABLE IF NOT EXISTS tern_two_step (
+			user_id BIGINT PRIMARY KEY,
+			secret TEXT NOT NULL,
+			confirmed_at BIGINT,
+			last_step BIGINT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS tern_recovery_codes (
+			hash TEXT PRIMARY KEY,
+			user_id BIGINT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS tern_recovery_codes_user ON tern_recovery_codes (user_id)`,
 	}
 	for _, s := range stmts {
 		if _, err := a.db.ExecContext(ctx, s); err != nil {
@@ -235,16 +266,17 @@ func (a *Accounts) Require(c *kit.Ctx) (*User, error) {
 	return nil, kit.Redirect(http.StatusSeeOther, c.BasePath()+a.opts.SignInPath+"?next="+urlQueryEscape(next))
 }
 
-const userColumns = `u.id, u.email, u.name, u.password, u.email_verified, u.created_at`
+const userColumns = `u.id, u.email, u.name, u.password, u.email_verified, u.created_at, (SELECT COUNT(*) FROM tern_two_step t WHERE t.user_id = u.id AND t.confirmed_at IS NOT NULL)`
 
 func scanUser(sc interface{ Scan(...any) error }) (*User, string, error) {
 	var u User
 	var hash string
 	var verified sql.NullInt64
-	var created int64
-	if err := sc.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created); err != nil {
+	var created, twoStep int64
+	if err := sc.Scan(&u.ID, &u.Email, &u.Name, &hash, &verified, &created, &twoStep); err != nil {
 		return nil, "", err
 	}
+	u.TwoStep = twoStep > 0
 	u.EmailVerified = verified.Valid
 	u.CreatedAt = time.UnixMilli(created).UTC()
 	u.HasPassword = hash != ""
@@ -345,6 +377,9 @@ func (a *Accounts) SignIn(c *kit.Ctx, email, password string, remember bool) (*U
 			_, _ = a.exec(ctx, `UPDATE tern_users SET password = ? WHERE id = ?`, h, u.ID)
 		}
 	}
+	if u.TwoStep {
+		return nil, a.awaitCode(c, u, remember)
+	}
 	if err := a.startSession(c, u, remember); err != nil {
 		return nil, err
 	}
@@ -416,7 +451,7 @@ func (a *Accounts) DeleteAccount(c *kit.Ctx) error {
 		return ErrSignedOut
 	}
 	ctx := c.Request.Context()
-	for _, q := range []string{`DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
+	for _, q := range []string{`DELETE FROM tern_two_step WHERE user_id = ?`, `DELETE FROM tern_recovery_codes WHERE user_id = ?`, `DELETE FROM tern_sessions WHERE user_id = ?`, `DELETE FROM tern_tokens WHERE user_id = ?`, `DELETE FROM tern_passkeys WHERE user_id = ?`, `DELETE FROM tern_users WHERE id = ?`} {
 		if _, err := a.exec(ctx, q, st.user.ID); err != nil {
 			return err
 		}

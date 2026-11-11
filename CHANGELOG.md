@@ -8,8 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Two-step sign-in** in `accounts`: codes from an authenticator app (TOTP) after the password, with recovery codes. `SetUpTwoStep` returns a QR code, `ConfirmTwoStep` turns it on, `SignIn` returns `ErrTwoStepRequired` and `CompleteSignIn` takes the code. Tern UI's `TwoStep` and `TwoStepCode` blocks show it.
+- `acc.RequestEmailChange` changes a user's email address once they open a link sent to the new one, and tells the old one.
+- `accounts` limits attempts per account and per IP: sign-ins, sign-ups, emails, passkey sign-ins and two-step codes. Past a limit, methods return `ErrTooManyAttempts`.
 - `tern routes -json` prints the routes as JSON: pattern, directory, kind, whether it has a load, and its layouts.
 - `tern dev` says which routes were added and removed when route directories change.
+
+### Fixed
+
+- Tern UI's `Form` hid the server's error on a field that lost focus without being changed, and two submits in a row raced each other: now the newest submit aborts the older one.
 
 ## [1.6.0] - 2026-11-11
 

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { createHmac } from 'node:crypto';
 
 test.use({ reducedMotion: 'reduce' });
 
@@ -175,4 +176,73 @@ test('deleting the account', async ({ page }) => {
 	await expect(page).toHaveURL(/\/$/);
 	await signIn(page, email);
 	await expect(page.getByText('Wrong email or password.')).toBeVisible();
+});
+
+function base32(s: string) {
+	const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+	let bits = '';
+	for (const c of s.replace(/\s/g, '')) bits += alphabet.indexOf(c).toString(2).padStart(5, '0');
+	const out = [];
+	for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2));
+	return Buffer.from(out);
+}
+
+function totp(secret: string, offset = 0) {
+	const step = Math.floor(Date.now() / 30000) + offset;
+	const msg = Buffer.alloc(8);
+	msg.writeBigUInt64BE(BigInt(step));
+	const h = createHmac('sha1', base32(secret)).update(msg).digest();
+	const o = h[h.length - 1] & 0xf;
+	return String((h.readUInt32BE(o) & 0x7fffffff) % 1000000).padStart(6, '0');
+}
+
+test('two-step sign-in with an authenticator app and recovery codes', async ({ page, browser }) => {
+	const email = await signUp(page);
+	const section = page.locator('.tern-account', { hasText: 'Two-step sign-in' });
+	await section.getByRole('button', { name: 'Set up two-step sign-in' }).click();
+	await expect(section.getByRole('img', { name: /QR code/ })).toBeVisible();
+	await audit(page);
+	const secret = (await section.getByTestId('two-step-secret').textContent())!;
+	await section.locator('input[name=code]').fill(totp(secret));
+	await section.getByRole('button', { name: 'Turn on' }).click();
+	await expect(section.getByTestId('recovery-codes').locator('code')).toHaveCount(10);
+	const codes = await section.getByTestId('recovery-codes').locator('code').allTextContents();
+	await expect(section.getByText('On', { exact: true })).toBeVisible();
+
+	const other = await browser.newPage();
+	await signIn(other, email);
+	await expect(other).toHaveURL(/\/login\/code\?next=%2Faccount$/);
+	await other.locator('input[name=code]').fill('000000');
+	await other.getByRole('button', { name: 'Continue' }).click(); // right after the code posted itself
+	await expect(other.getByText('That code didn’t work.')).toBeVisible();
+	await other.locator('input[name=code]').fill(totp(secret, 1));
+	await expect(other).toHaveURL(/\/account$/);
+
+	const third = await browser.newPage();
+	await signIn(third, email);
+	await third.getByRole('button', { name: 'Use a recovery code' }).click();
+	await third.getByLabel('Recovery code').fill(codes[0]);
+	await third.getByRole('button', { name: 'Continue' }).click();
+	await expect(third).toHaveURL(/\/account$/);
+	await expect(third.getByText('9 recovery codes left')).toBeVisible();
+});
+
+test('a code page without a password sign-in sends you to sign in', async ({ page }) => {
+	await page.goto('/login/code');
+	await expect(page).toHaveURL(/\/login$/);
+});
+
+test('changing the email address', async ({ page }) => {
+	const email = await signUp(page);
+	const next = newEmail();
+	await page.getByLabel('New email address').fill(next);
+	await page.getByRole('button', { name: 'Change email address' }).click();
+	await expect(page.getByText('Check the new address')).toBeVisible();
+	await page.goto(await linkFor(page, next, 'Confirm your new email address'));
+	await expect(page.getByText(`${next} is confirmed.`)).toBeVisible();
+	await page.getByRole('button', { name: 'Sign out' }).first().click();
+	await signIn(page, email);
+	await expect(page.getByText('Wrong email or password.')).toBeVisible();
+	await signIn(page, next);
+	await expect(page).toHaveURL(/\/account$/);
 });

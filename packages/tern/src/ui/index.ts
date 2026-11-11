@@ -59,6 +59,8 @@ export { default as ForgotPassword } from './ForgotPassword.svelte';
 export { default as ResetPassword } from './ResetPassword.svelte';
 export { default as Devices } from './Devices.svelte';
 export { default as Passkeys } from './Passkeys.svelte';
+export { default as TwoStep } from './TwoStep.svelte';
+export { default as TwoStepCode } from './TwoStepCode.svelte';
 export { default as Skeleton } from './Skeleton.svelte';
 export { default as Slider } from './Slider.svelte';
 export { default as Sparkline } from './Sparkline.svelte';

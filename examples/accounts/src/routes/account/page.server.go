@@ -10,9 +10,11 @@ import (
 )
 
 type Page struct {
-	User     accounts.User      `json:"user"`
-	Sessions []accounts.Session `json:"sessions"`
-	Passkeys []accounts.Passkey `json:"passkeys"`
+	User      accounts.User          `json:"user"`
+	Sessions  []accounts.Session     `json:"sessions"`
+	Passkeys  []accounts.Passkey     `json:"passkeys"`
+	Setup     *accounts.TwoStepSetup `json:"setup"`
+	CodesLeft int                    `json:"codesLeft"`
 }
 
 func Load(ctx *kit.Ctx) (Page, error) {
@@ -28,7 +30,15 @@ func Load(ctx *kit.Ctx) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{User: *u, Sessions: sessions, Passkeys: passkeys}, nil
+	setup, err := auth.Acc.PendingTwoStepSetup(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	left, err := auth.Acc.RecoveryCodesLeft(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{User: *u, Sessions: sessions, Passkeys: passkeys, Setup: setup, CodesLeft: left}, nil
 }
 
 type ID struct {
@@ -46,6 +56,16 @@ type Password struct {
 
 type Done struct {
 	Done string `json:"done"`
+	// RecoveryCodes are shown once, after turning two-step sign-in on.
+	RecoveryCodes []string `json:"recoveryCodes"`
+}
+
+type Code struct {
+	Code string `form:"code" validate:"required,max=20" label:"Code"`
+}
+
+type Email struct {
+	Email string `form:"email" validate:"required,email,max=254" label:"New email address"`
 }
 
 // do runs fn for a signed-in user, with the errors users cause as form
@@ -78,6 +98,27 @@ var Actions = kit.Actions{
 	},
 	"removePasskey": kit.FormAction(func(ctx *kit.Ctx, in ID) (Done, error) {
 		return do(ctx, "", func() error { return auth.Acc.RemovePasskey(ctx, in.ID) })
+	}),
+	"email": kit.FormAction(func(ctx *kit.Ctx, in Email) (Done, error) {
+		return do(ctx, "email", func() error { return auth.Acc.RequestEmailChange(ctx, in.Email) })
+	}),
+	"twoStepSetup": func(ctx *kit.Ctx) (any, error) {
+		return do(ctx, "", func() error { _, err := auth.Acc.SetUpTwoStep(ctx); return err })
+	},
+	"twoStepConfirm": kit.FormAction(func(ctx *kit.Ctx, in Code) (Done, error) {
+		var codes []string
+		d, err := do(ctx, "twoStep", func() (err error) { codes, err = auth.Acc.ConfirmTwoStep(ctx, in.Code); return err })
+		d.RecoveryCodes = codes
+		return d, err
+	}),
+	"twoStepCodes": func(ctx *kit.Ctx) (any, error) {
+		var codes []string
+		d, err := do(ctx, "codes", func() (err error) { codes, err = auth.Acc.RecoveryCodes(ctx); return err })
+		d.RecoveryCodes = codes
+		return d, err
+	},
+	"twoStepOff": kit.FormAction(func(ctx *kit.Ctx, in Code) (Done, error) {
+		return do(ctx, "twoStepOff", func() error { return auth.Acc.TurnOffTwoStep(ctx, in.Code) })
 	}),
 	"delete": func(ctx *kit.Ctx) (any, error) {
 		if _, err := do(ctx, "", func() error { return auth.Acc.DeleteAccount(ctx) }); err != nil {

@@ -25,6 +25,8 @@ app, err := ternApp(kit.WithPlugins(acc))
 | `Cookie` | `tern_session` | the session cookie's name |
 | `SessionLength` | 30 days | how long a "keep me signed in" session lasts without use. Other sessions last a day. Sessions in use stay signed in. |
 | `PasskeyPath` | `/_tern/passkeys` | where the passkey endpoints are |
+| `TwoStepPath` | `/login/code` | the page that asks for the two-step code |
+| `Issuer` | `RPName`, then the host | the app's name in authenticator apps |
 | `NoRateLimits` | false | turns off the built-in limits on attempts |
 
 ## Who is signed in
@@ -51,11 +53,12 @@ Each page is a Tern UI block and a small action. Return `accounts.FormError(ctx,
 | Page | Block | Action calls |
 |---|---|---|
 | `/signup` | `SignUp` | `acc.SignUp(ctx, email, name, password)`, then `acc.SendVerification(ctx)` |
-| `/login` | `SignIn passkey remember forgotHref="/forgot-password"` | `acc.SignIn(ctx, email, password, remember)` |
+| `/login` | `SignIn passkey remember forgotHref="/forgot-password"` | `acc.SignIn(ctx, email, password, remember)`; on `ErrTwoStepRequired`, redirect to `/login/code` |
+| `/login/code` | `TwoStepCode` | `acc.CompleteSignIn(ctx, code)`; the load sends users without `acc.AwaitingCode(ctx)` back to `/login` |
 | `/forgot-password` | `ForgotPassword` | `acc.RequestPasswordReset(ctx, email)`; return `{ sent: true }` |
 | `/reset-password` | `ResetPassword token={data.token}` | `acc.ResetPassword(ctx, token, password)` |
 | `/verify-email` | none: the load calls `acc.VerifyEmail(ctx, token)` | |
-| `/account` | `Devices`, `Passkeys` | `acc.Revoke`, `acc.SignOutOthers`, `acc.RemovePasskey`, `acc.ChangePassword`, `acc.SetName`, `acc.DeleteAccount` |
+| `/account` | `Devices`, `Passkeys`, `TwoStep` | `acc.Revoke`, `acc.SignOutOthers`, `acc.RemovePasskey`, `acc.ChangePassword`, `acc.SetName`, `acc.DeleteAccount` |
 | sign out | a form posting to an action | `acc.SignOut(ctx)` |
 
 ## Passwords
@@ -71,6 +74,19 @@ Changing or resetting a password signs out the user's other devices.
 `acc.SendVerification(ctx)` emails the signed-in user a link to `VerifyPath`; it's valid for two days. `acc.RequestPasswordReset(ctx, email)` emails a link to `ResetPath`, valid for an hour, and does nothing for an email without an account, so the page can't be used to find out who has one. Each link works once.
 
 The emails' texts are Tern's own (`tern.accounts.verify.*`, `tern.accounts.reset.*`), in the request's language: translate them in `src/locales` like the app's messages. To send your own emails instead, pass a `Send` function: it gets an `accounts.Email` with the recipient, the link, a subject, and text and HTML bodies.
+
+## Two-step sign-in
+
+Users can ask for a code from an authenticator app (any app for TOTP, RFC 6238) after their password:
+
+1. `acc.SetUpTwoStep(ctx)` makes a secret and returns a QR code, the `otpauth://` link and the secret to type. `acc.PendingTwoStepSetup(ctx)` returns it again after a reload.
+2. `acc.ConfirmTwoStep(ctx, code)` turns it on with a code from the app, and returns ten recovery codes to show once. `acc.RecoveryCodes(ctx)` replaces them, and `acc.RecoveryCodesLeft(ctx)` counts the unused ones.
+3. From then on, `acc.SignIn` with the right password returns `ErrTwoStepRequired` instead of signing in, and remembers the sign-in for ten minutes in a cookie of its own. The app redirects to a page with the `TwoStepCode` block, whose action calls `acc.CompleteSignIn(ctx, code)` with a code from the app or a recovery code. A reset link asks for the code too.
+4. `acc.TurnOffTwoStep(ctx, code)` turns it off, with a current code or a recovery code.
+
+Each code works once, within 30 seconds either side of now; each recovery code works once and is stored hashed. `User.TwoStep` says whether it's on. Passkeys don't ask for a code: a passkey is two steps already, the device and its screen lock.
+
+The `TwoStep` block shows all of this on an account page: the QR code while setting up, the recovery codes once, and the controls to turn it off or get new codes.
 
 ## Changing the email address
 

@@ -1,7 +1,9 @@
 package login
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/Unfield/Tern/accounts"
@@ -39,7 +41,11 @@ func safeNext(next string) string {
 
 var Actions = kit.Actions{
 	"default": kit.FormAction(func(ctx *kit.Ctx, in Credentials) (struct{}, error) {
-		if _, err := auth.Acc.SignIn(ctx, in.Email, in.Password, in.Remember); err != nil {
+		_, err := auth.Acc.SignIn(ctx, in.Email, in.Password, in.Remember)
+		if errors.Is(err, accounts.ErrTwoStepRequired) {
+			return struct{}{}, kit.Redirect(http.StatusSeeOther, "/login/code?next="+url.QueryEscape(safeNext(in.Next)))
+		}
+		if err != nil {
 			return struct{}{}, accounts.FormError(ctx, err)
 		}
 		return struct{}{}, kit.Redirect(http.StatusSeeOther, safeNext(in.Next))

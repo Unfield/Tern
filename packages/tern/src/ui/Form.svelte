@@ -72,9 +72,15 @@
 	// inputs, its Field's.
 	const nameOf = (t: EventTarget | null) => (t as HTMLInputElement | null)?.name || (t as HTMLElement | null)?.closest?.('[data-tern-field]')?.getAttribute('data-tern-field') || '';
 
+	// What was last posted, by name: a field whose value is still that
+	// hasn't been edited, though a change event fires as focus leaves it.
+	let posted: Record<string, string> = {};
+	const valueOf = (name: string) => (el ? new FormData(el).getAll(name).map(String).join('\u0000') : '');
+
 	function oninput(e: Event) {
 		const name = nameOf(e.target);
 		if (!name) return;
+		if (name in posted && valueOf(name) === posted[name]) return;
 		edited = { ...edited, [name]: true };
 		if (touched[name] || submitted) check(related(name).filter((n) => touched[n] || submitted || n === name));
 	}
@@ -101,7 +107,12 @@
 		return false;
 	}
 
-	const submit = ({ formData, cancel }: { formData: FormData; cancel(): void }) => {
+	// The newest post wins: a submit while another is in flight, such as
+	// Enter right after a code completed itself, aborts the older one, and
+	// an older answer that still arrives is dropped.
+	let latest = 0;
+	let inflight: AbortController | null = null;
+	const submit = ({ formData, cancel, controller }: { formData: FormData; cancel(): void; controller: AbortController }) => {
 		const errors = validate(rules, formData);
 		if (Object.keys(errors).length > 0) {
 			cancel();
@@ -112,7 +123,14 @@
 		client = {};
 		summary = '';
 		submitting = true;
+		inflight?.abort();
+		inflight = controller;
+		const mine = ++latest;
+		posted = {};
+		for (const k of new Set(formData.keys())) posted[k] = formData.getAll(k).map(String).join('\u0000');
 		return async ({ update, result }: { update: (o?: { reset?: boolean }) => Promise<void>; result: { type: string; data?: unknown } }) => {
+			if (mine !== latest) return;
+			inflight = null;
 			await update({ reset });
 			submitting = false;
 			if (result.type === 'success') {

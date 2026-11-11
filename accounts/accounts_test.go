@@ -91,6 +91,13 @@ func newHarness(t *testing.T) *harness {
 			})},
 			{ID: "/passkeys", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Passkeys(c) })},
 			{ID: "/email/change", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.RequestEmailChange(c, form(c, "email")) })},
+			{ID: "/2fa/setup", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.SetUpTwoStep(c) })},
+			{ID: "/2fa/confirm", Endpoint: post(func(c *kit.Ctx) (any, error) {
+				codes, err := acc.ConfirmTwoStep(c, form(c, "code"))
+				return map[string]any{"codes": codes}, err
+			})},
+			{ID: "/2fa/code", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.CompleteSignIn(c, form(c, "code")) })},
+			{ID: "/2fa/off", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.TurnOffTwoStep(c, form(c, "code")) })},
 			{ID: "/delete", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.DeleteAccount(c) })},
 		},
 	}
@@ -596,5 +603,112 @@ func TestLimiter(t *testing.T) {
 	l.reset("k")
 	if len(l.hits) != 0 {
 		t.Fatal("reset")
+	}
+}
+
+func TestTOTPVector(t *testing.T) {
+	// RFC 6238, appendix B: SHA1 at T=59 is 94287082; six digits keep 287082.
+	if got := totp([]byte("12345678901234567890"), 59/30); got != "287082" {
+		t.Fatal(got)
+	}
+	if got := totp([]byte("12345678901234567890"), 1111111109/30); got != "081804" {
+		t.Fatal(got)
+	}
+}
+
+func TestTwoStep(t *testing.T) {
+	h := newHarness(t)
+	b := h.client()
+	h.post(b, "/signup", "email", "a@example.com", "password", "long enough")
+	_, setup := h.post(b, "/2fa/setup")
+	secret := strings.ReplaceAll(setup["secret"].(string), " ", "")
+	if !strings.HasPrefix(setup["uri"].(string), "otpauth://totp/Test:a@example.com?") || !strings.HasPrefix(setup["qr"].(string), "data:image/png;base64,") {
+		t.Fatalf("setup: %v", setup)
+	}
+	key, err := b32.DecodeString(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := time.Now().Unix() / totpStep
+	if code, _ := h.post(b, "/2fa/confirm", "code", "000000"); code == 200 && totp(key, step) != "000000" {
+		t.Fatal("wrong code confirmed")
+	}
+	code, out := h.post(b, "/2fa/confirm", "code", totp(key, step))
+	if code != 200 {
+		t.Fatalf("confirm: %d %v", code, out)
+	}
+	recovery := out["codes"].([]any)
+	if len(recovery) != 10 {
+		t.Fatalf("codes: %v", out)
+	}
+	if _, me := h.post(b, "/me"); me["twoStep"] != true {
+		t.Fatalf("me: %v", me)
+	}
+
+	// A password alone no longer signs in.
+	other := h.client()
+	if _, out := h.post(other, "/signin", "email", "a@example.com", "password", "long enough"); out["error"] != ErrTwoStepRequired.Error() {
+		t.Fatalf("signin: %v", out)
+	}
+	if code, _ := h.post(other, "/me"); code == 200 {
+		t.Fatal("signed in without the code")
+	}
+	// The code used to confirm doesn't work again.
+	if _, out := h.post(other, "/2fa/code", "code", totp(key, step)); out["error"] != ErrInvalidCode.Error() {
+		t.Fatalf("reused code: %v", out)
+	}
+	if code, out := h.post(other, "/2fa/code", "code", totp(key, step+1)); code != 200 {
+		t.Fatalf("code: %d %v", code, out)
+	}
+	if code, _ := h.post(other, "/me"); code != 200 {
+		t.Fatal("not signed in after the code")
+	}
+
+	// A recovery code works once, typed with or without its dash.
+	third := h.client()
+	h.post(third, "/signin", "email", "a@example.com", "password", "long enough")
+	rc := recovery[0].(string)
+	if code, out := h.post(third, "/2fa/code", "code", strings.ToUpper(strings.ReplaceAll(rc, "-", ""))); code != 200 {
+		t.Fatalf("recovery: %d %v", code, out)
+	}
+	fourth := h.client()
+	h.post(fourth, "/signin", "email", "a@example.com", "password", "long enough")
+	if _, out := h.post(fourth, "/2fa/code", "code", rc); out["error"] != ErrInvalidCode.Error() {
+		t.Fatalf("recovery reused: %v", out)
+	}
+	// Without a pending sign-in, a code does nothing.
+	if _, out := h.post(h.client(), "/2fa/code", "code", recovery[1].(string)); out["error"] != ErrInvalidToken.Error() {
+		t.Fatalf("no pending sign-in: %v", out)
+	}
+
+	// Turning it off takes a code.
+	if _, out := h.post(b, "/2fa/off", "code", "123"); out["error"] != ErrInvalidCode.Error() {
+		t.Fatalf("off without code: %v", out)
+	}
+	if code, out := h.post(b, "/2fa/off", "code", recovery[2].(string)); code != 200 {
+		t.Fatalf("off: %v", out)
+	}
+	if code, _ := h.post(h.client(), "/signin", "email", "a@example.com", "password", "long enough"); code != 200 {
+		t.Fatal("password alone doesn't sign in after turning it off")
+	}
+}
+
+func TestTwoStepAfterReset(t *testing.T) {
+	h := newHarness(t)
+	b := h.client()
+	h.post(b, "/signup", "email", "a@example.com", "password", "long enough")
+	_, setup := h.post(b, "/2fa/setup")
+	key, _ := b32.DecodeString(strings.ReplaceAll(setup["secret"].(string), " ", ""))
+	h.post(b, "/2fa/confirm", "code", totp(key, time.Now().Unix()/totpStep))
+	h.post(h.client(), "/reset/send", "email", "a@example.com")
+	c := h.client()
+	if _, out := h.post(c, "/reset", "token", tokenIn(t, h.lastEmail()), "password", "brand new one"); out["error"] != ErrTwoStepRequired.Error() {
+		t.Fatalf("reset: %v", out)
+	}
+	if code, _ := h.post(c, "/me"); code == 200 {
+		t.Fatal("a reset link skipped the second step")
+	}
+	if code, _ := h.post(c, "/2fa/code", "code", totp(key, time.Now().Unix()/totpStep+1)); code != 200 {
+		t.Fatal("code after reset")
 	}
 }

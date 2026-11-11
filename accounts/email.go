@@ -184,7 +184,8 @@ func (a *Accounts) RequestPasswordReset(c *kit.Ctx, email string) error {
 
 // ResetPassword sets a new password with a reset link's token. It signs
 // the user out everywhere and in here, and verifies their email: the link
-// reached it.
+// reached it. With two-step sign-in on, it returns ErrTwoStepRequired
+// instead of signing in, as SignIn does.
 func (a *Accounts) ResetPassword(c *kit.Ctx, token, password string) (*User, error) {
 	ctx := c.Request.Context()
 	id, email, err := a.redeem(ctx, "reset", token)
@@ -204,6 +205,10 @@ func (a *Accounts) ResetPassword(c *kit.Ctx, token, password string) (*User, err
 	u, err := a.UserByID(ctx, id)
 	if err != nil || u == nil {
 		return nil, ErrInvalidToken
+	}
+	// The link proves the email, not the second step: ask for the code.
+	if u.TwoStep {
+		return u, a.awaitCode(c, u, false)
 	}
 	if err := a.startSession(c, u, false); err != nil {
 		return nil, err

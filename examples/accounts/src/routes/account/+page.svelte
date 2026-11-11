@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { Alert, AlertDialog, Badge, Button, Devices, Field, Form, Input, Passkeys, PasswordInput } from '@ternkit/tern/ui';
+	import { Alert, AlertDialog, Badge, Button, Devices, Field, Form, Input, Passkeys, PasswordInput, TwoStep } from '@ternkit/tern/ui';
 	import type { PageProps } from './$types';
 	import { forms } from './$forms';
 
 	let { data, form }: PageProps = $props();
 	const done = $derived((form as { done?: string } | null)?.done);
+	const recoveryCodes = $derived((form as { recoveryCodes?: string[] } | null)?.recoveryCodes);
 	let deleteOpen = $state(false);
 	let deleteForm = $state<HTMLFormElement>();
 </script>
@@ -31,6 +32,15 @@
 	</Form>
 </section>
 
+<section aria-labelledby="email-change">
+	<h2 id="email-change">Email address</h2>
+	<Form action="?/email" rules={forms.email} {form}>
+		<Field label="New email address" name="email"><Input type="email" autocomplete="email" spellcheck="false" /></Field>
+		<div><Button type="submit" size="sm">Change email address</Button></div>
+	</Form>
+	{#if done === 'email'}<Alert tone="success" live>Check the new address for a link to confirm it.</Alert>{/if}
+</section>
+
 <section aria-labelledby="password">
 	<h2 id="password">Password</h2>
 	<Form action="?/password" rules={forms.password} {form}>
@@ -44,6 +54,18 @@
 	</Form>
 	{#if done === 'password'}<Alert tone="success" live>Password changed.</Alert>{/if}
 </section>
+
+<TwoStep
+	enabled={data.user.twoStep}
+	setup={data.setup}
+	{recoveryCodes}
+	codesLeft={data.codesLeft}
+	setupAction="?/twoStepSetup"
+	confirmAction="?/twoStepConfirm"
+	offAction="?/twoStepOff"
+	codesAction="?/twoStepCodes"
+	{form}
+/>
 
 <Passkeys passkeys={data.passkeys} removeAction="?/removePasskey" />
 

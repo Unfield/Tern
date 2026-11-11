@@ -22,6 +22,7 @@ require (
 	golang.org/x/tools v0.52.0
 	modernc.org/quickjs v0.27.0
 	modernc.org/sqlite v1.62.0
+	rsc.io/qr v0.2.0
 )
 
 require (

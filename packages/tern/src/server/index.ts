@@ -32,21 +32,23 @@ export interface RenderResult {
  * same payload the client receives, so the server and the client render
  * exactly the same tree and hydration matches.
  */
-export function createRenderer(manifest: ServerManifest): (payload: string, href: string) => string {
+export function createRenderer(manifest: ServerManifest): ((payload: string, href: string) => string) & { raw: (payload: string, href: string) => RenderResult } {
 	const layout = (i: number) => manifest.layouts[i]?.component ?? Passthrough;
 	configureI18n(manifest.i18n ?? null);
 	setBase(manifest.base ?? '');
 
-	return (payloadJSON, href) => {
+	// raw returns the result as an object, for a native renderer to read
+	// without encoding it as JSON first.
+	const raw = (payloadJSON: string, href: string): RenderResult => {
 		const p = JSON.parse(payloadJSON) as Payload;
 		// Deferred values are still loading: render their pending state.
-		p.nodes = revive(p.nodes, () => new Promise(() => {}));
+		if (p.deferred) p.nodes = revive(p.nodes, () => new Promise(() => {}));
 		const what = plan(manifest, p);
 
 		let components: Component<any>[];
 		switch (what.kind) {
 			case 'not-a-page':
-				return JSON.stringify({ skip: true } satisfies RenderResult);
+				return { skip: true };
 			case 'page':
 				components = [...what.layouts.map(layout), manifest.routes[what.route]!.page];
 				break;
@@ -63,8 +65,9 @@ export function createRenderer(manifest: ServerManifest): (payload: string, href
 		applyPayloadToPage(p, new URL(href), {}, what.data);
 		const form = p.hasForm ? (p.form ?? null) : null;
 		const out = render(Root, { props: { components, data: what.data, form } });
-		return JSON.stringify({ head: out.head, body: out.body } satisfies RenderResult);
+		return { head: out.head, body: out.body };
 	};
+	return Object.assign((payloadJSON: string, href: string) => JSON.stringify(raw(payloadJSON, href)), { raw });
 }
 
 export { createEmailRenderer } from './email.js';

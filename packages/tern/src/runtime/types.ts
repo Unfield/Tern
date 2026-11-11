@@ -48,6 +48,8 @@ export interface Payload {
 	data?: unknown;
 	form?: unknown;
 	hasForm?: boolean;
+	/** Whether the nodes have deferred values' placeholders to revive. */
+	deferred?: boolean;
 	/** What each node's load read, so the client knows when to rerun it. */
 	uses?: (NodeUses | null)[];
 	/** Nodes the server skipped because the client already has their data. */

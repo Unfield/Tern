@@ -53,6 +53,7 @@ const maxEngineOnly = 4096
 type realmSlot struct {
 	rt      *js.Realm
 	render  js.Value
+	raw     js.Value // __tern_render_raw, which returns the result as an object; nil if absent
 	renders int
 	ctx     context.Context // the running render's, for Funcs
 }
@@ -113,6 +114,9 @@ func (n *Native) newSlot() (s *realmSlot, err error) {
 		return nil, errors.New("ssr: the compiled server modules don't define __tern_render")
 	}
 	s.render = render
+	if raw, ok := s.rt.Global.Get("__tern_render_raw").(*js.Object); ok && raw.IsCallable() {
+		s.raw = raw
+	}
 	return s, nil
 }
 
@@ -182,7 +186,7 @@ func (n *Native) Render(ctx context.Context, payload []byte, href string) (Resul
 		}
 		return p.Render(ctx, payload, href)
 	}
-	out, err := n.renderNative(ctx, payload, href)
+	res, err := n.renderNative(ctx, payload, href)
 	var fe *fallbackError
 	if errors.As(err, &fe) {
 		if _, seen := n.reasons.LoadOrStore(fe.reason, true); !seen {
@@ -202,10 +206,6 @@ func (n *Native) Render(ctx context.Context, payload []byte, href string) (Resul
 	if err != nil {
 		return Result{}, err
 	}
-	var res Result
-	if err := json.Unmarshal([]byte(out), &res); err != nil {
-		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
-	}
 	return res, nil
 }
 
@@ -219,20 +219,20 @@ func (n *Native) fallbackPool() (*Pool, error) {
 }
 
 // renderNative runs __tern_render in a free realm.
-func (n *Native) renderNative(ctx context.Context, payload []byte, href string) (string, error) {
+func (n *Native) renderNative(ctx context.Context, payload []byte, href string) (Result, error) {
 	var s *realmSlot
 	select {
 	case s = <-n.slots:
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return Result{}, ctx.Err()
 	case <-n.closed:
-		return "", errors.New("ssr: renderer closed")
+		return Result{}, errors.New("ssr: renderer closed")
 	}
 	if s == nil {
 		var err error
 		if s, err = n.newSlot(); err != nil {
 			n.slots <- nil
-			return "", &fallbackError{reason: err.Error()}
+			return Result{}, &fallbackError{reason: err.Error()}
 		}
 	}
 	out, err := n.run(ctx, s, payload, href)
@@ -240,7 +240,7 @@ func (n *Native) renderNative(ctx context.Context, payload []byte, href string) 
 		// A failed render may leave the modules' state half changed, so the
 		// realm goes, as a failed VM does.
 		n.slots <- nil
-		return "", err
+		return Result{}, err
 	}
 	s.renders++
 	if n.opts.MaxRenders > 0 && s.renders >= n.opts.MaxRenders {
@@ -251,7 +251,7 @@ func (n *Native) renderNative(ctx context.Context, payload []byte, href string) 
 	return out, nil
 }
 
-func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href string) (out string, err error) {
+func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href string) (out Result, err error) {
 	ctx, cancel := context.WithTimeout(ctx, n.opts.Timeout)
 	defer cancel()
 	stop := context.AfterFunc(ctx, s.rt.Interrupt)
@@ -273,13 +273,32 @@ func (n *Native) run(ctx context.Context, s *realmSlot, payload []byte, href str
 		}
 		err = &fallbackError{reason: describePanic(r)}
 	}()
+	if s.raw != nil {
+		v := js.Call(s.raw, js.Undefined, string(payload), href)
+		s.rt.DropJobs()
+		o, ok := v.(*js.Object)
+		if !ok {
+			return Result{}, &fallbackError{reason: fmt.Sprintf("__tern_render_raw returned %s", js.Typeof(v))}
+		}
+		str := func(k string) string {
+			if x, ok := o.Get(k).(string); ok {
+				return x
+			}
+			return ""
+		}
+		return Result{Head: str("head"), Body: str("body"), Skip: js.Truthy(o.Get("skip"))}, nil
+	}
 	v := js.Call(s.render, js.Undefined, string(payload), href)
 	s.rt.DropJobs()
 	str, ok := v.(string)
 	if !ok {
-		return "", &fallbackError{reason: fmt.Sprintf("__tern_render returned %s", js.Typeof(v))}
+		return Result{}, &fallbackError{reason: fmt.Sprintf("__tern_render returned %s", js.Typeof(v))}
 	}
-	return str, nil
+	var res Result
+	if err := json.Unmarshal([]byte(str), &res); err != nil {
+		return Result{}, fmt.Errorf("ssr: decoding the render result: %w", err)
+	}
+	return res, nil
 }
 
 // pathOf is href without its origin, query and fragment.
@@ -347,11 +366,7 @@ func (v *verifying) Render(ctx context.Context, payload []byte, href string) (Re
 	if err != nil {
 		return want, err
 	}
-	out, nerr := n.renderNative(ctx, payload, href)
-	var got Result
-	if nerr == nil {
-		nerr = json.Unmarshal([]byte(out), &got)
-	}
+	got, nerr := n.renderNative(ctx, payload, href)
 	switch {
 	case nerr != nil && strings.Contains(nerr.Error(), "not compiled to Go"):
 		n.opts.Logger.Info("ssr: page uses what isn't compiled to Go; the engine renders it", "url", href, "err", nerr)

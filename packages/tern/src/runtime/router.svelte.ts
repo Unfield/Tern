@@ -84,7 +84,7 @@ export async function start(m: ClientManifest): Promise<void> {
 	// Deferred values stream in as inline scripts calling __tern_resolve.
 	const w = window as unknown as { __tern_d?: Record<number, Chunk>; __tern_on?: (c: Chunk) => void };
 	const scope = new DeferredScope();
-	payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
+	if (payload.deferred) payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
 	for (const chunk of Object.values(w.__tern_d ?? {})) scope.settle(chunk);
 	w.__tern_on = (chunk) => scope.settle(chunk);
 	await render(payload, url, history.state?.ternState ?? {}, token);

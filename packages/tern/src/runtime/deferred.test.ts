@@ -55,7 +55,7 @@ describe('readStreamed', () => {
 				end = () => controller.close();
 			}
 		});
-		push(JSON.stringify({ type: 'data', status: 200, nodes: [{ slow: { __tern_deferred: 1 } }] }) + '\n');
+		push(JSON.stringify({ type: 'data', status: 200, deferred: true, nodes: [{ slow: { __tern_deferred: 1 } }] }) + '\n');
 		const payload = await readStreamed<{ nodes: [{ slow: Promise<string> }] }>(new Response(body));
 		const slow = payload.nodes[0].slow;
 		push('{"id":1,"data":"done"}\n');

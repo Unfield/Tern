@@ -77,12 +77,12 @@ export function revive<T>(value: T, promise: (id: number) => Promise<unknown>): 
  * by one line per resolved deferred value. Resolves once the payload is
  * read; deferred values keep streaming in the background.
  */
-export async function readStreamed<P extends { nodes?: unknown }>(res: Response): Promise<P> {
+export async function readStreamed<P extends { nodes?: unknown; deferred?: boolean }>(res: Response): Promise<P> {
 	if (!res.body) {
 		const [first, ...rest] = (await res.text()).split('\n');
 		const scope = new DeferredScope();
 		const payload = JSON.parse(first!) as P;
-		payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
+		if (payload.deferred) payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
 		for (const line of rest) if (line.trim()) scope.settle(JSON.parse(line));
 		scope.close('The server did not send this value');
 		return payload;
@@ -103,7 +103,7 @@ export async function readStreamed<P extends { nodes?: unknown }>(res: Response)
 
 	const scope = new DeferredScope();
 	const payload = JSON.parse(first) as P;
-	payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
+	if (payload.deferred) payload.nodes = revive(payload.nodes, (id) => scope.promise(id));
 
 	void (async () => {
 		try {

@@ -32,6 +32,9 @@ type payload struct {
 	Env      map[string]string `json:"env,omitempty"`
 	Locale   string            `json:"locale,omitempty"`
 	HasForm  bool              `json:"hasForm,omitempty"`
+	// Deferred says the nodes have deferred values' placeholders, so the
+	// renderers look for them only then.
+	Deferred bool `json:"deferred,omitempty"`
 }
 
 type errorBody struct {
@@ -40,6 +43,7 @@ type errorBody struct {
 
 func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
 	p.Locale = c.rootCtx().locale
+	p.Deferred = len(c.pendingDeferreds()) > 0
 	b, err := json.Marshal(p)
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding response: %w", err))
@@ -126,6 +130,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 		p.Env = a.publicEnv // full page loads only; the client keeps it
 	}
 	p.Locale = c.rootCtx().locale
+	p.Deferred = len(c.pendingDeferreds()) > 0
 	data, err := json.Marshal(p) // escapes <, > and & for safe inlining
 	if err != nil {
 		a.logError(c, fmt.Errorf("kit: encoding page data: %w", err))

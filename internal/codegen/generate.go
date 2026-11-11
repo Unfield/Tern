@@ -475,7 +475,7 @@ func (g *generator) serverEntry() {
 	}
 	body.WriteString("\t},\n")
 	rl := g.rootLayouts()
-	fmt.Fprintf(&body, "\tfallback: { layouts: %s, errors: %s },\n\ti18n: %s,\n\tbase: %q\n});\n\nglobalThis.__tern_render = render;\n",
+	fmt.Fprintf(&body, "\tfallback: { layouts: %s, errors: %s },\n\ti18n: %s,\n\tbase: %q\n});\n\nglobalThis.__tern_render = render;\nglobalThis.__tern_render_raw = render.raw;\n",
 		intSlice(g.layoutRefs(rl)), errorList(g.rootErrorPages(), rl), i18nConfig, g.cfg.BasePath)
 
 	b.WriteString(body.String())

@@ -16,21 +16,44 @@ import (
 //	const str = String(value ?? '');
 //	… escape & and <, and " too when is_attr …
 func EscapeHTML(rt *js.Realm) js.Value {
-	var stringGlobal js.GlobalRef
-	return rt.NewFunction("escape_html", 2, func(_ js.Value, args []js.Value) js.Value {
-		v := js.Arg(args, 0)
-		if js.IsNullish(v) {
-			v = ""
+	e := &escaper{rt: rt}
+	f := js.AsObject(rt.NewFunction("escape_html", 2, func(_ js.Value, args []js.Value) js.Value {
+		return e.escape(js.Arg(args, 0), js.Truthy(js.Arg(args, 1)))
+	}))
+	f.Internal = e
+	return f
+}
+
+// escaper is escape_html's Go side, which other intrinsics call directly
+// while the escape_html they import is this one.
+type escaper struct {
+	rt           *js.Realm
+	stringGlobal js.GlobalRef
+}
+
+func (e *escaper) escape(v js.Value, attr bool) js.Value {
+	if js.IsNullish(v) {
+		v = ""
+	}
+	if _, ok := v.(string); !ok || e.rt.GlobalGetCached(&e.stringGlobal, "String") != js.Value(e.rt.StringCtor) {
+		v = js.Call(e.rt.GlobalGetCached(&e.stringGlobal, "String"), js.Undefined, v)
+	}
+	s, ok := v.(string)
+	if !ok {
+		s = js.ToString(v)
+	}
+	return Escape(v, s, attr)
+}
+
+// callEscape is escape_html(v, attr) through the binding f: directly when
+// f is the intrinsic.
+func callEscape(f js.Value, v js.Value, attr bool) js.Value {
+	if o, ok := f.(*js.Object); ok {
+		if e, ok := o.Internal.(*escaper); ok {
+			return e.escape(v, attr)
 		}
-		if _, ok := v.(string); !ok || rt.GlobalGetCached(&stringGlobal, "String") != js.Value(rt.StringCtor) {
-			v = js.Call(rt.GlobalGetCached(&stringGlobal, "String"), js.Undefined, v)
-		}
-		s, ok := v.(string)
-		if !ok {
-			s = js.ToString(v)
-		}
-		return Escape(v, s, js.Truthy(js.Arg(args, 1)))
-	})
+	}
+	return js.Call(f, js.Undefined, v, attr)
 }
 
 // Escape escapes s, whose Value is v: when nothing needs escaping, v comes

@@ -14,7 +14,9 @@ const cases = [];
 for (const name of fs.readdirSync(dir).filter((f) => fs.statSync(path.join(dir, f)).isDirectory()).sort()) {
 	const sub = path.join(dir, name);
 	const modules = [];
-	for (const file of fs.readdirSync(sub).filter((f) => f.endsWith('.js')).sort()) {
+	// Every .js file under the case's directory, by its path in it.
+	const files = fs.readdirSync(sub, { recursive: true }).filter((f) => f.endsWith('.js')).map((f) => f.split(path.sep).join('/')).sort();
+	for (const file of files) {
 		const code = fs.readFileSync(path.join(sub, file), 'utf8');
 		const ast = parse(code, { ecmaVersion: 'latest', sourceType: 'module' });
 		const imports = {};
@@ -23,7 +25,7 @@ for (const name of fs.readdirSync(dir).filter((f) => fs.statSync(path.join(dir, 
 			if (v && (v.type === 'ImportDeclaration' || v.type === 'ImportExpression' || v.type === 'ExportAllDeclaration' || (v.type === 'ExportNamedDeclaration' && v.source))) {
 				if (v.source?.type === 'Literal') add(v.source.value);
 			}
-			return v;
+			return typeof v === 'bigint' ? null : v;
 		});
 		modules.push({ id: file, imports, ast, code });
 	}

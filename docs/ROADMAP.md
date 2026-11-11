@@ -145,11 +145,32 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] `tern routes -json`
 - [x] `tern dev` says which routes were added and removed
 
+## v1.8: A full app to start from, and native rendering phase 2
+
+**Starting a project**
+- [x] `tern new` asks for a bare app or a full one: the `saas` template, with accounts, a dashboard, settings and per-user data
+- [x] `tern dev` reads `.env`
+
+**Native rendering, phase 2** ([ADR 0013](adr/0013-native-rendering-phase-2.md))
+- [x] Page data handed to the renderer as Go values, without parsing JSON in the realm
+- [x] Svelte's Renderer output and its attribute helpers in Go, checked against Node
+- [x] The document written in one buffer
+- [x] Typed fast paths from the loads' Go structs: profiled and set aside, as inline caches already make property reads cheap
+
 ## Next
 
-**Native rendering, phase 2**
-- [ ] Typed fast paths from the loads' Go structs: components read page data without JavaScript property lookups. A render of the benchmark's table spends about 250 µs in compiled JavaScript, against 22 µs for the hand-written spike.
-- [ ] Page data handed to the renderer as Go values, without parsing JSON in the realm (about 50 µs of that render)
+**Native rendering**
+- [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: what most of a render's remaining time is
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
+
+**Logging**
+- [ ] Structured logging on `log/slog` with request context, sampling and redaction, and a log view in `tern dev`
+- [ ] Collection plugins: OpenTelemetry (OTLP), Loki, Datadog, files
+
+**Security signals**
+- [ ] Device and client signals for bot and abuse detection and for recognizing a new device at sign-in: TLS and HTTP fingerprints (JA4), header order, client hints, and an optional client check, feeding rate limits and accounts. For an app's own security, not tracking people across sites.
+
+**Deploying**
+- [ ] `tern deploy`: to a server over SSH with zero-downtime restarts, to Fly.io, and to container platforms from the Dockerfile
 
 

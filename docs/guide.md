@@ -131,7 +131,7 @@ func Load(ctx *kit.Ctx) (Data, error) {
 <h1>{data.title}</h1>
 ```
 
-The data type must encode to a JSON object: a struct, a pointer to a struct, or a map with string keys. It is encoded with `encoding/json`, so struct tags work as usual.
+The data type must encode to a JSON object: a struct, a pointer to a struct, or a map with string keys. It is encoded as `encoding/json` encodes it, so struct tags work as usual; nil slices are sent as `[]`. Don't change what a load returns after it returns: the server renders the page from it.
 
 `*kit.Ctx` gives you the request:
 

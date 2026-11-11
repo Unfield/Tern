@@ -682,3 +682,52 @@ func (o *Object) Freeze() {
 
 // IsFrozen is Object.isFrozen.
 func (o *Object) IsFrozen() bool { return o.frozen }
+
+// PlainEntries is Object.keys(o) with each key's value, when reading them
+// can't run code: o is an ordinary object (not an array, typed array or
+// proxy) whose own string-keyed properties are all data properties. ok
+// is false otherwise, for code with a fast path for plain objects.
+func (o *Object) PlainEntries() (keys []string, vals []Value, ok bool) {
+	if o.proxy != nil || o.array != nil || o.typed != nil || o.fnLazy != 0 {
+		return nil, nil, false
+	}
+	s := o.sh()
+	for i := range s.keys {
+		if s.attrs[i]&attrAccessor != 0 {
+			return nil, nil, false
+		}
+	}
+	for _, k := range o.OwnKeys(true, false) {
+		ks := k.(string)
+		i := s.findString(ks)
+		if i < 0 {
+			return nil, nil, false
+		}
+		keys = append(keys, ks)
+		vals = append(vals, o.slots[i])
+	}
+	return keys, vals, true
+}
+
+// HasOwnString is Object.prototype.hasOwnProperty for a string key, for
+// ordinary objects; ok is false for proxies and exotic objects, where it
+// could run code or needs the full algorithm.
+func (o *Object) HasOwnString(key string) (has, ok bool) {
+	if o.proxy != nil || o.array != nil || o.typed != nil || o.fnLazy != 0 {
+		return false, false
+	}
+	return o.sh().findString(key) >= 0, true
+}
+
+// ArrayElements is an array's elements, when it's a plain array: no
+// holes, no proxy. ok is false otherwise.
+func (o *Object) ArrayElements() ([]Value, bool) {
+	if o.array == nil || o.proxy != nil || o.holes {
+		return nil, false
+	}
+	return *o.array, true
+}
+
+// IsPlainArray reports whether o is an array whose length is there
+// without running code: an array, not a proxy of one.
+func IsPlainArray(o *Object) bool { return o.array != nil && o.proxy == nil }

@@ -20,7 +20,14 @@ func (c *Compiler) hoistFunctions(w *writer, s *scope, body []*Node) {
 			name := d.Child("id").Str("name")
 			b := s.lookup(name)
 			if s.top {
-				if e, ok := c.intrinsicFor(c.cur, name, d); ok {
+				orig := func() string { return c.function(s, d, name) }
+				binding := func(n string) (string, bool) {
+					if nb := s.lookup(n); nb != nil {
+						return nb.expr, true
+					}
+					return "", false
+				}
+				if e, ok := c.intrinsicFor(c.cur, name, d, orig, binding); ok {
 					w.line("%s = %s", b.expr, e)
 					continue
 				}

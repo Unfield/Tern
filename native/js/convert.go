@@ -329,7 +329,7 @@ func (rt *Realm) ToObject(v Value) *Object {
 		panic(TypeErrorf("Cannot convert undefined or null to object"))
 	case string:
 		o := NewObject(rt.StringPrototype)
-		o.Class, o.Internal = "String", x
+		rt.stringData(o, x)
 		return o
 	case float64:
 		o := NewObject(rt.NumberPrototype)
@@ -366,4 +366,16 @@ func scanASCII(s string) bool {
 		}
 	}
 	return true
+}
+
+// stringData makes o a String object of s: its index properties, one per
+// UTF-16 unit, enumerable and read-only, and its length, as a String
+// exotic object has them.
+func (rt *Realm) stringData(o *Object, s string) {
+	o.Class, o.Internal = "String", s
+	n := rt.Len16(s)
+	for i := range n {
+		o.add(prop{key: strconv.Itoa(i), value: rt.charAt(s, i), enumerable: true})
+	}
+	o.add(prop{key: "length", value: float64(n)})
 }

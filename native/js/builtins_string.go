@@ -36,7 +36,7 @@ func (rt *Realm) setupString() {
 		if len(args) > 0 {
 			s = ToString(args[0])
 		}
-		o.Class, o.Internal = "String", s
+		rt.stringData(o, s)
 		return o
 	}, rt.StringPrototype)
 	rt.StringPrototype.Internal = ""

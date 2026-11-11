@@ -60,6 +60,14 @@ func TestConformance(t *testing.T) {
 		for _, p := range res.Problems {
 			t.Errorf("%s: not compiled: %s", c.Name, p)
 		}
+		if c.Name == "svelte_helpers" {
+			// The case is there to check the Go versions against Node.
+			for _, want := range []string{"svelte.EscapeHTML(", "svelte.Attr(", "svelte.ToClass(", "svelte.AttrClass(", "svelte.Stringify(", "svelte.EnsureArrayLike("} {
+				if !strings.Contains(string(res.Source), want) {
+					t.Errorf("svelte_helpers doesn't use %s…): %v", want, res.Mismatches)
+				}
+			}
+		}
 		write(c.Name+".go", string(res.Source))
 		fmt.Fprintf(&main, "\trun(%q, %sNew)\n", c.Name, prefix)
 	}

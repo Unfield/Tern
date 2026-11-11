@@ -11,6 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **A full app to start from.** `tern new -template saas`, or "full" when `tern new` and `npm create tern` ask, creates an app with accounts built: sign-up, email verification, password resets, passkeys, two-step sign-in, and sign-in with GitHub or Google when their keys are set. It has a landing page, a dashboard with a getting-started checklist, projects as an example of per-user data in SQLite with a migration, settings for the profile, email address and password, and a security page for two-step sign-in, passkeys, devices and connected accounts. Emails go through SMTP in background jobs, or to the log, link included, in development. The bare templates are as before.
 - `tern dev` reads a `.env` file into the app's environment; variables already set win over it.
 
+### Changed
+
+- **Native rendering, phase 2** ([ADR 0013](docs/adr/0013-native-rendering-phase-2.md)): an uncached render of the benchmark's 100-row table takes 272 µs, from 352 µs in v1.7.0, and allocates 352 KB, from 573 KB.
+  - Page data reaches native renders as the loads' Go values, made into the same JavaScript values `JSON.parse` would make, without the JSON. Don't change what a load returns after it returns.
+  - Svelte's `Renderer.push` and `#collect_content`, and its `attr`, `to_class`, `attr_class`, `stringify` and `ensure_array_like` helpers, run as Go. Each is used only while Svelte's source is the one it was written against, and is checked against Node.
+  - The document is written in one pooled buffer instead of being copied at each step.
+
+### Fixed
+
+- Native rendering: String objects have their index properties, so `Object.keys('ab')` is `['0', '1']`.
+
 ## [1.7.0] - 2026-11-11
 
 ### Added

@@ -225,6 +225,9 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 			http.Error(c.writer, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if css := a.dev.styles(c.Request.Context(), a.components(def)); css != "" {
+			fmt.Fprintf(&head, "\n\t\t<style data-tern-dev nonce=\"%s\">%s</style>", nonce, css)
+		}
 		for _, src := range a.dev.scripts(a.m.BasePath) {
 			fmt.Fprintf(&head, "\n\t\t<script type=\"module\" src=\"%s\" nonce=\"%s\"></script>", html.EscapeString(src), nonce)
 		}

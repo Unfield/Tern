@@ -108,7 +108,8 @@
 			align-items: center;
 			gap: var(--s-3);
 			width: calc(100% + 2 * var(--gutter));
-			height: 48px;
+			/* 48px inside the 1px border, so its content centers on a whole pixel */
+			height: 49px;
 			margin: 0 calc(-1 * var(--gutter));
 			padding: 0 var(--gutter);
 			border: 0;
@@ -118,6 +119,8 @@
 			color: var(--text-2);
 			font-size: 14px;
 			font-weight: 550;
+			/* whole pixels in a sticky, blurred bar; see Header.svelte */
+			line-height: 20px;
 			cursor: pointer;
 		}
 		.sidebar {

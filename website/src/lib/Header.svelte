@@ -54,8 +54,12 @@
 				<span class="search-label">Search docs</span>
 				<kbd>⌘K</kbd>
 			</button>
-			<button class="icon-btn" type="button" onclick={() => theme.toggle()} aria-label={theme.current === 'dark' ? 'Use the light theme' : 'Use the dark theme'}>
-				<Icon name={theme.current === 'dark' ? 'sun' : 'moon'} size={18} />
+			<!-- Both icons are in the HTML, and the theme on <html> picks one:
+			     the server doesn't know the reader's theme, and a swap after
+			     the script runs would flash. -->
+			<button class="icon-btn theme-btn" type="button" onclick={() => theme.toggle()} aria-label="Switch between light and dark">
+				<span class="when-dark"><Icon name="sun" size={18} /></span>
+				<span class="when-light"><Icon name="moon" size={18} /></span>
 			</button>
 			<a class="icon-btn" href={repo} aria-label="Tern on GitHub"><Icon name="github" size={18} /></a>
 			<button class="icon-btn menu-btn" type="button" onclick={() => (menu = !menu)} aria-expanded={menu} aria-controls="mobile-menu" aria-label="Menu">
@@ -79,6 +83,9 @@
 <Search bind:this={search} />
 
 <style>
+	/* Everything in the bar has a whole-pixel height and line-height: in a
+	   sticky, blurred header, boxes at fractional offsets are rounded
+	   differently from one scroll frame to the next and twitch. */
 	header {
 		position: sticky;
 		top: 0;
@@ -102,6 +109,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--s-3);
+		height: 32px;
 		color: var(--text);
 	}
 	.brand:hover {
@@ -109,11 +117,16 @@
 	}
 	.word {
 		font-size: 19px;
+		line-height: 32px;
 		font-weight: 700;
 		letter-spacing: -0.03em;
 	}
 	.version {
-		padding: 2px var(--s-2);
+		display: inline-flex;
+		align-items: center;
+		height: 24px;
+		padding: 0 var(--s-2);
+		line-height: 22px;
 		border: 1px solid var(--border);
 		border-radius: 999px;
 		color: var(--text-3);
@@ -132,7 +145,11 @@
 		margin-left: var(--s-4);
 	}
 	.links a {
-		padding: var(--s-2) var(--s-3);
+		display: inline-flex;
+		align-items: center;
+		height: 36px;
+		padding: 0 var(--s-3);
+		line-height: 20px;
 		border-radius: var(--radius-s);
 		color: var(--text-2);
 		font-size: 14.5px;
@@ -173,10 +190,15 @@
 	}
 	.search-label {
 		flex: 1;
+		line-height: 20px;
 		text-align: left;
 	}
 	kbd {
-		padding: 1px 6px;
+		display: inline-flex;
+		align-items: center;
+		height: 20px;
+		padding: 0 6px;
+		line-height: 18px;
 		border: 1px solid var(--border);
 		border-radius: 5px;
 		background: var(--bg);
@@ -201,6 +223,13 @@
 		background: var(--surface-2);
 	}
 	.menu-btn {
+		display: none;
+	}
+	.theme-btn span {
+		display: contents;
+	}
+	:global(:root[data-theme='dark']) .when-light,
+	:global(:root[data-theme='light']) .when-dark {
 		display: none;
 	}
 	.mobile {

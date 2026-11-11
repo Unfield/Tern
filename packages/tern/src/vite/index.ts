@@ -33,6 +33,9 @@ const SERVER_OUT = '.tern/output/server';
 const RENDER_PATH = '/__tern/render';
 /** The dev endpoint the Go app calls to render an email. */
 const EMAIL_PATH = '/__tern/email';
+// The CSS a page's components import, for tern dev to inline in the
+// server-rendered page, so its first paint is styled.
+const STYLES_PATH = '/__tern/dev/styles';
 
 /**
  * The Vite plugin for Tern apps. It includes the Svelte plugin, so it is
@@ -180,6 +183,21 @@ export function tern(options: TernOptions = {}): Plugin[] {
 					}
 				);
 			});
+			server.middlewares.use(STYLES_PATH, (req, res) => {
+				void stylesInDev(server, req.url ?? '').then(
+					(css) => {
+						res.setHeader('Content-Type', 'text/css; charset=utf-8');
+						res.setHeader('Cache-Control', 'no-store');
+						res.end(css);
+					},
+					(err: unknown) => {
+						const e = err instanceof Error ? err : new Error(String(err));
+						res.statusCode = 500;
+						res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+						res.end(e.stack ?? e.message);
+					}
+				);
+			});
 			server.middlewares.use(RENDER_PATH, (req, res) => {
 				void renderInDev(server, req).then(
 					(body) => {
@@ -207,6 +225,59 @@ export function tern(options: TernOptions = {}): Plugin[] {
 			render: (payload: string, href: string) => string;
 		};
 		return mod.render(payload, href);
+	}
+
+	/**
+	 * The CSS the given components import, directly or through other
+	 * modules, as the browser will load it: stylesheets and Svelte
+	 * components' styles, in import order. It walks the client's module
+	 * graph, transforming modules the browser hasn't asked for yet, so it
+	 * works on the first load too.
+	 */
+	async function stylesInDev(server: ViteDevServer, url: string): Promise<string> {
+		const components = new URL(url, 'http://localhost').searchParams.getAll('c');
+		const client = server.environments.client;
+		const seen = new Set<string>();
+		const out: string[] = [];
+		const failed: string[] = [];
+		const isCSS = (id: string) => /\.(css|scss|sass|less|styl|stylus|pcss|postcss|sss)(\?|$)/.test(id) || /[?&]type=style\b/.test(id);
+		// Vite knows a stylesheet by its URL ending in .css, so the flag
+		// goes first in the query: /x.svelte?direct&svelte&type=style&lang.css.
+		const withQuery = (u: string, q: string) => {
+			const i = u.indexOf('?');
+			return i < 0 ? u + '?' + q : u.slice(0, i + 1) + q + '&' + u.slice(i + 1);
+		};
+		type Node = { url: string; transformResult: unknown; importedModules: Set<Node> };
+		const visit = async (mod: Node) => {
+			// The ?direct forms this function requests join the graph too:
+			// skip them, or each would be read again.
+			if (seen.has(mod.url) || seen.size > 5000 || /[?&](direct|inline)\b/.test(mod.url)) return;
+			seen.add(mod.url);
+			try {
+				if (isCSS(mod.url)) {
+					const res = await client.transformRequest(withQuery(mod.url, 'direct'));
+					if (res?.code) out.push(res.code);
+					return;
+				}
+				// Dependencies' JavaScript has no stylesheets of the app's.
+				if (mod.url.includes('/node_modules/')) return;
+				if (!mod.transformResult) await client.transformRequest(mod.url);
+			} catch (err) {
+				// The browser will report it; the page is styled when it loads.
+				failed.push(mod.url + ': ' + (err instanceof Error ? err.message.split('\n')[0] : String(err)));
+				return;
+			}
+			// A copy: transforming adds to the graph while it is walked.
+			for (const dep of [...mod.importedModules]) await visit(dep);
+		};
+		for (const c of components) {
+			const file = path.join(root, c);
+			if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) continue;
+			await client.transformRequest('/' + c.split(path.sep).join('/'));
+			for (const mod of client.moduleGraph.getModulesByFile(file) ?? []) await visit(mod as unknown as Node);
+		}
+		if (failed.length && process.env.TERN_DEBUG_STYLES) console.warn('tern: styles not collected:\n' + failed.join('\n'));
+		return out.join('\n');
 	}
 
 	async function emailInDev(server: ViteDevServer, req: IncomingMessage): Promise<string> {

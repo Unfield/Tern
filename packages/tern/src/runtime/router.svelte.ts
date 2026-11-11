@@ -102,6 +102,9 @@ export async function start(m: ClientManifest): Promise<void> {
 	}
 	started = true;
 	await tick();
+	// tern dev puts the page's CSS in the HTML for the first paint; Vite's
+	// own style tags, which hot-reload, have replaced it by now.
+	if (import.meta.env?.DEV) for (const el of document.querySelectorAll('style[data-tern-dev]')) el.remove();
 	runAfter({ from: null, to: current(), type: 'enter' });
 	registerServiceWorker();
 

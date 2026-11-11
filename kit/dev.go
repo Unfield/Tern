@@ -1,19 +1,23 @@
 package kit
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // devServer is active when the app runs under `tern dev`. Requests for
 // modules, assets and hot reloading are proxied to Vite, so the whole app
 // is served from one port.
 type devServer struct {
+	vite  *url.URL
 	proxy *httputil.ReverseProxy
 	root  string
 	entry string
@@ -37,7 +41,40 @@ func newDevServer(viteURL, root, entry, base string) (*devServer, error) {
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, "Vite dev server unavailable: "+err.Error(), http.StatusBadGateway)
 	}
-	return &devServer{proxy: proxy, root: root, entry: entry, base: base}, nil
+	return &devServer{vite: u, proxy: proxy, root: root, entry: entry, base: base}, nil
+}
+
+var devStylesClient = &http.Client{Timeout: 10 * time.Second}
+
+// styles returns the CSS the page's components import, from Vite. Under
+// Vite, stylesheets arrive as JavaScript after the page: without them in
+// the HTML, the first paint is unstyled. The client removes this copy
+// once Vite's own styles are in place, so edits still hot-reload.
+func (d *devServer) styles(ctx context.Context, components []string) string {
+	if len(components) == 0 {
+		return ""
+	}
+	q := url.Values{"c": components}
+	u := d.vite.JoinPath("/__tern/dev/styles")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := devStylesClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	if err != nil {
+		return ""
+	}
+	// Nothing in a stylesheet can end the <style> element early.
+	return strings.ReplaceAll(string(b), "</style", `<\/style`)
 }
 
 func (d *devServer) handles(r *http.Request) bool {

@@ -8,7 +8,17 @@ template="${1:-minimal}"
 shift || true # the rest are flags for tern new, such as -ui
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
-trap 'kill "${server:-0}" 2>/dev/null || true; rm -rf "$work"' EXIT
+cleanup() {
+	status=$?
+	kill "${server:-0}" 2>/dev/null || true
+	# A failed check prints what the server logged, to find flaky ones.
+	if [ "$status" -ne 0 ] && [ -f "$work/server.log" ]; then
+		echo "==> server log"
+		tail -n 50 "$work/server.log"
+	fi
+	rm -rf "$work"
+}
+trap cleanup EXIT
 
 echo "==> tern new -template $template $*"
 (cd "$repo" && go run ./cmd/tern new -skip-go-get -template "$template" "$@" "$work/app")
@@ -71,7 +81,8 @@ saas)
 	origin="Origin: http://localhost:$port"
 	[ "$(curl -s -o /dev/null -w '%{http_code}' -c "$jar" -H "$origin" -d 'name=CI&email=ci@example.com&password=long+enough+password' "http://localhost:$port/signup")" = 303 ] || { echo "sign-up failed"; exit 1; }
 	curl -fs -b "$jar" "http://localhost:$port/dashboard" | grep -q 'Getting started' || { echo "the dashboard didn't load after sign-up"; exit 1; }
-	curl -fs -b "$jar" -H "$origin" -d 'name=From+CI&description=made+by+the+template+test' "http://localhost:$port/projects?/create" >/dev/null || { echo "creating a project failed"; exit 1; }
+	created="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -b "$jar" -H "$origin" -d 'name=From+CI&description=made+by+the+template+test' "http://localhost:$port/projects?/create")"
+	case "$created" in 2??*|303*/projects*) ;; *) echo "creating a project failed: $created"; exit 1 ;; esac
 	curl -fs -b "$jar" "http://localhost:$port/projects" | grep -q 'From CI' || { echo "the project isn't listed"; exit 1; }
 	curl -fs -b "$jar" "http://localhost:$port/settings/security" | grep -q 'Two-step sign-in' || { echo "the security page is missing"; exit 1; }
 	grep -qE 'link"?[=:]"?http' "$work/server.log" || { echo "the verification email's link wasn't logged"; exit 1; }

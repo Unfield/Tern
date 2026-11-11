@@ -145,7 +145,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] `tern routes -json`
 - [x] `tern dev` says which routes were added and removed
 
-## v1.8: A full app to start from, and native rendering phase 2
+## v1.8: A full app to start from, and native rendering phase 2 (released)
 
 **Starting a project**
 - [x] `tern new` asks for a bare app or a full one: the `saas` template, with accounts, a dashboard, settings and per-user data

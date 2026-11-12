@@ -78,9 +78,9 @@
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
 		<a class="announce" href="/docs/changelog">
-			<span class="pill">New in 1.14</span>
-			<span class="long">Apps that assistants can use, over MCP</span>
-			<span class="short">Apps for assistants</span>
+			<span class="pill">New in 1.15</span>
+			<span class="long">Admin screens, search, feature flags and dev tools</span>
+			<span class="short">Admin, search and dev tools</span>
 			<Icon name="arrow-right" size={14} />
 		</a>
 		<h1>Svelte on the client.<br /><span class="grad">Go on the server.</span></h1>

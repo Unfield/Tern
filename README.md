@@ -26,7 +26,7 @@
 - **Real Svelte 5.** Not a lookalike. Your components, the Svelte ecosystem and your editor tooling all keep working.
 - **Go on the server.** `load` functions and form actions are plain Go, built on `net/http`.
 - **End-to-end types.** The structs your Go `Load` returns become TypeScript types for your Svelte pages, generated automatically.
-- **Server-side rendering.** Pages render in Go through an embedded JavaScript engine and hydrate in the browser. No Node in production.
+- **Server-side rendering.** `tern build` compiles the server renderer of your Svelte components to Go, so pages render in Go and hydrate in the browser. No Node in production.
 - **One binary.** `tern build` embeds the client and the renderer into a single static Go executable.
 - **Progressive enhancement.** Forms work without JavaScript, and get better with it.
 
@@ -46,6 +46,8 @@ npm run dev
 ```
 
 Open <http://localhost:5173>. `npm run build` produces `build/my-app`, a single binary that serves the whole app.
+
+New to Tern? The [tutorial](docs/tutorial/README.md) builds a complete app, a reading list with accounts, tests and a deploy, one step per page.
 
 ## A taste
 

@@ -268,5 +268,5 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [ ] Hosting platforms as `tern deploy` providers, with what they add: previews per branch, logs and traces in one place, and managed databases. Tern stays deployable anywhere; no feature depends on a platform
 
 **Learning**
-- [ ] A tutorial on tern.land that builds a complete app, one step per page
+- [x] A tutorial on tern.land that builds a complete app, one step per page
 - [ ] A showcase of apps built with Tern

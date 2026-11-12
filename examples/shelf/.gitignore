@@ -1,0 +1,8 @@
+node_modules/
+/build/
+.tern/
+tern.gen.go
+tern_native.gen.go
+shelf.db*
+test-results/
+playwright-report/

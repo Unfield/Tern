@@ -89,7 +89,7 @@
 		</p>
 		<div class="actions">
 			<a class="btn btn-primary" href="/docs">Get started <Icon name="arrow-right" /></a>
-			<a class="btn" href="/docs/guide">Read the guide</a>
+			<a class="btn" href="/docs/tutorial">Follow the tutorial</a>
 		</div>
 		<div class="install">
 			<Command command="npm create tern@latest" />

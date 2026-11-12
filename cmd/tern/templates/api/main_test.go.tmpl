@@ -10,7 +10,7 @@ import (
 )
 
 // These tests run the whole app, as a client of the API would use it:
-// npm test, or go tool tern gen && go test ./...
+// npm test, or go tool tern build && go test ./...
 
 func TestTodos(t *testing.T) {
 	app, err := ternApp(kit.WithOpenAPI("/api/openapi.json", "test", "1"))

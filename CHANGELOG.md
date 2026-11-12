@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **A tutorial** on tern.land that builds a complete app, one step per page: a reading list with a database, validated forms, accounts, tests and a deploy. The finished app is [examples/shelf](examples/shelf).
+
+### Fixed
+
+- `npm test` in a new project works before its first build: it runs `tern build`, which the tests need to render pages, instead of `tern gen`.
+
 ## [1.13.0] - 2026-11-12
 
 ### Added

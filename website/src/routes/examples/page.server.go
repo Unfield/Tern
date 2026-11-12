@@ -27,6 +27,7 @@ var list = []Example{
 	{Name: "Accounts", Dir: "accounts", About: "Every screen of user accounts: sign-up, sign-in with a password or a passkey, email verification, password resets and the devices a user is signed in on.", Uses: []string{"accounts", "Passkeys", "Tern UI auth screens"}},
 	{Name: "Dashboard", Dir: "dashboard", About: "An admin dashboard built from shadcn-svelte components, rendered on the server: the benchmark app for server rendering.", Uses: []string{"shadcn-svelte", "Server rendering", "Layouts"}},
 	{Name: "Tern UI", Dir: "ui", About: "A gallery of Tern UI: every component in light and dark mode, and a form validated by a Go action, with keyboard and accessibility tests.", Uses: []string{"Tern UI", "Form validation", "axe audits"}},
+	{Name: "Shelf", Dir: "shelf", About: "A reading list with accounts, and the app the tutorial builds step by step: a SQLite database with migrations, validated forms, a page per link, and tests of the whole app from Go.", Uses: []string{"Tutorial", "accounts", "Migrations", "kittest"}},
 	{Name: "Todos", Dir: "todos", About: "The smallest complete app: sessions, form actions with progressive enhancement, a JSON API, a Markdown blog and prerendered pages.", Uses: []string{"Form actions", "Sessions", "Content collections"}},
 	{Name: "Go script", Dir: "goscript", About: "Tern’s experimental <script lang=\"go\">: Svelte components whose logic is Go, compiled to WebAssembly, with runes.", Uses: []string{"Experimental", "WebAssembly"}},
 }

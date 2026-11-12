@@ -1,6 +1,6 @@
 # Testing
 
-Tern apps are tested with Go's own `go test`, and in the browser with Playwright. Projects created with `tern new` come with both: `npm test` runs the Go tests, and `npm run test:e2e` runs the browser tests against the production build.
+Tern apps are tested with Go's own `go test`, and in the browser with Playwright. Projects created with `tern new` come with both: `npm test` builds the app and runs the Go tests (the build gives the tests the client and server renderer that pages render with), and `npm run test:e2e` runs the browser tests against the production build.
 
 ## Loads and actions
 

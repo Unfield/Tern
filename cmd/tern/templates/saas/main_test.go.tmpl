@@ -13,7 +13,7 @@ import (
 )
 
 // These tests run the whole app, as a browser would use it, against a
-// database made for each test: npm test, or go tool tern gen && go test ./...
+// database made for each test: npm test, or go tool tern build && go test ./...
 
 func newClient(t *testing.T) *kittest.Client {
 	t.Setenv("DATABASE_PATH", filepath.Join(t.TempDir(), "test.db"))

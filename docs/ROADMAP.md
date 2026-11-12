@@ -263,7 +263,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 
 **Tooling**
 - [x] An editor extension: jump between a page and its Go load, see routes, and get `tern check` errors on save, for VS Code and Zed ([docs/editors.md](editors.md))
-- [ ] `tern add` for plugins, and a list of community plugins on tern.land
+- [x] `tern add` for plugins, and a list of community plugins on tern.land ([tern.land/plugins](https://tern.land/plugins))
 
 **Hosting**
 - [ ] Hosting platforms as `tern deploy` providers, with what they add: previews per branch, logs and traces in one place, and managed databases. Tern stays deployable anywhere; no feature depends on a platform

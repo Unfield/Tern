@@ -1,0 +1,107 @@
+[
+  {
+    "name": "compress",
+    "description": "Gzips pages, data and JSON for clients that accept it, flushing streamed responses as they go.",
+    "import": "github.com/Unfield/Tern/plugins/compress",
+    "add": "compress.New()",
+    "docs": "https://tern.land/docs/guide#plugins",
+    "author": "Tern"
+  },
+  {
+    "name": "cors",
+    "description": "Lets other origins call the app's endpoints, with preflight requests answered.",
+    "import": "github.com/Unfield/Tern/plugins/cors",
+    "add": "cors.New(cors.Origins(\"https://example.com\"))",
+    "notes": "Set the origins that may call the app in main.go.",
+    "docs": "https://tern.land/docs/guide#plugins",
+    "author": "Tern"
+  },
+  {
+    "name": "health",
+    "description": "Liveness and readiness endpoints, /healthz and /readyz, for load balancers and orchestrators.",
+    "import": "github.com/Unfield/Tern/plugins/health",
+    "add": "health.New()",
+    "docs": "https://tern.land/docs/deployment",
+    "author": "Tern"
+  },
+  {
+    "name": "images",
+    "description": "Resizes remote images for <Image src=\"https://…\">, with a disk cache.",
+    "import": "github.com/Unfield/Tern/plugins/images",
+    "add": "images.New(images.Options{Hosts: []string{\"images.example.com\"}})",
+    "notes": "List the hosts images may come from in main.go.",
+    "docs": "https://tern.land/docs/guide#images",
+    "author": "Tern"
+  },
+  {
+    "name": "metrics",
+    "description": "Prometheus metrics at /metrics: requests by route and status, their durations, and the Go runtime.",
+    "import": "github.com/Unfield/Tern/plugins/metrics",
+    "add": "metrics.New()",
+    "docs": "https://tern.land/docs/guide#plugins",
+    "author": "Tern"
+  },
+  {
+    "name": "ratelimit",
+    "description": "Limits how often each client changes things, such as form actions and API writes, with 429 and Retry-After past the limit.",
+    "import": "github.com/Unfield/Tern/plugins/ratelimit",
+    "add": "ratelimit.New()",
+    "docs": "https://tern.land/docs/guide#plugins",
+    "author": "Tern"
+  },
+  {
+    "name": "requestlog",
+    "description": "Logs every request with slog: method, path, status, time and the request's ID.",
+    "import": "github.com/Unfield/Tern/plugins/requestlog",
+    "add": "requestlog.New()",
+    "docs": "https://tern.land/docs/logging",
+    "author": "Tern"
+  },
+  {
+    "name": "secure",
+    "description": "Security headers on every response: no framing by other sites, trimmed referrers, powerful browser features off, and HSTS when asked.",
+    "import": "github.com/Unfield/Tern/plugins/secure",
+    "add": "secure.New()",
+    "docs": "https://tern.land/docs/guide#content-security-policy",
+    "author": "Tern"
+  },
+  {
+    "name": "sessions",
+    "description": "Per-user data in an encrypted, signed cookie.",
+    "import": "github.com/Unfield/Tern/plugins/sessions",
+    "add": "sessions.New(os.Getenv(\"SESSION_SECRET\"))",
+    "imports": [
+      "os"
+    ],
+    "env": [
+      "SESSION_SECRET"
+    ],
+    "notes": "Set SESSION_SECRET to at least 32 random characters, such as from openssl rand -hex 32.",
+    "docs": "https://tern.land/docs/guide#authentication",
+    "author": "Tern"
+  },
+  {
+    "name": "signals",
+    "description": "Tells people from bots and recognizes devices, from TLS and HTTP fingerprints and a client check.",
+    "import": "github.com/Unfield/Tern/plugins/signals",
+    "add": "signals.New(signals.Options{})",
+    "docs": "https://tern.land/docs/signals",
+    "author": "Tern"
+  },
+  {
+    "name": "oauth",
+    "description": "Sign in with GitHub, Google or any OpenID Connect provider.",
+    "import": "github.com/Unfield/Tern/plugins/oauth",
+    "notes": "It needs each provider's client ID and secret: see the docs for the options.",
+    "docs": "https://tern.land/docs/accounts",
+    "author": "Tern"
+  },
+  {
+    "name": "oidc",
+    "description": "Makes the app an OAuth 2.1 and OpenID Connect provider, with consent, for other apps and assistants.",
+    "import": "github.com/Unfield/Tern/plugins/oidc",
+    "notes": "It needs an issuer URL, a store and its clients: see the docs for the options.",
+    "docs": "https://tern.land/docs/assistants",
+    "author": "Tern"
+  }
+]

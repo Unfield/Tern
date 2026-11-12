@@ -28,7 +28,7 @@ type loc struct {
 
 func GET(ctx *kit.Ctx) error {
 	set := urlset{NS: "http://www.sitemaps.org/schemas/sitemap/0.9"}
-	for _, p := range []string{"/", "/examples"} {
+	for _, p := range []string{"/", "/examples", "/plugins"} {
 		set.URLs = append(set.URLs, loc{Origin + p})
 	}
 	nav, err := docs.Nav()

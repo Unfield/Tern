@@ -17,6 +17,7 @@
 			title: 'Learn',
 			links: [
 				{ href: '/examples', label: 'Examples' },
+				{ href: '/plugins', label: 'Plugins' },
 				{ href: '/docs/migrating-from-sveltekit', label: 'Coming from SvelteKit' },
 				{ href: '/docs/benchmarks', label: 'Benchmarks' },
 				{ href: '/docs/architecture', label: 'Architecture' }

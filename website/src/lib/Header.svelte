@@ -10,6 +10,7 @@
 	const links = [
 		{ href: '/docs', label: 'Docs', match: (p: string) => p.startsWith('/docs') && !p.startsWith('/docs/benchmarks') && !p.startsWith('/docs/changelog') },
 		{ href: '/examples', label: 'Examples', match: (p: string) => p.startsWith('/examples') },
+		{ href: '/plugins', label: 'Plugins', match: (p: string) => p.startsWith('/plugins') },
 		{ href: '/docs/benchmarks', label: 'Benchmarks', match: (p: string) => p.startsWith('/docs/benchmarks') },
 		{ href: '/docs/changelog', label: 'Changelog', match: (p: string) => p.startsWith('/docs/changelog') }
 	];

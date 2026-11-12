@@ -495,7 +495,17 @@ func auth(ctx *kit.Ctx) error {
 
 ## Plugins
 
-Plugins package reusable server behavior. Add them in `main.go`:
+Plugins package reusable server behavior. `tern add` adds one to `main.go`, and gets its module when it isn't Tern's own:
+
+```sh
+go tool tern add compress health
+go tool tern add github.com/you/tern-thing   # any package with a plugin
+go tool tern add                             # the list
+```
+
+It puts the plugin in the app's `kit.WithPlugins`, with its import, and says what's left to set up, such as an environment variable. `-n` prints the change instead of making it. [tern.land/plugins](https://tern.land/plugins) lists Tern's plugins and the community's; to list yours, add it to `plugins/registry.json` in a pull request.
+
+Or add them in `main.go` yourself:
 
 ```go
 import (
@@ -1650,6 +1660,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern gen` | regenerate `tern.gen.go`, the client manifest and types |
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
+| `tern add [-n] <plugin>...` | add plugins to `main.go`, by name or Go package; without arguments, list them |
 | `tern lsp` | serve the [language server](editors.md) for editors, which the VS Code and Zed extensions start |
 | `tern routes [-json] [dir]` | list routes; `-json` prints them for scripts and editors |
 | `tern new [-template minimal\|blog\|api\|saas] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |

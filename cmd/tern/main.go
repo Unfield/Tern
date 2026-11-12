@@ -26,6 +26,7 @@ var commands = []command{
 	{"migrate", "new <name>", "Create a database migration"},
 	{"ui", "add <Component>", "Copy Tern UI components into the project"},
 	{"mcp", "", "Serve the Model Context Protocol for AI coding tools"},
+	{"lsp", "", "Serve the language server for editors"},
 	{"version", "", "Print the Tern version"},
 }
 
@@ -86,6 +87,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdNew(args[1:], stdout, stderr)
 	case "mcp":
 		return cmdMCP(args[1:], stdout, stderr)
+	case "lsp":
+		return cmdLSP(args[1:], os.Stdin, stdout, stderr)
 	case "migrate":
 		return cmdMigrate(args[1:], stdout, stderr)
 	case "ui":

@@ -262,7 +262,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [x] An app's tools served over MCP, so assistants can use the app with the user's permissions ([docs/mcp-server.md](mcp-server.md))
 
 **Tooling**
-- [ ] An editor extension: jump between a page and its Go load, see routes, and get `tern check` errors as you type
+- [x] An editor extension: jump between a page and its Go load, see routes, and get `tern check` errors on save, for VS Code and Zed ([docs/editors.md](editors.md))
 - [ ] `tern add` for plugins, and a list of community plugins on tern.land
 
 **Hosting**

@@ -1,0 +1,11 @@
+id = "tern"
+name = "Tern"
+version = "0.1.0"
+schema_version = 1
+authors = ["Tern contributors"]
+description = "Tern apps in Zed: jump between pages and their Go loads, find routes, and see tern check's errors."
+repository = "https://github.com/Unfield/Tern"
+
+[language_servers.tern]
+name = "Tern"
+languages = ["Svelte", "Go", "TypeScript", "JavaScript"]

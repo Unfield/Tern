@@ -1,0 +1,5 @@
+node_modules/**/test/**
+**/*.map
+*.vsix
+test/**
+.vscode-test/**

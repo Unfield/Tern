@@ -1,0 +1,100 @@
+{
+  "name": "tern",
+  "displayName": "Tern",
+  "description": "Tern apps in VS Code: jump between pages and their Go loads, browse the routes, and see tern check's errors.",
+  "version": "0.1.0",
+  "publisher": "unfield",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Unfield/Tern",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "keywords": [
+    "tern",
+    "svelte",
+    "go"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/src/routes"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tern.toggle",
+        "title": "Tern: Go to the Other Half (page ⇄ load)"
+      },
+      {
+        "command": "tern.routes.refresh",
+        "title": "Tern: Refresh Routes",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "tern.restart",
+        "title": "Tern: Restart the Language Server"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "tern.toggle",
+        "key": "alt+o",
+        "when": "editorTextFocus && (resourceExtname == .svelte || resourceExtname == .go)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "ternRoutes",
+          "name": "Routes",
+          "when": "tern.active"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "tern.routes.refresh",
+          "when": "view == ternRoutes",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Tern",
+      "properties": {
+        "tern.server": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "go",
+            "tool",
+            "tern",
+            "lsp"
+          ],
+          "description": "The command that starts Tern's language server, run in the project. The default uses the project's own version of Tern."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.2.1"
+  },
+  "scripts": {
+    "package": "vsce package",
+    "test": "node test/run.js"
+  }
+}

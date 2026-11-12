@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Smaller binaries:** when every page compiles to Go, `tern build` leaves the JavaScript engine out, about a tenth of the binary. `TERN_KEEP_ENGINE=1` keeps it.
 - **Emails render natively,** as pages do, with the engine as the fallback. Live components already did, within their pages.
 
+### Fixed
+
+- Error groups are listed most recent first on Windows too, where two reports moments apart could get the same time.
+
 ## [1.12.0] - 2026-11-12
 
 ### Added

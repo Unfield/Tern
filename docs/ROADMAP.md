@@ -239,8 +239,7 @@ Pages as fast as prerendered ones, with data that changes.
 
 Every page rendered by Go, and smaller binaries.
 
-- [ ] A value representation without boxing numbers and strings, and a cheaper call protocol: most of what a render still costs ([ADR 0013](adr/0013-native-rendering-phase-2.md))
-- [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
+- ~~A value representation without boxing numbers and strings~~: profiled and decided against, as it would gain about a tenth for a rewrite of the runtime ([ADR 0022](adr/0022-keep-boxed-values.md))
 - [x] `tern build` leaves the JavaScript engine out of apps that don't need it, for smaller binaries
 - [x] Native rendering for emails and live components too
 
@@ -249,6 +248,9 @@ Every page rendered by Go, and smaller binaries.
 Planned, in no fixed order yet. Tell us in the issues which you need first.
 
 **Building**
+
+- [ ] Fewer allocations in native renders: concatenating and pushing HTML, arguments of calls, and page data ([ADR 0022](adr/0022-keep-boxed-values.md))
+- [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
 - [ ] Full-text search for content collections and app data, on SQLite or PostgreSQL, with a search box in Tern UI
 - [ ] Feature flags and gradual rollouts, decided on the server, per user or team
 - [ ] Admin screens generated from Go structs: lists, filters and forms for an app's own data

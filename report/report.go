@@ -19,6 +19,7 @@
 package report
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -110,6 +111,7 @@ type Reporter struct {
 
 	mu     sync.Mutex
 	groups map[string]*Group
+	seq    uint64 // counts reports, to order groups seen in the same clock tick
 }
 
 // Group is a cause and how often it happened.
@@ -127,6 +129,7 @@ type Group struct {
 
 	windowStart time.Time
 	sent        int
+	seq         uint64
 }
 
 // New returns a reporter. Under tern dev, it also sends reports to the dev
@@ -236,6 +239,8 @@ func (r *Reporter) count(rep Report) bool {
 	}
 	g.Count++
 	g.LastSeen, g.Last = rep.Time, rep
+	r.seq++
+	g.seq = r.seq
 	if rep.Time.Sub(g.windowStart) >= time.Minute {
 		g.windowStart, g.sent = rep.Time, 0
 	}
@@ -250,7 +255,7 @@ func (r *Reporter) count(rep Report) bool {
 func (r *Reporter) evict() {
 	var oldest *Group
 	for _, g := range r.groups {
-		if oldest == nil || g.LastSeen.Before(oldest.LastSeen) {
+		if oldest == nil || g.seq < oldest.seq {
 			oldest = g
 		}
 	}
@@ -271,7 +276,9 @@ func (r *Reporter) Groups() []Group {
 		out = append(out, *g)
 	}
 	r.mu.Unlock()
-	slices.SortFunc(out, func(a, b Group) int { return b.LastSeen.Compare(a.LastSeen) })
+	// The order they were seen in, not their times: a coarse clock (on
+	// Windows) gives reports moments apart the same time.
+	slices.SortFunc(out, func(a, b Group) int { return cmp.Compare(b.seq, a.seq) })
 	return out
 }
 

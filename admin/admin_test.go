@@ -102,7 +102,11 @@ type result struct {
 	} `json:"data"`
 }
 
+// hooks records AfterSave and AfterDelete calls.
+var hooks []string
+
 func setup(t *testing.T, db *sql.DB, allow *bool) http.Handler {
+	hooks = nil
 	t.Helper()
 	ctx := context.Background()
 	auto := ""
@@ -127,7 +131,10 @@ func setup(t *testing.T, db *sql.DB, allow *bool) http.Handler {
 			return kit.Error(http.StatusForbidden, "")
 		}
 		return nil
-	}}, admin.Resource("links", links), admin.Resource("users", users, admin.NoDelete()))
+	}}, admin.Resource("links", links,
+		admin.AfterSave(func(_ context.Context, key string) error { hooks = append(hooks, "saved "+key); return nil }),
+		admin.AfterDelete(func(_ context.Context, key string) error { hooks = append(hooks, "deleted "+key); return nil }),
+	), admin.Resource("users", users, admin.NoDelete()))
 	app, err := kit.New(&kit.Manifest{AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`, Routes: []kit.RouteDef{
 		{ID: "/admin/path.rest", Page: &kit.PageDef{Component: "src/routes/admin/+page.svelte", Load: kit.LoadOf(admin.Load), Actions: admin.Actions}},
 	}}, kit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))), kit.WithPlugins(panel))
@@ -295,6 +302,9 @@ func TestAdmin(t *testing.T) {
 		}
 		if r := post(t, app, "/admin/links/"+key+"?/delete", nil); r.Location != "/admin/links?done=deleted" {
 			t.Errorf("delete = %+v", r)
+		}
+		if got := strings.Join(hooks, ","); got != "saved 1,saved 2,saved 3,saved "+key+",deleted "+key {
+			t.Errorf("hooks = %s", got)
 		}
 		for _, p := range []string{"/admin/links/" + key, "/admin/nope", "/admin/links/abc", "/admin/links/1/2"} {
 			if r, _ := get(t, app, p); r.Status != http.StatusNotFound {

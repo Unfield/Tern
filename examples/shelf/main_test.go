@@ -125,3 +125,29 @@ func TestAdminScreens(t *testing.T) {
 		t.Errorf("editing a user: %d", page.Status)
 	}
 }
+
+func TestSearch(t *testing.T) {
+	ada := signedIn(t)
+	ada.PostForm("/?/add", url.Values{"url": {"https://go.dev/blog/go1.26"}, "title": {"Go 1.26 is released"}})
+	ada.PostForm("/?/add", url.Values{"url": {"https://svelte.dev"}, "title": {"Svelte"}})
+	bob := signUp(t, ada.Browser(), "bob@example.com")
+	bob.PostForm("/?/add", url.Values{"url": {"https://go.dev/tour"}, "title": {"A tour of Go"}})
+
+	page := ada.Get("/search?q=go")
+	if page.Status != 200 || page.Text(".results li a") != "Go 1.26 is released" {
+		t.Fatalf("Ada's results: %d %q", page.Status, page.Text(".results"))
+	}
+	// As she types: the endpoint, prefixes, only her links.
+	page = ada.Get("/api/search?q=relea")
+	if page.Status != 200 || !strings.Contains(page.Body, `"href":"/links/1"`) || strings.Contains(page.Body, "tour") {
+		t.Errorf("api: %d %s", page.Status, page.Body)
+	}
+	// A deleted link is gone from the results.
+	ada.PostForm("/links/1?/delete", nil)
+	if page := ada.Get("/search?q=go"); page.Has(".results li") {
+		t.Error("a deleted link was found")
+	}
+	if page := ada.Browser().Get("/api/search?q=go"); page.Status != http.StatusUnauthorized {
+		t.Errorf("signed out: %d", page.Status)
+	}
+}

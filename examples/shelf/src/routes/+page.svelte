@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { api } from '$api';
 	import { route } from '$routes';
-	import { Button, Field, Form, Input } from '@ternkit/tern/ui';
+	import { Button, Field, Form, Input, SearchBox } from '@ternkit/tern/ui';
 	import type { PageProps } from './$types';
 	import { forms } from './$forms';
 
@@ -18,7 +19,10 @@
 	<title>Shelf</title>
 </svelte:head>
 
-<h1>Your shelf</h1>
+<header class="top">
+	<h1>Your shelf</h1>
+	<SearchBox action="/search" hotkey="/" search={(q, signal) => api('GET /api/search', { query: { q }, signal })} label="Search your shelf" class="find" />
+</header>
 
 <Form action="?/add" rules={forms.add} {form} bind:submitting={saving} class="add">
 	<Field label="Address" name="url"><Input type="url" placeholder="https://" /></Field>
@@ -46,9 +50,27 @@
 {/if}
 
 <style>
+	.top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.5rem;
+	}
 	h1 {
-		margin: 0 0 1.5rem;
+		margin: 0;
 		font-size: 1.75rem;
+	}
+	.top :global(.find) {
+		width: auto;
+		flex: 0 1 16rem;
+	}
+	@media (max-width: 560px) {
+		.top :global(.find) {
+			flex-basis: 100%;
+			max-width: none;
+		}
 	}
 	:global(.add) {
 		display: grid;

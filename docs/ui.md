@@ -37,6 +37,7 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Checkbox`, `RadioGroup`, `Select` | native inputs, styled: arrow keys and screen readers behave as users expect. `RadioGroup` is a `fieldset` with a `legend` |
 | `Switch` | `role="switch"` with `aria-checked`. It posts `on`/`off` with `name` |
 | `Combobox` | the ARIA combobox with a list: typing filters (or calls `onsearch` for server results), arrow keys move, Enter picks, Escape closes and then clears. Leaving it with other text keeps the chosen option |
+| `SearchBox`, `Highlight` | a `role="search"` GET form that works without JavaScript; with `search`, an ARIA combobox whose results are links: arrow keys move, Enter opens, Escape closes and then clears, and the number of results is announced. `Highlight` marks matches with `<mark>` ([Search](search.md)) |
 | `SelectMenu` | the ARIA select-only combobox, for options with descriptions and groups: type-ahead open or closed, Home, End and Page keys |
 | `Command` | a filtered list of commands with groups, keywords and shortcuts. With `dialog` and `hotkey="k"`, a modal palette opened with ⌘K or Ctrl+K |
 | `Calendar`, `DatePicker` | the ARIA date grid: arrow keys by day and week, Home and End for the week, Page keys by month and Shift+Page by year. Days are labelled in full and today is `aria-current`. Values are ISO dates (`2026-11-10`) that Go parses with `time.Parse(time.DateOnly, …)`; ranges take a start and an end |

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Unfield/Tern/admin"
@@ -54,7 +56,14 @@ func adminPanel() (*admin.Admin, error) {
 			return nil
 		},
 	},
-		admin.Resource("links", links),
+		// The search index follows what admins change.
+		admin.Resource("links", links,
+			admin.AfterSave(func(ctx context.Context, key string) error {
+				id, _ := strconv.ParseInt(key, 10, 64)
+				return shelf.IndexLink(ctx, id)
+			}),
+			admin.AfterDelete(func(ctx context.Context, key string) error { return shelf.Index.Delete(ctx, key) }),
+		),
 		admin.Resource("users", users, admin.ReadOnly()),
 	), nil
 }

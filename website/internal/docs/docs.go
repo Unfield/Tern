@@ -110,6 +110,7 @@ func list() ([]*Page, error) {
 			{Source: "docs/tutorial/09-ship.md", Slug: "tutorial/ship", Title: "9. Ship it", Section: "Tutorial"},
 			{Source: "docs/accounts.md", Slug: "accounts", Title: "Accounts", Section: "Building"},
 			{Source: "docs/billing.md", Slug: "billing", Title: "Billing", Section: "Building"},
+			{Source: "docs/search.md", Slug: "search", Title: "Search", Section: "Building"},
 			{Source: "docs/admin.md", Slug: "admin", Title: "Admin screens", Section: "Building"},
 			{Source: "docs/ui.md", Slug: "ui", Title: "Tern UI", Section: "Building"},
 			{Source: "docs/live-components.md", Slug: "live-components", Title: "Live components", Section: "Building"},

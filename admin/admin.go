@@ -89,6 +89,7 @@ type resource struct {
 	typ                   reflect.Type
 	readOnly, noCreate    bool
 	noDelete              bool
+	afterSave, afterDel   func(ctx context.Context, key string) error
 }
 
 // An Option changes how a resource is shown.
@@ -108,6 +109,18 @@ func NoCreate() Option { return func(r *resource) { r.noCreate = true } }
 
 // NoDelete leaves out deleting records.
 func NoDelete() Option { return func(r *resource) { r.noDelete = true } }
+
+// AfterSave runs fn after a record is created or saved, with its key,
+// such as to update a search index or a cache. An error fails the
+// request, though the record stays saved.
+func AfterSave(fn func(ctx context.Context, key string) error) Option {
+	return func(r *resource) { r.afterSave = fn }
+}
+
+// AfterDelete runs fn after a record is deleted, with its key.
+func AfterDelete(fn func(ctx context.Context, key string) error) Option {
+	return func(r *resource) { r.afterDel = fn }
+}
 
 // Res is a resource for New; make one with Resource.
 type Res struct{ r *resource }
@@ -546,10 +559,13 @@ func save(c *kit.Ctx) (any, error) {
 	}
 	done := "saved"
 	if creating {
-		_, err = r.create(ctx, v)
+		key, err = r.create(ctx, v)
 		done = "created"
 	} else {
 		err = r.update(ctx, key, v, cols)
+	}
+	if err == nil && r.afterSave != nil {
+		err = r.afterSave(ctx, key)
 	}
 	if errors.Is(err, ErrNotFound) {
 		return nil, kit.NotFound()
@@ -578,11 +594,16 @@ func remove(c *kit.Ctx) (any, error) {
 	if r.noDelete || key == "new" {
 		return nil, kit.Error(http.StatusMethodNotAllowed, "")
 	}
-	if err := r.remove(c.Request.Context(), key); errors.Is(err, ErrNotFound) {
+	err = r.remove(c.Request.Context(), key)
+	if err == nil && r.afterDel != nil {
+		err = r.afterDel(c.Request.Context(), key)
+	}
+	switch {
+	case errors.Is(err, ErrNotFound):
 		return nil, kit.NotFound()
-	} else if foreign(err) {
+	case foreign(err):
 		return nil, kit.Fail(http.StatusConflict, kit.Invalid{Errors: map[string]string{}, Values: map[string]any{}, Message: c.TB("tern.admin.error.referenced", map[string]any{"name": strings.ToLower(r.singular)})})
-	} else if err != nil {
+	case err != nil:
 		return nil, err
 	}
 	return nil, kit.Redirect(http.StatusSeeOther, a.href(c, r.name)+"?done=deleted")

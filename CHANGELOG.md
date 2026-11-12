@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The `admin` tag marks keys, listed, searchable and filtered fields, read-only fields, references to other resources, and integers that hold times.
   - Tern UI's `Admin` component renders them, in a route of the app's own, so they work without JavaScript.
 - Shelf, the tutorial's app, has admin screens for its links and accounts.
+- **Search** ([ADR 0025](docs/adr/0025-search.md), [docs/search.md](docs/search.md)): the `search` package indexes an app's data in SQLite (FTS5), PostgreSQL (`tsvector`) or memory, and finds it as people type: words match as prefixes, without case or accents, within a scope such as one user's documents. Hits come with snippets that mark the matches, as text rather than HTML.
+- **`SearchBox` and `Highlight` in Tern UI:** results as the user types, with keyboard navigation and a hotkey, and a results page that works without JavaScript.
+- `admin.AfterSave` and `admin.AfterDelete`, to keep a search index or a cache in step with what admins change.
+- Shelf searches each user's links.
 - **Streaming endpoints** ([guide](docs/guide.md#streaming-endpoints)): `func POST(ctx *kit.Ctx, in Ask, out *kit.Stream[Delta]) error` sends values as they come, such as a model's reply as it's written, as server-sent events. `$api`'s `stream` reads them as a typed async iterator, and throws the server's error as an `ApiError`. Leaving the loop stops the endpoint. The OpenAPI document describes them.
 - **Dev tools in `tern dev`** ([docs/dev-tools.md](docs/dev-tools.md)): a button on every page opens a panel with the route, its files at the line of each load, the data each load returned, and each request's spans and logs. Errors from the server, the browser and the build open over the page, with the app's frames, the source around each and a button that opens it in your editor (`TERN_EDITOR`, or Zed, Cursor or VS Code).
 

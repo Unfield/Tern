@@ -107,8 +107,12 @@ func shapeOf(p *packages.Package) *liveShape {
 				if name := stringArg(info, call, 1); name != "" {
 					s.state[name] = e.typeOf(signalElem(info.TypeOf(call)))
 				}
-			case fn.Name() == "Show" && (recv == "GlobalSignal" || recv == "SharedSignal" || recv == "PresenceCounter"):
+			case fn.Name() == "Show" && (recv == "GlobalSignal" || recv == "SharedSignal" || recv == "PresenceCounter" || recv == "Doc"):
 				if name := stringArg(info, call, 1); name != "" {
+					s.state[name] = e.typeOf(signalElem(info.TypeOf(call)))
+				}
+			case fn.Name() == "Show" && recv == "RoomSet": // (c, key, name)
+				if name := stringArg(info, call, 2); name != "" {
 					s.state[name] = e.typeOf(signalElem(info.TypeOf(call)))
 				}
 			case fn.Name() == "Func" && recv == "Component":

@@ -99,18 +99,20 @@ func svelteCheckBin(root string) (string, error) {
 }
 
 var (
-	goScriptTag  = regexp.MustCompile(`<script\b([^>]*\blang=["']go["'][^>]*)>([\s\S]*?)</script>`)
-	liveAttr     = regexp.MustCompile(`(^|\s)live(\s|=|$)`)
-	stateNameRe  = regexp.MustCompile(`\b(?:State|Derived)(?:\[[^\]]*\])?\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"`)
-	showNameRe   = regexp.MustCompile(`\.Show\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"`)
-	funcNameRe   = regexp.MustCompile(`\.Func\(\s*"([A-Za-z_$][\w$]*)"`)
-	tsconfigPath = regexp.MustCompile(`^\.\./`)
+	goScriptTag = regexp.MustCompile(`<script\b([^>]*\blang=["']go["'][^>]*)>([\s\S]*?)</script>`)
+	liveAttr    = regexp.MustCompile(`(^|\s)live(\s|=|$)`)
+	stateNameRe = regexp.MustCompile(`\b(?:State|Derived)(?:\[[^\]]*\])?\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"`)
+	showNameRe  = regexp.MustCompile(`\.Show\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"`)
+	// A room's Show takes the room's key first: room.Show(c, "board:"+id, "people").
+	showKeyNameRe = regexp.MustCompile(`\.Show\(\s*\w+\s*,\s*(?:[^,()"]|"[^"]*"|\([^()]*\))+,\s*"([A-Za-z_$][\w$]*)"`)
+	funcNameRe    = regexp.MustCompile(`\.Func\(\s*"([A-Za-z_$][\w$]*)"`)
+	tsconfigPath  = regexp.MustCompile(`^\.\./`)
 )
 
 // goScriptNames matches exportedNames in packages/tern/src/vite/goscript.ts.
 func goScriptNames(src string) (values, funcs []string) {
 	seen := map[string]bool{}
-	for _, re := range []*regexp.Regexp{stateNameRe, showNameRe} {
+	for _, re := range []*regexp.Regexp{stateNameRe, showNameRe, showKeyNameRe} {
 		for _, m := range re.FindAllStringSubmatch(src, -1) {
 			if !seen[m[1]] {
 				seen[m[1]] = true

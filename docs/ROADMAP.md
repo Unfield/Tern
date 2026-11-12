@@ -255,7 +255,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [x] Feature flags and gradual rollouts, decided on the server, per user or team ([docs/flags.md](flags.md))
 - [x] Dev tools in `tern dev`: a panel with each page's route, files, data, spans and logs, and errors over the page with their source ([docs/dev-tools.md](dev-tools.md))
 - [x] Admin screens generated from Go structs: lists, filters and forms for an app's own data ([docs/admin.md](admin.md))
-- [ ] Presence and shared state for live components, for collaborative screens
+- [x] Presence and shared state for live components, for collaborative screens ([docs/live-components.md](live-components.md#collaboration))
 
 **AI**
 - [x] Streaming endpoints for model responses, with typed partial results on the client ([guide](guide.md#streaming-endpoints))

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Counter from '$lib/Counter.svelte';
+	import LiveNote from '$lib/LiveNote.svelte';
 	import LiveRoom from '$lib/LiveRoom.svelte';
 	import LiveTodos from '$lib/LiveTodos.svelte';
 	import Primes from '$lib/Primes.svelte';
@@ -19,6 +20,8 @@
 <p>With <code>&lt;script lang="go" live&gt;</code>, the same Go runs on the server instead, connected over a WebSocket. Nothing is downloaded, and state can be shared: open this page in two windows.</p>
 
 <LiveRoom name="visitor" />
+
+<LiveNote name={`Visitor ${Math.floor(Math.random() * 90 + 10)}`} />
 
 <LiveTodos onadded={(text: string) => (lastAdded = text)} />
 {#if lastAdded}<p data-testid="last-added">Last added here: {lastAdded}</p>{/if}

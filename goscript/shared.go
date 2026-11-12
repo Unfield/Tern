@@ -58,6 +58,9 @@ func SetBroker(b Broker) {
 		for _, p := range presences {
 			_ = publishEnvelope(ctx, broker, p.topic(), envelope{Count: 0})
 		}
+		for _, x := range collabs {
+			x.leaving(ctx, broker)
+		}
 		cancel()
 	}
 	if stopAll != nil {
@@ -78,6 +81,9 @@ func SetBroker(b Broker) {
 	}
 	for _, p := range presences {
 		p.connect(brokerCtx, b)
+	}
+	for _, x := range collabs {
+		x.connect(brokerCtx, b)
 	}
 	for name, t := range topics {
 		t.remote = subscribeRemote(brokerCtx, b, name)
@@ -425,7 +431,11 @@ func presenceHeartbeat(ctx context.Context, b Broker) {
 	for {
 		brokerMu.Lock()
 		list := append([]*PresenceCounter(nil), presences...)
+		rooms := append([]collab(nil), collabs...)
 		brokerMu.Unlock()
+		for _, x := range rooms {
+			x.heartbeat(ctx, b)
+		}
 		for _, p := range list {
 			p.mu.Lock()
 			for id, e := range p.remote {

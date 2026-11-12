@@ -142,10 +142,62 @@ if !ok {
 | `goscript.Global(v)` | this process | counters, caches, anything when you run one process |
 | `goscript.Shared("name", v)` | every process, through the broker | small values everyone sees; the last write wins |
 | `goscript.Presence("name")` | every process | how many are here: `room.Join(c)`, `room.Show(c, "online")` |
+| `goscript.Room[M]("name")` | every process | who is here, each with state of their own, such as where their cursor is ([Collaboration](#collaboration)) |
+| `goscript.Docs("name", opts)` | every process | a shared record people change together, merged field by field ([Collaboration](#collaboration)) |
 | `goscript.Publish(ctx, topic, v)` with `goscript.Subscribe(c, topic, fn)` | every process | "something changed": reload from the database |
 
 - **Signals:** `Show(c, "name")` shows a shared value in the markup and returns a signal for Derived values. `Use(c)` returns the signal without showing it.
 - **The usual pattern for data:** a Func writes to the database and then publishes. Every subscribed component reloads what it shows. The database stays the source of truth.
+
+### Collaboration
+
+For screens people use together, such as a document, a board or a form: who is looking at it, and a value everyone changes without undoing each other.
+
+```go
+type Note struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
+type Here struct {
+	Name  string `json:"name"`
+	Field string `json:"field"` // where they are
+}
+
+var (
+	notes = goscript.Docs("note", goscript.DocOptions[Note]{Load: loadNote, Save: saveNote})
+	room  = goscript.Room[Here]("note")
+)
+
+func Setup(c *goscript.Component) {
+	key := "note:" + id
+	note := notes.Open(c, key)
+	note.Show(c, "note")
+	room.Show(c, key, "people")
+	me := room.Join(c, key, Here{Name: user.Name})
+	goscript.State(c, "me", me.ID())
+
+	c.Func("edit", func(title string) error {
+		return note.Update(func(n Note) Note { n.Title = title; return n })
+	})
+	c.Func("focus", func(field string) { me.Update(func(h Here) Here { h.Field = field; return h }) })
+}
+```
+
+```svelte
+{#each people as p (p.id)}
+	<span>{p.state.name}{#if p.id === me} (you){/if}{#if p.state.field} · {p.state.field}{/if}</span>
+{/each}
+<input value={note.title} oninput={(e) => edit.debounce(150)(e.currentTarget.value)} onfocus={() => focus('title')} />
+```
+
+- **Rooms:** a `Room` is a kind of room, with one room per key, such as `note:42`. `Join` adds the component, with state of its own, until it goes away, and returns a handle whose `Update` changes that state: a cursor can move on every event, since updates reach other processes at most every 50 milliseconds. `Show` and `Use` follow the members, oldest first, each with an `id`, its `state` and `since`. The same user in two tabs is two members.
+- **Documents:** `Docs` is a kind of shared document, with one per key. `Open` loads it with `Load` when no component in the process has it open, and asks other processes for their copy; it works in the server render too. `Update` changes it.
+- **Merging:** a document is a struct, and its top-level fields merge on their own. Two people changing different fields at once both keep their change; for the same field, the last change wins, the same way in every process, with clocks that follow what each process has seen.
+- **Saving:** `Save` writes the document where it changed, at most every `SaveEvery` (a second by default), gathering the changes meanwhile. The database stays the record; a document lives in memory while someone has it open.
+- **Types:** `tern check` knows the types of rooms' members and documents in the markup.
+
+[examples/goscript](../examples/goscript/src/lib/LiveNote.svelte) has a shared note: open it in two windows.
 
 ### Several server processes
 
@@ -158,7 +210,7 @@ app, err := ternApp(kit.WithLiveBroker(b))
 
 - **The broker:** `pgbroker` uses PostgreSQL's LISTEN/NOTIFY, so no other service is needed. Any `realtime.Broker`, such as one on Redis or NATS, works too.
 - **`Shared`:** the last write wins everywhere. Keep counts that must not lose updates in the database.
-- **`Presence`:** each process reports its count every 10 seconds. A process that stops reporting drops out after 30.
+- **`Presence` and `Room`:** each process reports its count, or its members, every 10 seconds. A process that stops reporting drops out after 30.
 - **Sticky sessions:** not needed. A page that reconnects to another process remounts there.
 
 ## Connections, reconnects and deploys

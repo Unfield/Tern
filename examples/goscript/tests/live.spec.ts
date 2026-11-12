@@ -118,3 +118,36 @@ test('a reconnect remounts on the server and keeps bound values', async ({ page 
 	await todos.getByRole('button', { name: 'Add' }).click();
 	await expect(todos.getByText('half typed')).toBeVisible();
 });
+
+test('a shared note merges edits and shows who is where', async ({ browser }) => {
+	const one = await (await browser.newContext()).newPage();
+	const two = await (await browser.newContext()).newPage();
+	await one.goto('/');
+	await two.goto('/');
+	const n1 = one.getByTestId('note');
+	const n2 = two.getByTestId('note');
+	// Each sees the other (pages of earlier tests may be in the room too).
+	const name = async (n: typeof n1) => (await n.locator('.people li', { hasText: '(you)' }).textContent())!.replace(/\s*\(you\)[\s\S]*$/, '').trim();
+	const me1 = await name(n1);
+	const me2 = await name(n2);
+	await expect(n1.locator('.people li', { hasText: me2 })).toHaveCount(1);
+	await expect(n2.locator('.people li', { hasText: me1 })).toHaveCount(1);
+
+	// Both type at once, in different fields: both edits stay.
+	const title = `Plan ${Date.now()}`;
+	await n1.getByTestId('note-title').fill(title);
+	await n2.getByTestId('note-body').fill('Bring snacks');
+	await expect(n2.getByTestId('note-title')).toHaveValue(title);
+	await expect(n1.getByTestId('note-body')).toHaveValue('Bring snacks');
+	await expect(n1.getByTestId('note-title')).toHaveValue(title);
+
+	// Where the other person is.
+	await n1.getByTestId('note-body').focus();
+	await expect(n2.locator('label', { hasText: 'Body' }).locator('.tag')).toHaveCount(1);
+	await n1.getByTestId('note-title').focus();
+	await expect(n2.locator('label', { hasText: 'Title' }).locator('.tag')).toHaveCount(1);
+	await expect(n2.locator('label', { hasText: 'Body' }).locator('.tag')).toHaveCount(0);
+
+	await two.close();
+	await expect(n1.locator('.people li', { hasText: me2 })).toHaveCount(0);
+});

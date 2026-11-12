@@ -65,3 +65,21 @@ func TestCheckTSConfig(t *testing.T) {
 		t.Errorf("tsconfig = %s", raw)
 	}
 }
+
+func TestGoScriptNames(t *testing.T) {
+	values, funcs := goScriptNames(`
+	goscript.State(c, "count", 0)
+	shared.Show(c, "color")
+	note.Show(c, "note")
+	room.Show(c, key, "people")
+	boards.Show(c, "board:"+strconv.Itoa(id), "here")
+	rooms.Show(c, fmt.Sprint("b", id), "crowd")
+	c.Func("save", func() {})
+`)
+	if got := strings.Join(values, ","); got != "count,color,note,people,here,crowd" {
+		t.Errorf("values = %s", got)
+	}
+	if strings.Join(funcs, ",") != "save" {
+		t.Errorf("funcs = %v", funcs)
+	}
+}

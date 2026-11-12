@@ -70,7 +70,9 @@ function scan(root: string): GoComponent[] {
 export function exportedNames(source: string): { values: string[]; funcs: string[] } {
 	const values = [
 		...source.matchAll(/\b(?:State|Derived)(?:\[[^\]]*\])?\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"/g),
-		...source.matchAll(/\.Show\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"/g)
+		...source.matchAll(/\.Show\(\s*\w+\s*,\s*"([A-Za-z_$][\w$]*)"/g),
+		// A room's Show takes the room's key first: room.Show(c, "board:"+id, "people").
+		...source.matchAll(/\.Show\(\s*\w+\s*,\s*(?:[^,()"]|"[^"]*"|\([^()]*\))+,\s*"([A-Za-z_$][\w$]*)"/g)
 	].map((m) => m[1]!);
 	const funcs = [...source.matchAll(/\.Func\(\s*"([A-Za-z_$][\w$]*)"/g)].map((m) => m[1]!);
 	return { values: [...new Set(values)], funcs: [...new Set(funcs)] };

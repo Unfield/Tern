@@ -17,6 +17,11 @@ func Setup(c *goscript.Component) {
 		expect(exportedNames(source)).toEqual({ values: ['count', 'doubled', 'online'], funcs: ['add'] });
 	});
 
+	it('finds the names rooms show, after their key', () => {
+		const rooms = `room.Show(c, key, "people")\nboards.Show(c, "board:"+strconv.Itoa(id), "here")\nr.Show(c, fmt.Sprint("b", id), "crowd")`;
+		expect(exportedNames(rooms).values).toEqual(['people', 'here', 'crowd']);
+	});
+
 	it('binds them, and live, unless the Go code uses those names', () => {
 		const code = liveBindings('c1', ['count'], ['add']);
 		expect(code).toContain('const live = __go;');

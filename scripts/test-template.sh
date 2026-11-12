@@ -59,21 +59,21 @@ grep -q 'data-tern-ssr' <<<"$html" || { echo "page was not server-rendered"; exi
 case "$template" in
 minimal)
 	grep -q 'Hello from Go!' <<<"$html" || { echo "load data missing"; exit 1; }
-	curl -fs -X POST -d name=CI "http://localhost:$port/" | grep -q 'Nice to meet you, CI!' || { echo "form action failed"; exit 1; }
+	grep -q 'Nice to meet you, CI!' <<<"$(curl -fs -X POST -d name=CI "http://localhost:$port/")" || { echo "form action failed"; exit 1; }
 	[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d name= "http://localhost:$port/")" = 400 ] || { echo "validation failed"; exit 1; }
-	curl -fsI "http://localhost:$port/" | grep -qi '^x-frame-options: DENY' || { echo "hook header missing"; exit 1; }
+	grep -qi '^x-frame-options: DENY' <<<"$(curl -fsI "http://localhost:$port/")" || { echo "hook header missing"; exit 1; }
 	;;
 blog)
 	grep -q 'Writing posts' <<<"$html" || { echo "the post list is missing"; exit 1; }
-	curl -fs "http://localhost:$port/posts/hello-world" | grep -q '<h2 id="what-you-get">' || { echo "the post was not rendered"; exit 1; }
-	curl -fs "http://localhost:$port/rss.xml" | grep -q '<title>Hello, world</title>' || { echo "the feed is missing"; exit 1; }
+	grep -q '<h2 id="what-you-get">' <<<"$(curl -fs "http://localhost:$port/posts/hello-world")" || { echo "the post was not rendered"; exit 1; }
+	grep -q '<title>Hello, world</title>' <<<"$(curl -fs "http://localhost:$port/rss.xml")" || { echo "the feed is missing"; exit 1; }
 	[ -f .tern/output/client/posts/hello-world/index.html ] || { echo "the post was not prerendered"; exit 1; }
 	;;
 api)
-	curl -fs -X POST -H 'Content-Type: application/json' -d '{"title":"From CI"}' "http://localhost:$port/api/todos" | grep -q '"title":"From CI"' || { echo "POST failed"; exit 1; }
-	curl -fs "http://localhost:$port/api/todos?done=false" | grep -q 'From CI' || { echo "GET failed"; exit 1; }
+	grep -q '"title":"From CI"' <<<"$(curl -fs -X POST -H 'Content-Type: application/json' -d '{"title":"From CI"}' "http://localhost:$port/api/todos")" || { echo "POST failed"; exit 1; }
+	grep -q 'From CI' <<<"$(curl -fs "http://localhost:$port/api/todos?done=false")" || { echo "GET failed"; exit 1; }
 	[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":" "}' "http://localhost:$port/api/todos")" = 400 ] || { echo "validation failed"; exit 1; }
-	curl -fs "http://localhost:$port/api/openapi.json" | grep -q '"/api/todos/{id}"' || { echo "the OpenAPI document is missing"; exit 1; }
+	grep -q '"/api/todos/{id}"' <<<"$(curl -fs "http://localhost:$port/api/openapi.json")" || { echo "the OpenAPI document is missing"; exit 1; }
 	;;
 saas)
 	grep -q 'Your product, ready on day one' <<<"$html" || { echo "the landing page is missing"; exit 1; }
@@ -81,11 +81,11 @@ saas)
 	jar="$work/cookies"
 	origin="Origin: http://localhost:$port"
 	[ "$(curl -s -o /dev/null -w '%{http_code}' -c "$jar" -H "$origin" -d 'name=CI&email=ci@example.com&password=long+enough+password' "http://localhost:$port/signup")" = 303 ] || { echo "sign-up failed"; exit 1; }
-	curl -fs -b "$jar" "http://localhost:$port/dashboard" | grep -q 'Getting started' || { echo "the dashboard didn't load after sign-up"; exit 1; }
+	grep -q 'Getting started' <<<"$(curl -fs -b "$jar" "http://localhost:$port/dashboard")" || { echo "the dashboard didn't load after sign-up"; exit 1; }
 	created="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -b "$jar" -H "$origin" -d 'name=From+CI&description=made+by+the+template+test' "http://localhost:$port/projects?/create")"
 	case "$created" in 2??*|303*/projects*) ;; *) echo "creating a project failed: $created"; exit 1 ;; esac
-	curl -fs -b "$jar" "http://localhost:$port/projects" | grep -q 'From CI' || { echo "the project isn't listed"; exit 1; }
-	curl -fs -b "$jar" "http://localhost:$port/settings/security" | grep -q 'Two-step sign-in' || { echo "the security page is missing"; exit 1; }
+	grep -q 'From CI' <<<"$(curl -fs -b "$jar" "http://localhost:$port/projects")" || { echo "the project isn't listed"; exit 1; }
+	grep -q 'Two-step sign-in' <<<"$(curl -fs -b "$jar" "http://localhost:$port/settings/security")" || { echo "the security page is missing"; exit 1; }
 	grep -qE 'link"?[=:]"?http' "$work/server.log" || { echo "the verification email's link wasn't logged"; exit 1; }
 	;;
 esac

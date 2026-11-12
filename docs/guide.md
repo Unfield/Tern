@@ -1067,7 +1067,7 @@ func Load(ctx *kit.Ctx) (Page, error) {
 
 ## Databases
 
-Tern doesn't choose a database library for you: use `database/sql`, sqlc, GORM or anything else in your loads and actions. Its own database packages work with SQLite and PostgreSQL through `database/sql`, with any driver (such as `modernc.org/sqlite` or `github.com/jackc/pgx/v5/stdlib`), and detect which one you use.
+Tern generates typed Go functions from SQL queries in `queries/*.sql`, checked against the schema your migrations build ([docs/sql.md](sql.md)). It doesn't require them: `database/sql`, sqlc, GORM or anything else works in loads and actions too. Its own database packages work with SQLite and PostgreSQL through `database/sql`, with any driver (such as `modernc.org/sqlite` or `github.com/jackc/pgx/v5/stdlib`), and detect which one you use.
 
 ### Database migrations
 

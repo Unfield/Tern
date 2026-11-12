@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **`tern doctor`** ([docs/deployment.md](docs/deployment.md#before-you-deploy-tern-doctor)) checks a project before a deploy: Go and Node, the Go module's and npm package's versions, code generation, native rendering's fallbacks, the migrations, the target's environment against `.env.example`, HTTPS, security headers and uncommitted changes. It exits 1 when a check fails.
+- **Typed SQL** ([ADR 0028](docs/adr/0028-typed-sql.md), [docs/sql.md](docs/sql.md)): queries in `queries/*.sql`, named with `-- name: LinksOf :many`, become typed Go functions in `queries/queries.gen.go`. Parameters are named (`:user_id`) and always bound; their types and the rows' come from the schema the migrations build, checked in a scratch SQLite database at build time, so a renamed column fails `tern check` at every query that used it. The same queries run on SQLite and PostgreSQL. The SaaS starter template keeps its projects this way.
 - **Operations in the admin panel** ([docs/admin.md](docs/admin.md#operations)): `acc.UsersAdmin()` and `acc.AuditAdmin()` for accounts and their audit log, `queue.Admin()` for background jobs with Retry, and `admin.Errors(reporter)` for error reports grouped by cause.
 - **Actions on records** in the admin panel: `admin.Action` and `admin.DangerAction` add buttons to each record's page that run Go code.
 - `acc.SignOutUser` ends every session of an account.
@@ -30,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The SaaS starter template's default app name, used for passkeys and as the email sender, was the literal text `{{.Name}}`.
 - **Native rendering:** a `var` declared in a loop or block at a module's top level no longer crashes the compiler; `\p{ID_Start}` and `\p{ID_Continue}` work in regular expressions; and a sticky or global regular expression after non-ASCII text starts where `lastIndex` says, where it started too early before.
 
 ## [1.15.0] - 2026-11-12

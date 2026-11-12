@@ -28,6 +28,7 @@ import (
 
 	"github.com/Unfield/Tern/internal/codegen"
 	"github.com/Unfield/Tern/internal/routes"
+	"github.com/Unfield/Tern/internal/sqlgen"
 	"github.com/Unfield/Tern/internal/ui"
 	"github.com/Unfield/Tern/internal/version"
 )
@@ -631,8 +632,10 @@ const (
 func classify(rel string, op fsnotify.Op) change {
 	base := filepath.Base(rel)
 	switch {
-	case base == codegen.GoFile:
-		return changeNone
+	case base == codegen.GoFile, rel == sqlgen.Dir+"/"+sqlgen.File:
+		return changeNone // written by code generation
+	case filepath.Ext(base) == ".sql" && (strings.HasPrefix(rel, sqlgen.Dir+"/") || strings.HasPrefix(rel, "migrations/")):
+		return changeBuild // retypes the queries
 	case strings.HasSuffix(base, ".go") && !strings.HasSuffix(base, "_test.go"), base == "go.mod", base == "go.sum":
 		return changeBuild
 	case rel == codegen.AppHTML:

@@ -49,6 +49,7 @@ The app reads them from the environment, and `tern dev` also from a `.env` file:
 main.go                      plugins: migrations, jobs, accounts, sign-in with other providers
 internal/app/                the database, accounts, email; projects.go is the example data
 migrations/                  SQL migrations, applied at start
+queries/                     SQL queries; tern generates typed Go for them in queries.gen.go
 src/routes/
   +page.svelte               the landing page
   auth.group/                sign in, sign up, two-step code, password reset, email confirmation

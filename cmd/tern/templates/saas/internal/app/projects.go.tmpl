@@ -1,0 +1,88 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"{{.Module}}/queries"
+)
+
+// Project is the example of the app's own data: each belongs to a team,
+// whose members see and change it. Replace it with what your app keeps.
+type Project struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// Projects stores projects in the projects table (migrations/), with the
+// queries in queries/projects.sql.
+type Projects struct{ q *queries.Queries }
+
+// ErrNotFound is a project that doesn't exist, or isn't the user's.
+var ErrNotFound = errors.New("project not found")
+
+// project turns a row, whose times are Unix milliseconds, into a Project.
+func project(r queries.ProjectRow) Project {
+	return Project{ID: r.ID, Name: r.Name, Description: r.Description,
+		CreatedAt: time.UnixMilli(r.CreatedAt).UTC(), UpdatedAt: time.UnixMilli(r.UpdatedAt).UTC()}
+}
+
+// List returns the team's projects, the most recently changed first.
+func (p *Projects) List(ctx context.Context, teamID int64) ([]Project, error) {
+	rows, err := p.q.ProjectsOf(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Project, len(rows))
+	for i, r := range rows {
+		out[i] = project(r)
+	}
+	return out, nil
+}
+
+// Count is how many projects the team has.
+func (p *Projects) Count(ctx context.Context, teamID int64) (int, error) {
+	n, err := p.q.CountProjects(ctx, teamID)
+	return int(n), err
+}
+
+// Create adds a project to the team, made by the user.
+func (p *Projects) Create(ctx context.Context, teamID, userID int64, name, description string) (Project, error) {
+	r, err := p.q.CreateProject(ctx, queries.CreateProjectParams{
+		TeamID: teamID, CreatedBy: userID,
+		Name: strings.TrimSpace(name), Description: strings.TrimSpace(description),
+		Now: time.Now().UnixMilli(),
+	})
+	return project(r), err
+}
+
+// Update renames a project and changes its description.
+func (p *Projects) Update(ctx context.Context, teamID, id int64, name, description string) error {
+	return found(p.q.UpdateProject(ctx, queries.UpdateProjectParams{
+		Name: strings.TrimSpace(name), Description: strings.TrimSpace(description),
+		Now: time.Now().UnixMilli(), ID: id, TeamID: teamID,
+	}))
+}
+
+// Delete removes a project.
+func (p *Projects) Delete(ctx context.Context, teamID, id int64) error {
+	return found(p.q.DeleteProject(ctx, id, teamID))
+}
+
+// DeleteAll removes the team's projects, when the team is deleted.
+func (p *Projects) DeleteAll(ctx context.Context, teamID int64) error {
+	return p.q.DeleteProjects(ctx, teamID)
+}
+
+// found turns a change that matched no row into ErrNotFound.
+func found(n int64, err error) error {
+	if err == nil && n == 0 {
+		return ErrNotFound
+	}
+	return err
+}

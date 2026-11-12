@@ -262,6 +262,18 @@ Faster pages that can't come from a cache, smaller binaries and less memory, eac
 
 - [ ] Less memory on data-heavy pages (about 110 MB resident for the items benchmark, with four workers): a heap profile of where it goes, and the biggest uses cut
 
+## v1.16: Secure by default, and typed SQL (in progress)
+
+- [x] Security headers, a Content-Security-Policy and a rate limit on writes, on by default ([docs/security.md](security.md))
+- [x] Known vulnerabilities in Go modules and npm packages, in `tern doctor` and CI
+- [x] Routes closed by default: each route with server code says who may use it ([ADR 0027](adr/0027-secure-by-default.md))
+- [x] Typed SQL from `queries/*.sql`, checked against the schema ([ADR 0028](adr/0028-typed-sql.md))
+- [ ] Checks for risky migrations
+- [ ] An HTTP client for outgoing requests that refuses internal addresses
+- [ ] Settings and secrets declared once, checked at start and kept out of logs
+- [ ] Encrypted fields for personal data
+- [ ] Safer uploads: types checked against contents, size limits, signed links
+
 ## Later
 
 Planned, in no fixed order yet. Tell us in the issues which you need first.

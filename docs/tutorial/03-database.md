@@ -115,7 +115,7 @@ func List(ctx context.Context, show string) ([]Link, error) {
 
 The options after the file name are the usual ones for a web app on SQLite: write-ahead logging, so reads don't wait for writes; a wait of up to 5 seconds when the database is busy; and foreign keys checked. `List` takes `show` already; [step 6](06-filters.md) uses it.
 
-Tern doesn't choose how you talk to the database. This tutorial uses `database/sql` as it is; sqlc, GORM or anything else works the same way in loads and actions.
+This tutorial writes the SQL in Go with `database/sql`, to show what happens underneath. Tern can also write that Go for you: put the queries in `queries/*.sql`, and it generates typed functions, checked against the schema your migrations build ([SQL queries](../sql.md)). The SaaS starter template works that way.
 
 ## Opening it
 

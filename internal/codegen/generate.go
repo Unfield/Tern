@@ -5,6 +5,7 @@ package codegen
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"go/format"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/Unfield/Tern/internal/i18n"
 	"github.com/Unfield/Tern/internal/routes"
+	"github.com/Unfield/Tern/internal/sqlgen"
 )
 
 // Project layout conventions.
@@ -71,6 +73,16 @@ func Generate(root string) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Typed queries first: route packages import them (ADR 0028).
+	queriesFile := path.Join(sqlgen.Dir, sqlgen.File)
+	queriesChanged := false
+	if src, err := sqlgen.Generate(context.Background(), root); err != nil {
+		return nil, err
+	} else if src != nil {
+		if queriesChanged, err = writeIfChanged(filepath.Join(root, filepath.FromSlash(queriesFile)), src); err != nil {
+			return nil, err
+		}
+	}
 	pkgs, err := analyze(root, RoutesDir, m)
 	if err != nil {
 		return nil, err
@@ -99,6 +111,10 @@ func Generate(root string) (*Result, error) {
 
 	g.i18nTypes()
 	res := &Result{Manifest: m, Warnings: g.warnings}
+	if queriesChanged {
+		res.Changed = append(res.Changed, queriesFile)
+		res.GoChanged = true
+	}
 	for _, rp := range pkgs {
 		res.Prerender = res.Prerender || rp.prerender
 	}

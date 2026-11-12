@@ -17,6 +17,8 @@ import (
 	"github.com/Unfield/Tern/jobs"
 	"github.com/Unfield/Tern/mail"
 	"github.com/Unfield/Tern/plugins/oauth"
+
+	"{{.Module}}/queries"
 )
 
 // App is the running app's shared parts.
@@ -52,7 +54,11 @@ func Open(logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	projects := &Projects{db: db}
+	qs, err := queries.New(db)
+	if err != nil {
+		return nil, err
+	}
+	projects := &Projects{q: qs}
 	acc, err := accounts.New(db, accounts.Options{
 		Send:    sender(logger, q),
 		BaseURL: os.Getenv("BASE_URL"),

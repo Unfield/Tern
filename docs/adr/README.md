@@ -31,6 +31,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0025](0025-search.md) | Full-text search | Accepted |
 | [0026](0026-svelte-compiler-in-go.md) | Svelte's compiler in Go | Proposed |
 | [0027](0027-secure-by-default.md) | Secure by default | Accepted |
+| [0028](0028-typed-sql.md) | Typed SQL from .sql files | Accepted |
 
 ## Template
 

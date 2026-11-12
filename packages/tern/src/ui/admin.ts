@@ -35,6 +35,8 @@ export type AdminPage = {
 		create: boolean;
 		edit: boolean;
 		delete: boolean;
+		/** Buttons on a record's page, from admin.Action. */
+		actions: { name: string; label: string; danger: boolean }[] | null;
 	} | null;
 	list: {
 		rows: { key: string; values: Record<string, string> }[];

@@ -47,7 +47,14 @@
 		const v = failure?.values?.[f.name];
 		return typeof v === 'string' ? v : (record?.values[f.name] ?? '');
 	};
-	const notice = $derived(data.notice === 'created' || data.notice === 'saved' || data.notice === 'deleted' ? tb(`tern.admin.done.${data.notice}`) : '');
+	const notice = $derived.by(() => {
+		if (data.notice === 'created' || data.notice === 'saved' || data.notice === 'deleted') return tb(`tern.admin.done.${data.notice}`);
+		const act = res?.actions?.find((a) => a.name === data.notice);
+		return act ? tb('tern.admin.done.action', { label: act.label }) : '';
+	});
+	// The record's action waiting for its confirmation, and its form.
+	let asking = $state<{ name: string; label: string } | null>(null);
+	let actionForms = $state<Record<string, HTMLFormElement>>({});
 	const from = $derived(list && list.total ? (list.page - 1) * list.perPage + 1 : 0);
 
 	let confirming = $state(false);
@@ -171,6 +178,23 @@
 			<p class="tern-admin-back"><a href={res.href}>← {tb('tern.admin.back', { name: lower(res.label) })}</a></p>
 			<header class="tern-admin-head">
 				<h1>{heading}</h1>
+				<div class="tern-admin-buttons">
+				{#if editing}
+					{#each res.actions ?? [] as act (act.name)}
+						<form method="POST" action="?/do" bind:this={actionForms[act.name]} use:enhance>
+							<input type="hidden" name="action" value={act.name} />
+							<Button
+								type="submit"
+								variant={act.danger ? 'danger' : 'secondary'}
+								onclick={(e: MouseEvent) => {
+									if (!act.danger) return;
+									e.preventDefault();
+									asking = act;
+								}}>{act.label}</Button
+							>
+						</form>
+					{/each}
+				{/if}
 				{#if editing && res.delete}
 					<form method="POST" action="?/delete" bind:this={deleteForm} use:enhance>
 						<Button
@@ -183,7 +207,9 @@
 						>
 					</form>
 				{/if}
+				</div>
 			</header>
+			{#if notice}<Alert tone="success" live>{notice}</Alert>{/if}
 			{#if failure?.message && !failure.errors?.[''] && Object.keys(failure.errors ?? {}).length === 0}
 				<Alert tone="danger" live>{failure.message}</Alert>
 			{/if}
@@ -242,6 +268,21 @@
 					confirmLabel={tb('tern.admin.delete')}
 					danger
 					onconfirm={() => deleteForm?.requestSubmit()}
+				/>
+			{/if}
+			{#if asking}
+				<AlertDialog
+					open={true}
+					title={tb('tern.admin.actionTitle', { label: asking.label })}
+					description={tb('tern.admin.deleteDescription')}
+					confirmLabel={asking.label}
+					danger
+					oncancel={() => (asking = null)}
+					onconfirm={() => {
+						const f = actionForms[asking!.name];
+						asking = null;
+						f?.requestSubmit();
+					}}
 				/>
 			{/if}
 		{/if}
@@ -309,6 +350,11 @@
 		justify-content: space-between;
 		gap: 1rem;
 		flex-wrap: wrap;
+	}
+	.tern-admin-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
 	}
 	.tern-admin-head form {
 		margin: 0;

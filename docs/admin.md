@@ -124,6 +124,40 @@ main:has(:global(.tern-admin)) {
 }
 ```
 
+## Actions
+
+A resource can have buttons on each record's page, which run a Go function with the record's key:
+
+```go
+admin.Resource("orders", orders,
+	admin.Action("resend", "Resend the receipt", func(ctx context.Context, key string) error {
+		return sendReceipt(ctx, key)
+	}),
+	admin.DangerAction("refund", "Refund", refund), // asks first
+)
+```
+
+An error made with `kit.FormError` shows on the page, such as "Only a paid order can be refunded."; others fail the request. After an action, the page says it's done.
+
+## Operations
+
+Tern's packages have screens ready for the panel, for running the app in production:
+
+```go
+panel := admin.New(admin.Options{Authorize: onlyAdmins},
+	links,                     // your own resources
+	acc.UsersAdmin(),          // accounts: search, rename, and "Sign out everywhere"
+	acc.AuditAdmin(),          // every account's audit log, linked to its user
+	queue.Admin(),             // background jobs: by state, with Retry and Delete
+	flags.Admin(),             // feature flags
+	admin.Errors(reporter),    // error reports, grouped by cause
+)
+```
+
+- **Users:** accounts change their own email and password, through the flows that check them, so only the name is edited here. "Sign out everywhere" ends every session of an account that was taken over.
+- **Jobs:** filter by state, search by kind and error, retry a failed job with its attempts reset, or delete one.
+- **Errors** are the reporter's groups, kept in memory: each process has its own. Give the app the reporter with `kit.WithReporter(reporter)`, as Shelf does, or use `report.Default()`. A tracker such as Sentry keeps them across processes and restarts.
+
 ## Data elsewhere
 
 `NewTable` is one `admin.Store`. For records kept elsewhere, such as in another service, implement the interface:

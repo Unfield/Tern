@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -8,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/Unfield/Tern/kit/kittest"
+
+	"shelf/internal/shelf"
 )
 
 // These tests run the whole app, as a browser would use it: npm test, or
@@ -120,9 +123,10 @@ func TestAdminScreens(t *testing.T) {
 	if page := bob.Get("/links/1"); page.Status != 200 {
 		t.Errorf("the link moved to Bob: %d", page.Status)
 	}
-	// Accounts are only shown.
-	if page := ada.PostForm("/admin/users/2?/save", url.Values{"email": {"mallory@example.com"}}); page.Status != http.StatusMethodNotAllowed {
-		t.Errorf("editing a user: %d", page.Status)
+	// An account's name changes here; its email doesn't.
+	ada.PostForm("/admin/users/2?/save", url.Values{"name": {"Robert"}, "email": {"mallory@example.com"}})
+	if u, _ := shelf.Accounts.UserByID(context.Background(), 2); u.Name != "Robert" || u.Email != "bob@example.com" {
+		t.Errorf("after editing a user: %+v", u)
 	}
 }
 

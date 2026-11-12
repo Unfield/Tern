@@ -257,6 +257,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [x] Full-text search for content collections and app data, on SQLite or PostgreSQL, with a search box in Tern UI ([docs/search.md](search.md))
 - [x] Feature flags and gradual rollouts, decided on the server, per user or team ([docs/flags.md](flags.md))
 - [x] Dev tools in `tern dev`: a panel with each page's route, files, data, spans and logs, and errors over the page with their source ([docs/dev-tools.md](dev-tools.md))
+- [x] Operations screens in the admin panel: users, the audit log, jobs with Retry, and error reports; actions on records ([docs/admin.md](admin.md#operations))
 - [x] Admin screens generated from Go structs: lists, filters and forms for an app's own data ([docs/admin.md](admin.md))
 - [x] Presence and shared state for live components, for collaborative screens ([docs/live-components.md](live-components.md#collaboration))
 

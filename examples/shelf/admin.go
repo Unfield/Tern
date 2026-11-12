@@ -8,6 +8,7 @@ import (
 
 	"github.com/Unfield/Tern/admin"
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/report"
 
 	"shelf/internal/shelf"
 )
@@ -24,22 +25,8 @@ type adminLink struct {
 	AddedAt time.Time `admin:"list,readonly"`
 }
 
-// adminUser is an account. Accounts change their own email and password,
-// so here they are only shown.
-type adminUser struct {
-	ID            int64  `admin:"key"`
-	Email         string `admin:"list,search"`
-	Name          string `admin:"list,search"`
-	EmailVerified *int64 `admin:"list,unixms"`
-	CreatedAt     int64  `label:"Joined" admin:"list,unixms"`
-}
-
-func adminPanel() (*admin.Admin, error) {
+func adminPanel(reporter *report.Reporter) (*admin.Admin, error) {
 	links, err := admin.NewTable[adminLink](shelf.DB, "links", "")
-	if err != nil {
-		return nil, err
-	}
-	users, err := admin.NewTable[adminUser](shelf.DB, "tern_users", "")
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +51,9 @@ func adminPanel() (*admin.Admin, error) {
 			}),
 			admin.AfterDelete(func(ctx context.Context, key string) error { return shelf.Index.Delete(ctx, key) }),
 		),
-		admin.Resource("users", users, admin.ReadOnly()),
+		shelf.Accounts.UsersAdmin(),
+		shelf.Accounts.AuditAdmin(),
 		shelf.Flags.Admin(),
+		admin.Errors(reporter),
 	), nil
 }

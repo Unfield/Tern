@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Operations in the admin panel** ([docs/admin.md](docs/admin.md#operations)): `acc.UsersAdmin()` and `acc.AuditAdmin()` for accounts and their audit log, `queue.Admin()` for background jobs with Retry, and `admin.Errors(reporter)` for error reports grouped by cause.
+- **Actions on records** in the admin panel: `admin.Action` and `admin.DangerAction` add buttons to each record's page that run Go code.
+- `acc.SignOutUser` ends every session of an account.
+- Shelf's admin panel has its users, audit log and errors.
+
 ### Fixed
 
 - **Native rendering:** a `var` declared in a loop or block at a module's top level no longer crashes the compiler; `\p{ID_Start}` and `\p{ID_Continue}` work in regular expressions; and a sticky or global regular expression after non-ASCII text starts where `lastIndex` says, where it started too early before.

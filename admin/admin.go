@@ -90,6 +90,14 @@ type resource struct {
 	readOnly, noCreate    bool
 	noDelete              bool
 	afterSave, afterDel   func(ctx context.Context, key string) error
+	actions               []action
+}
+
+// action is a button on a record's page.
+type action struct {
+	name, label string
+	danger      bool
+	fn          func(ctx context.Context, key string) error
 }
 
 // An Option changes how a resource is shown.
@@ -120,6 +128,21 @@ func AfterSave(fn func(ctx context.Context, key string) error) Option {
 // AfterDelete runs fn after a record is deleted, with its key.
 func AfterDelete(fn func(ctx context.Context, key string) error) Option {
 	return func(r *resource) { r.afterDel = fn }
+}
+
+// Action adds a button to each record's page that runs fn with the
+// record's key, such as "Retry" for a failed job or "Sign out everywhere"
+// for a user. An error made with kit.FormError shows on the page; others
+// fail the request.
+func Action(name, label string, fn func(ctx context.Context, key string) error) Option {
+	return func(r *resource) { r.actions = append(r.actions, action{name: name, label: label, fn: fn}) }
+}
+
+// DangerAction is an Action that asks first, for what can't be undone.
+func DangerAction(name, label string, fn func(ctx context.Context, key string) error) Option {
+	return func(r *resource) {
+		r.actions = append(r.actions, action{name: name, label: label, fn: fn, danger: true})
+	}
 }
 
 // Res is a resource for New; make one with Resource.
@@ -253,6 +276,15 @@ type Info struct {
 	Create   bool    `json:"create"`
 	Edit     bool    `json:"edit"`
 	Delete   bool    `json:"delete"`
+	// Actions are the buttons on a record's page.
+	Actions []ActionInfo `json:"actions"`
+}
+
+// ActionInfo is a button on a record's page.
+type ActionInfo struct {
+	Name   string `json:"name"`
+	Label  string `json:"label"`
+	Danger bool   `json:"danger"`
 }
 
 // Field is a field on screen.
@@ -338,9 +370,19 @@ func (a *Admin) href(c *kit.Ctx, parts ...string) string {
 }
 
 func (a *Admin) info(c *kit.Ctx, r *resource) *Info {
+	editable := false
+	for _, f := range r.fields {
+		if !f.readonly && !f.key {
+			editable = true
+		}
+	}
 	in := &Info{
 		Name: r.name, Label: r.label, Singular: r.singular, Href: a.href(c, r.name),
-		Create: !r.readOnly && !r.noCreate, Edit: !r.readOnly, Delete: !r.readOnly && !r.noDelete,
+		Create: !r.readOnly && !r.noCreate, Edit: !r.readOnly && editable, Delete: !r.readOnly && !r.noDelete,
+		Actions: []ActionInfo{},
+	}
+	for _, act := range r.actions {
+		in.Actions = append(in.Actions, ActionInfo{Name: act.name, Label: act.label, Danger: act.danger})
 	}
 	for _, f := range r.fields {
 		if f.key {
@@ -476,6 +518,49 @@ func searchable(fields []field) bool {
 var Actions = kit.Actions{
 	"save":   save,
 	"delete": remove,
+	"do":     do,
+}
+
+// do runs one of a record's actions, named by the form's action field.
+func do(c *kit.Ctx) (any, error) {
+	a, err := from(c)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.opts.Authorize(c); err != nil {
+		return nil, err
+	}
+	r, key, err := a.route(c)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil || key == "" || key == "new" {
+		return nil, kit.Error(http.StatusMethodNotAllowed, "")
+	}
+	form, err := c.Form()
+	if err != nil {
+		return nil, err
+	}
+	name := form.Get("action")
+	for _, act := range r.actions {
+		if act.name != name {
+			continue
+		}
+		if _, err := r.get(c.Request.Context(), key); errors.Is(err, ErrNotFound) {
+			return nil, kit.NotFound()
+		} else if err != nil {
+			return nil, err
+		}
+		err := act.fn(c.Request.Context(), key)
+		if fe, ok := errors.AsType[kit.FieldErrors](err); ok {
+			return nil, kit.Fail(http.StatusBadRequest, kit.Invalid{Errors: map[string]string{}, Values: map[string]any{}, Message: fe.Error()})
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, kit.Redirect(http.StatusSeeOther, a.href(c, r.name, key)+"?done="+url.QueryEscape(act.name))
+	}
+	return nil, kit.NotFound()
 }
 
 func (a *Admin) editable(c *kit.Ctx) (*Admin, *resource, string, error) {

@@ -78,9 +78,9 @@
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
 		<a class="announce" href="/docs/changelog">
-			<span class="pill">New in 1.13</span>
-			<span class="long"><code>tern build</code> without the JavaScript engine</span>
-			<span class="short">No JavaScript engine</span>
+			<span class="pill">New in 1.14</span>
+			<span class="long">Apps that assistants can use, over MCP</span>
+			<span class="short">Apps for assistants</span>
 			<Icon name="arrow-right" size={14} />
 		</a>
 		<h1>Svelte on the client.<br /><span class="grad">Go on the server.</span></h1>
@@ -311,7 +311,7 @@
 		color: var(--text);
 		border-color: var(--border-strong);
 	}
-	.announce code {
+	.announce :global(code) {
 		font-size: 12.5px;
 	}
 	.announce .short {

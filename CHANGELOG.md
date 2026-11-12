@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-12
+
 ### Added
 
 - **Apps for assistants** ([ADR 0023](docs/adr/0023-apps-over-mcp.md), [docs/mcp-server.md](docs/mcp-server.md)): the `mcp` package serves an app's tools to AI assistants over MCP, at `/mcp`.
@@ -421,7 +423,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/Unfield/Tern/releases/tag/v1.14.0
 [1.13.0]: https://github.com/Unfield/Tern/releases/tag/v1.13.0
 [1.12.0]: https://github.com/Unfield/Tern/releases/tag/v1.12.0
 [1.11.0]: https://github.com/Unfield/Tern/releases/tag/v1.11.0

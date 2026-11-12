@@ -115,6 +115,7 @@ Dynamic directories use Go-safe names, because Go import paths cannot contain br
 | **v1.11** | Teams in accounts with invitations, roles and an audit log; billing with Stripe: plans, trials, seats and limits; team and pricing screens in Tern UI; the saas template with both | Done |
 | **v1.12** | Pages rendered on demand with stale-while-revalidate; tags and revalidation across processes; the cache package in memory, on disk or in Redis; cache headers per route; pages without JavaScript | Done |
 | **v1.13** | Binaries without the JavaScript engine when every page compiles to Go; emails rendered natively | Done |
+| **v1.14** | Apps for assistants over MCP, with OAuth consent and tokens bound to the app; client metadata documents and resource indicators in the OIDC provider; a tutorial that builds a complete app | Done |
 
 ## Documentation
 

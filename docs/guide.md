@@ -534,7 +534,7 @@ app, err := ternApp(kit.WithPlugins(
 | `plugins/secure` | Changes the security headers Tern sends by default (no framing, a strict referrer policy, browser features off, cross-origin isolation), and turns on HSTS. |
 | `plugins/sessions` | Encrypted cookie sessions (AES-GCM): `sessions.Get(ctx).Set("user", id)`, `GetString`, `Value`, flash messages, and secret rotation with `OldSecrets`. |
 | `plugins/metrics` | Prometheus metrics at `/metrics`: requests by route and status, a latency histogram, in-flight requests and Go runtime stats. Routes are labeled by pattern, so the number of series stays bounded. |
-| `plugins/ratelimit` | A token bucket per client; by default only form actions and other writes are limited. Over the limit: 429 with `Retry-After`. |
+| `plugins/ratelimit` | Replaces the default limit on writes (120 a minute per client) with its own: a token bucket per client, for any methods. Over the limit: 429 with `Retry-After`. |
 | `plugins/cors` | CORS for endpoints, including preflights; the allowed origins are also trusted by cross-site request protection. |
 | `plugins/oauth` | Sign in with GitHub, Google or any OpenID Connect provider. See [Authentication](#authentication). |
 | `plugins/oidc` | Make your app an OAuth 2.0 and OpenID Connect provider. See [Authentication](#authentication). |

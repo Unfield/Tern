@@ -178,6 +178,7 @@ type options struct {
 	cspSet          bool
 	cspSources      [][]string
 	noSecHeaders    bool
+	noRateLimit     bool
 	ssr             bool
 	ssrWorkers      int
 	ssrCache        int

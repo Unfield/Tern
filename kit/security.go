@@ -1,10 +1,16 @@
 package kit
 
 import (
+	"math"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"sync/atomic"
+
+	"github.com/Unfield/Tern/internal/ratelimit"
 )
 
 // DefaultContentSecurityPolicy is the Content-Security-Policy pages are sent
@@ -143,4 +149,50 @@ func stampNonce(head, nonce string) string {
 	}
 	b.WriteString(head[last:])
 	return b.String()
+}
+
+// The default rate limit: state-changing requests, per client.
+const (
+	defaultRatePerMinute = 120
+	defaultRateBurst     = 60
+)
+
+// WithoutRateLimit turns off the default limit on state-changing requests
+// (POST, PUT, PATCH and DELETE): 120 a minute per client, in bursts of 60.
+// To change the limit instead, add plugins/ratelimit, which replaces it.
+func WithoutRateLimit() Option {
+	return func(o *options) { o.noRateLimit = true }
+}
+
+// rateLimit is the default limit on state-changing requests. Clients on
+// loopback addresses aren't limited: they're the developer, or a proxy on
+// the same machine that isn't trusted, which would make every client one.
+func (a *App) rateLimit(next http.Handler) http.Handler {
+	l := ratelimit.New(defaultRatePerMinute/60.0, defaultRateBurst)
+	go l.Sweep(a.shutdownCtx.Done())
+	var warned atomic.Bool
+	trusting := len(a.opts.trustedProxies) > 0
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		default:
+			next.ServeHTTP(w, r)
+			return
+		}
+		ip := ClientIP(r)
+		if addr, err := netip.ParseAddr(ip); err == nil && addr.IsLoopback() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !trusting && r.Header.Get("X-Forwarded-For") != "" && warned.CompareAndSwap(false, true) {
+			a.logger.Warn("tern: requests come through a proxy that isn't trusted, so every client looks like one to the rate limit; name it with kit.WithTrustedProxies",
+				"proxy", ip)
+		}
+		if wait, ok := l.Take(ip); !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+			http.Error(w, "Too many requests; try again later.", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

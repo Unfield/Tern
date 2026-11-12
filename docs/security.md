@@ -10,6 +10,7 @@ Tern turns protections on without being asked, and turning one off takes an opti
 | Cookies `SameSite=Lax` and `Secure`, and session cookies `HttpOnly` | cookies sent with cross-site requests or over plain HTTP, and scripts reading sessions | — |
 | Security headers | other sites framing the app (clickjacking), full URLs leaking in referrers, pages using the camera, microphone or location | `kit.WithoutSecurityHeaders()` |
 | Content-Security-Policy | injected markup running scripts (cross-site scripting) | `kit.WithoutContentSecurityPolicy()` |
+| Rate limit on writes: 120 a minute per client, in bursts of 60 | scripts hammering forms and endpoints | `kit.WithoutRateLimit()` |
 | Password hashing with argon2id, limits on sign-in attempts | stolen password databases being cracked, passwords being guessed | `accounts.Options{NoRateLimits: true}` |
 | Request body limit (1 MiB) | memory exhaustion by large uploads | `kit.WithBodyLimit(n)` |
 
@@ -53,3 +54,17 @@ app, err := ternApp(
 ```
 
 Under `tern dev`, the overlay shows each thing the policy blocked, with the line that allows it. `kit.WithContentSecurityPolicy(policy)` replaces the policy, `kit.WithContentSecurityPolicyReportOnly(policy)` tries one without enforcing it, and Tern adds the nonce to either. Prerendered pages are static files, sent without a policy.
+
+## Rate limits
+
+Form actions and other state-changing requests (POST, PUT, PATCH, DELETE) are limited to 120 a minute per client, in bursts of up to 60: more than a person sends, fewer than a script does. A client over the limit gets `429 Too Many Requests` with `Retry-After`. Reading pages isn't limited.
+
+Clients are told apart by their IP address, from `kit.ClientIP`. Behind a reverse proxy, name it with `kit.WithTrustedProxies`, or every client has the proxy's address and shares one limit; the app logs a warning when requests carry `X-Forwarded-For` and no proxy is trusted. Clients on loopback addresses, such as `tern dev` and a proxy on the same machine, aren't limited.
+
+To change the limit, add `plugins/ratelimit`, which replaces it:
+
+```go
+ratelimit.New(ratelimit.Rate(30, time.Minute), ratelimit.Methods()) // every request, 30 a minute
+```
+
+`accounts` has limits of its own on sign-in, sign-up and password reset attempts.

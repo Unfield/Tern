@@ -9,6 +9,10 @@
 //
 // Clients are identified by their IP address from kit.ClientIP. Behind a
 // reverse proxy, configure the app with kit.WithTrustedProxies.
+//
+// Since v1.16 kit limits state-changing requests without the plugin, to
+// 120 a minute in bursts of 60 (ADR 0027); adding the plugin replaces that
+// limit with its own.
 package ratelimit
 
 import (
@@ -17,9 +21,9 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
+	"github.com/Unfield/Tern/internal/ratelimit"
 	"github.com/Unfield/Tern/kit"
 )
 
@@ -47,15 +51,7 @@ type Plugin struct {
 	rate, burst float64
 	methods     []string
 	key         func(*http.Request) string
-
-	mu      sync.Mutex
-	buckets map[string]*bucket
-	now     func() time.Time
-}
-
-type bucket struct {
-	tokens float64
-	last   time.Time
+	limiter     *ratelimit.Limiter
 }
 
 // New returns the rate limiting plugin.
@@ -63,13 +59,12 @@ func New(opts ...Option) *Plugin {
 	p := &Plugin{
 		methods: []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
 		key:     kit.ClientIP,
-		buckets: map[string]*bucket{},
-		now:     time.Now,
 	}
 	Rate(30, time.Minute)(p)
 	for _, o := range opts {
 		o(p)
 	}
+	p.limiter = ratelimit.New(p.rate, p.burst)
 	return p
 }
 
@@ -79,7 +74,7 @@ func (*Plugin) Name() string { return "ratelimit" }
 // Setup implements kit.Plugin.
 func (p *Plugin) Setup(s *kit.Setup) error {
 	stop := make(chan struct{})
-	go p.sweep(stop)
+	go p.limiter.Sweep(stop)
 	s.OnShutdown(func(context.Context) error { close(stop); return nil })
 	s.Middleware(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +87,7 @@ func (p *Plugin) Setup(s *kit.Setup) error {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if wait, ok := p.take(k); !ok {
+			if wait, ok := p.limiter.Take(k); !ok {
 				w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
 				http.Error(w, "Too many requests; try again later.", http.StatusTooManyRequests)
 				return
@@ -101,44 +96,4 @@ func (p *Plugin) Setup(s *kit.Setup) error {
 		})
 	})
 	return nil
-}
-
-// take spends a token for k, or reports how long until one is available.
-func (p *Plugin) take(k string) (time.Duration, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	now := p.now()
-	b := p.buckets[k]
-	if b == nil {
-		b = &bucket{tokens: p.burst, last: now}
-		p.buckets[k] = b
-	}
-	b.tokens = math.Min(p.burst, b.tokens+now.Sub(b.last).Seconds()*p.rate)
-	b.last = now
-	if b.tokens >= 1 {
-		b.tokens--
-		return 0, true
-	}
-	return time.Duration((1 - b.tokens) / p.rate * float64(time.Second)), false
-}
-
-// sweep drops buckets that have refilled completely, so memory stays bounded.
-func (p *Plugin) sweep(stop <-chan struct{}) {
-	t := time.NewTicker(time.Minute)
-	defer t.Stop()
-	for {
-		select {
-		case <-stop:
-			return
-		case <-t.C:
-			p.mu.Lock()
-			now := p.now()
-			for k, b := range p.buckets {
-				if b.tokens+now.Sub(b.last).Seconds()*p.rate >= p.burst {
-					delete(p.buckets, k)
-				}
-			}
-			p.mu.Unlock()
-		}
-	}
 }

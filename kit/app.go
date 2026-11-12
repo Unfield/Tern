@@ -235,6 +235,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	for _, mw := range slices.Backward(o.middleware) {
 		h = mw(h)
 	}
+	if !o.noRateLimit && !slices.ContainsFunc(o.plugins, func(p Plugin) bool { return p.Name() == "ratelimit" }) {
+		h = a.rateLimit(h)
+	}
 	if !o.noSecHeaders {
 		// Outermost, so plugins/secure and the app's middleware can change
 		// them.

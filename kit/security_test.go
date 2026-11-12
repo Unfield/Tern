@@ -2,6 +2,7 @@ package kit
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -79,5 +80,52 @@ func TestSecurePluginChangesDefaults(t *testing.T) {
 	rec := do(t, a, "GET", "/", nil)
 	if rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" || rec.Header().Get("Permissions-Policy") != "" {
 		t.Errorf("headers = %v", rec.Header())
+	}
+}
+
+func TestDefaultRateLimit(t *testing.T) {
+	post := func(a *App, remote string, headers ...string) int {
+		req := httptest.NewRequest(http.MethodPost, "/todos?/clear", strings.NewReader(""))
+		req.RemoteAddr = remote
+		for i := 0; i+1 < len(headers); i += 2 {
+			req.Header.Set(headers[i], headers[i+1])
+		}
+		rec := httptest.NewRecorder()
+		a.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	a, logs := newTestApp(t, testManifest())
+	for i := range defaultRateBurst {
+		if code := post(a, "203.0.113.7:1234"); code == http.StatusTooManyRequests {
+			t.Fatalf("request %d was limited", i+1)
+		}
+	}
+	if code := post(a, "203.0.113.7:1234"); code != http.StatusTooManyRequests {
+		t.Errorf("past the burst: %d, want 429", code)
+	}
+	if code := post(a, "203.0.113.8:1234"); code == http.StatusTooManyRequests {
+		t.Error("another client was limited")
+	}
+	// GETs, and loopback clients, aren't limited.
+	if code := do(t, a, "GET", "/todos", nil).Code; code != http.StatusOK {
+		t.Errorf("GET: %d", code)
+	}
+	for range defaultRateBurst + 5 {
+		if code := post(a, "127.0.0.1:1234"); code == http.StatusTooManyRequests {
+			t.Fatal("a loopback client was limited")
+		}
+	}
+	// A proxy that isn't trusted is pointed out, once.
+	post(a, "198.51.100.1:1234", "X-Forwarded-For", "203.0.113.9")
+	post(a, "198.51.100.1:1234", "X-Forwarded-For", "203.0.113.10")
+	if n := strings.Count(logs.String(), "isn't trusted"); n != 1 {
+		t.Errorf("warned %d times:\n%s", n, logs)
+	}
+
+	off, _ := newTestApp(t, testManifest(), WithoutRateLimit())
+	for range defaultRateBurst + 5 {
+		if code := post(off, "203.0.113.7:1234"); code == http.StatusTooManyRequests {
+			t.Fatal("limited with WithoutRateLimit")
+		}
 	}
 }

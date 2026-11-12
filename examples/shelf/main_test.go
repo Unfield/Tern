@@ -96,3 +96,32 @@ func TestAssistantsNeedAToken(t *testing.T) {
 		t.Errorf("authorization server metadata: %d %s", page.Status, page.Body)
 	}
 }
+
+func TestAdminScreens(t *testing.T) {
+	t.Setenv("SHELF_ADMINS", "1")
+	ada := signedIn(t) // the first account: ID 1
+	ada.PostForm("/?/add", url.Values{"url": {"https://go.dev"}, "title": {"Go"}})
+	bob := signUp(t, ada.Browser(), "bob@example.com")
+
+	if page := bob.Get("/admin"); page.Status != http.StatusForbidden {
+		t.Errorf("Bob, not an admin: %d", page.Status)
+	}
+	if page := ada.Browser().Get("/admin/links"); page.Status != 303 {
+		t.Errorf("signed out: %d", page.Status)
+	}
+	page := ada.Get("/admin/links")
+	if page.Status != 200 || !strings.Contains(page.Text("tbody"), "https://go.dev") {
+		t.Fatalf("Ada's admin list: %d %q", page.Status, page.Text("tbody"))
+	}
+	// Admins see and change everyone's links.
+	if page := ada.PostForm("/admin/links/1?/save", url.Values{"title": {"The Go website"}, "url": {"https://go.dev"}, "user_id": {"2"}}); page.Status != 303 {
+		t.Fatalf("saving: %d", page.Status)
+	}
+	if page := bob.Get("/links/1"); page.Status != 200 {
+		t.Errorf("the link moved to Bob: %d", page.Status)
+	}
+	// Accounts are only shown.
+	if page := ada.PostForm("/admin/users/2?/save", url.Values{"email": {"mallory@example.com"}}); page.Status != http.StatusMethodNotAllowed {
+		t.Errorf("editing a user: %d", page.Status)
+	}
+}

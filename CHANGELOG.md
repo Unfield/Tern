@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Admin screens** ([ADR 0024](docs/adr/0024-admin-screens.md), [docs/admin.md](docs/admin.md)): the `admin` package generates screens to manage an app's data from Go structs.
+  - For each kind of record, a list with search, filters, sorting and pages, and a form to create, edit and delete one, checked against the struct's `validate` tags and its `Validate` method.
+  - `admin.NewTable` keeps records in a SQLite or PostgreSQL table; `admin.Store` is for data kept elsewhere.
+  - The `admin` tag marks keys, listed, searchable and filtered fields, read-only fields, references to other resources, and integers that hold times.
+  - Tern UI's `Admin` component renders them, in a route of the app's own, so they work without JavaScript.
+- Shelf, the tutorial's app, has admin screens for its links and accounts.
+
 ## [1.14.0] - 2026-11-12
 
 ### Added

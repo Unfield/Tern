@@ -159,6 +159,7 @@ Whole screens, wired to Tern's plugins:
 | `AcceptInvitation` | the page an invitation email links to: join, or sign up or in with the invited address first, or sign out of another account |
 | `PricingTable` | the plans from `billing`, by month or year with the yearly saving, each with its price, trial, limits and features, and a button that posts to a checkout action, or links to sign up |
 | `BillingSettings` | the plan that applies, when it renews, ends or its trial does, a failed payment, how much of each limit is used, and buttons for Stripe's portal and the pricing page |
+| `Admin` | the `admin` package's screens, from `admin.Load`: a menu of resources, lists with search, filters, sorting and pages, and forms to create, edit and delete records ([Admin screens](admin.md)) |
 | `ConsentScreen` | the approval page for `plugins/oidc`, showing who is signed in and what the app may do. It posts the decision back to the plugin, which checks the request again |
 
 ```svelte

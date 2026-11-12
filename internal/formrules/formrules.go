@@ -522,3 +522,15 @@ func joinOr(list []string, or string) string {
 	}
 	return strings.Join(list[:len(list)-1], ", ") + " " + or + " " + list[len(list)-1]
 }
+
+// KindOf returns the kind of a form field of type t, as FromReflect reads it.
+func KindOf(t reflect.Type, tag reflect.StructTag) (Kind, error) { return kindOf(t, tag) }
+
+// New builds a field named name from a struct field's validate, label and
+// message tags, as FromReflect does, for code that names its fields
+// itself, such as the admin package after database columns.
+func New(name string, kind Kind, secret bool, tag reflect.StructTag, index []int) (Field, error) {
+	f, err := build(name, kind, secret, tag)
+	f.index = index
+	return f, err
+}

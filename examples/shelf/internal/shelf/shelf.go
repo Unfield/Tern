@@ -5,6 +5,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Unfield/Tern/accounts"
@@ -116,4 +119,20 @@ func changed(res sql.Result, err error) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// IsAdmin reports whether u may use the admin screens: whether their ID
+// is in SHELF_ADMINS, separated by commas. IDs, unlike email addresses,
+// can't be taken by someone who signs up first: Shelf sends no emails, so
+// it can't check that an address is the user's.
+func IsAdmin(u *accounts.User) bool {
+	if u == nil {
+		return false
+	}
+	for id := range strings.SplitSeq(os.Getenv("SHELF_ADMINS"), ",") {
+		if n, err := strconv.ParseInt(strings.TrimSpace(id), 10, 64); err == nil && n == u.ID {
+			return true
+		}
+	}
+	return false
 }

@@ -13,6 +13,7 @@
 		{#if navigating.current}<Spinner size="1rem" label="Loading" />{/if}
 		<nav aria-label="Account">
 			{#if data.user}
+				{#if data.admin}<a href="/admin">Admin</a>{/if}
 				<span class="who">{data.user.name}</span>
 				<form method="POST" action="/logout">
 					<Button type="submit" variant="ghost" size="sm">Sign out</Button>
@@ -68,6 +69,10 @@
 		max-width: 40rem;
 		margin: 2.5rem auto;
 		padding: 0 1.5rem;
+	}
+	/* The admin screens' tables need the room. */
+	main:has(:global(.tern-admin)) {
+		max-width: 72rem;
 	}
 	main :global(.tern-auth) {
 		margin: 0 auto;

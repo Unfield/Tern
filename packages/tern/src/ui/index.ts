@@ -3,6 +3,7 @@
 // you use them. See docs/ui.md.
 
 export { default as Accordion } from './Accordion.svelte';
+export { default as Admin } from './Admin.svelte';
 export { default as Alert } from './Alert.svelte';
 export { default as AlertDialog } from './AlertDialog.svelte';
 export { default as AreaChart } from './AreaChart.svelte';
@@ -88,6 +89,7 @@ export { dismiss, toast, toasts, type Toast, type Tone } from './toast.svelte.js
 export type { MenuItem } from './menu.js';
 export type { Align, Side } from './floating.js';
 export type { Option } from './options.js';
+export type { AdminField, AdminPage } from './admin.js';
 export type { ISODate } from './dates.js';
 export type { DateRange } from './Calendar.svelte';
 export type { CommandItem } from './Command.svelte';

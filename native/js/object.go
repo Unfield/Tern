@@ -709,6 +709,33 @@ func (o *Object) PlainEntries() (keys []string, vals []Value, ok bool) {
 	return keys, vals, true
 }
 
+// PlainEach calls fn with each own enumerable string-keyed property of
+// an ordinary object, in property order, without allocating; ok is false
+// where PlainEntries would be, and for objects with integer keys, which
+// come first in property order.
+func (o *Object) PlainEach(fn func(key string, v Value)) (ok bool) {
+	if o.proxy != nil || o.array != nil || o.typed != nil || o.fnLazy != 0 {
+		return false
+	}
+	s := o.sh()
+	for i, k := range s.keys {
+		if s.attrs[i]&attrAccessor != 0 {
+			return false
+		}
+		if str, isStr := k.(string); isStr && s.attrs[i]&attrEnumerable != 0 {
+			if _, isInt := arrayIndex(str); isInt {
+				return false
+			}
+		}
+	}
+	for i, k := range s.keys {
+		if str, isStr := k.(string); isStr && s.attrs[i]&attrEnumerable != 0 {
+			fn(str, o.slots[i])
+		}
+	}
+	return true
+}
+
 // HasOwnString is Object.prototype.hasOwnProperty for a string key, for
 // ordinary objects; ok is false for proxies and exotic objects, where it
 // could run code or needs the full algorithm.

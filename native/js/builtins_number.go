@@ -100,7 +100,7 @@ func (rt *Realm) setupNumber() {
 		if d < 0 || d > 100 {
 			panic(RangeErrorf("toFixed() digits argument must be between 0 and 100"))
 		}
-		return ToFixed(x, int(d))
+		return rt.Str(ToFixed(x, int(d)))
 	})
 	rt.method(p, "toPrecision", 1, func(this Value, args []Value) Value {
 		x := thisNumber(this, "toPrecision")

@@ -29,7 +29,10 @@ func (rt *Realm) setupString() {
 		if s, ok := args[0].(*Symbol); ok {
 			return "Symbol(" + s.Description + ")"
 		}
-		return ToStringValue(args[0])
+		if _, ok := args[0].(string); ok {
+			return args[0]
+		}
+		return rt.Str(ToString(args[0]))
 	}, func(args []Value, nt *Object) Value {
 		o := OrdinaryCreateFromConstructor(nt, rt.StringPrototype)
 		s := ""
@@ -167,7 +170,7 @@ func (rt *Realm) setupString() {
 		n := rt.Len16(s)
 		start := relIndex(Arg(args, 0), n, 0)
 		end := relIndex(Arg(args, 1), n, n)
-		return rt.Slice16(s, start, end)
+		return rt.Str(rt.Slice16(s, start, end))
 	})
 	str("substring", 2, func(s string, args []Value) Value {
 		n := rt.Len16(s)

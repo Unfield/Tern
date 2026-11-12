@@ -86,11 +86,11 @@ func build(t reflect.Type) converter {
 	case reflect.Bool:
 		return func(_ *state, v reflect.Value) (js.Value, error) { return v.Bool(), nil }
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return func(_ *state, v reflect.Value) (js.Value, error) { return js.Box(float64(v.Int())), nil }
+		return func(c *state, v reflect.Value) (js.Value, error) { return c.rt.Num(float64(v.Int())), nil }
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return func(_ *state, v reflect.Value) (js.Value, error) { return js.Box(float64(v.Uint())), nil }
+		return func(c *state, v reflect.Value) (js.Value, error) { return c.rt.Num(float64(v.Uint())), nil }
 	case reflect.Float32:
-		return func(_ *state, v reflect.Value) (js.Value, error) {
+		return func(c *state, v reflect.Value) (js.Value, error) {
 			f := v.Float()
 			if math.IsNaN(f) || math.IsInf(f, 0) {
 				return nil, fmt.Errorf("jsvalue: unsupported value %v", f)
@@ -100,18 +100,18 @@ func build(t reflect.Type) converter {
 			if err != nil {
 				return nil, err
 			}
-			return js.Box(p), nil
+			return c.rt.Num(p), nil
 		}
 	case reflect.Float64:
-		return func(_ *state, v reflect.Value) (js.Value, error) {
+		return func(c *state, v reflect.Value) (js.Value, error) {
 			f := v.Float()
 			if math.IsNaN(f) || math.IsInf(f, 0) {
 				return nil, fmt.Errorf("jsvalue: unsupported value %v", f)
 			}
-			return js.Box(f), nil
+			return c.rt.Num(f), nil
 		}
 	case reflect.String:
-		return func(_ *state, v reflect.Value) (js.Value, error) { return validString(v.String()), nil }
+		return func(c *state, v reflect.Value) (js.Value, error) { return c.rt.Str(validString(v.String())), nil }
 	case reflect.Interface:
 		return func(c *state, v reflect.Value) (js.Value, error) {
 			if v.IsNil() {

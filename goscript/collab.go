@@ -151,10 +151,11 @@ type RoomMember[M any] struct {
 // Join adds c to the room key with state, until c is destroyed. While
 // rendering it does nothing: the handle's methods do nothing then either.
 func (r *RoomSet[M]) Join(c *Component, key string, state M) *RoomMember[M] {
-	h := &RoomMember[M]{r: r, key: key, id: newID()}
+	h := &RoomMember[M]{r: r, key: key}
 	if c.rendering {
-		return h
+		return h // no ID: the server's render stays the same every time
 	}
+	h.id = newID()
 	r.mu.Lock()
 	rm := r.get(key)
 	rm.refs++
@@ -173,7 +174,8 @@ func (r *RoomSet[M]) Join(c *Component, key string, state M) *RoomMember[M] {
 	return h
 }
 
-// ID is the member's ID, to tell its own entry in the room's members.
+// ID is the member's ID, to tell its own entry in the room's members;
+// "" while rendering.
 func (h *RoomMember[M]) ID() string { return h.id }
 
 // Set replaces the member's state.

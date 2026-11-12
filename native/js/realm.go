@@ -9,6 +9,8 @@ import (
 // and module state. Realms share nothing that changes, so each can run on
 // its own goroutine; one realm runs one thing at a time.
 type Realm struct {
+	// box hands out the boxes of strings and numbers.
+	box Boxer
 	// The intrinsic objects.
 	ObjectPrototype, FunctionPrototype, ArrayPrototype, StringPrototype *Object
 	NumberPrototype, BooleanPrototype, SymbolPrototype, ErrorPrototype  *Object

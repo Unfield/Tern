@@ -383,7 +383,11 @@ func (c *Compiler) template(s *scope, n *Node) string {
 	if len(parts) == 0 {
 		return `""`
 	}
-	return "js.Value(" + strings.Join(parts, " + ") + ")"
+	if len(parts) == 1 && !strings.HasPrefix(parts[0], "js.ToString(") {
+		return "js.Value(" + parts[0] + ")" // a constant: Go boxes it without allocating
+	}
+	// Boxed from the realm's slabs: most of a render's HTML is template literals.
+	return "r.Str(" + strings.Join(parts, " + ") + ")"
 }
 
 func (c *Compiler) ident(s *scope, n *Node) string {

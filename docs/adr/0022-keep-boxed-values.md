@@ -29,3 +29,8 @@ The roadmap item is closed as decided against. `fn.toString()` matching the bund
 - Native rendering stays where it is: `/items` in 277 µs and the home page in 55 µs, in one process, with no JavaScript engine needed.
 - The allocation work above is done one measured change at a time, and stays compatible with the runtime as it is.
 - If a profile of a real app ever shows boxing as the main cost, this can be revisited with that profile; this one doesn't.
+
+## Since
+
+- **Boxes from slabs** (v1.15): strings and numbers that become Values on the hot paths (template literals, `+`, page data, `String()`, `toFixed`, `slice` and Svelte's `attr`) take their boxes from slabs of 128 in the realm, one allocation for many, and `class:` directives are read without copying their entries. On `/items`, allocations went from 5,501 to 3,285 a render and the time from 268 to 254 µs. The values are still `any`: nothing else changed.
+- **Still open:** the arguments slices of calls, which a callee can keep (`arguments`, rest parameters, `bind`), so reusing them needs every path that keeps them to copy first.

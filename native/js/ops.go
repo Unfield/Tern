@@ -136,25 +136,25 @@ func SetV(v Value, k Value, val Value) {
 func (rt *Realm) Add(a, b Value) Value {
 	if x, ok := a.(float64); ok {
 		if y, ok := b.(float64); ok {
-			return Box(x + y)
+			return rt.box.Num(x + y)
 		}
 	}
 	if x, ok := a.(string); ok {
 		if y, ok := b.(string); ok {
-			return rt.Concat(x, y)
+			return rt.box.Str(rt.Concat(x, y))
 		}
 	}
 	pa, pb := ToPrimitive(a, "default"), ToPrimitive(b, "default")
 	if sa, ok := pa.(string); ok {
-		return rt.Concat(sa, ToString(pb))
+		return rt.box.Str(rt.Concat(sa, ToString(pb)))
 	}
 	if sb, ok := pb.(string); ok {
-		return rt.Concat(ToString(pa), sb)
+		return rt.box.Str(rt.Concat(ToString(pa), sb))
 	}
 	if x, y, ok := bigints(pa, pb); ok {
 		return new(big.Int).Add(x, y)
 	}
-	return Box(ToNumber(pa) + ToNumber(pb))
+	return rt.box.Num(ToNumber(pa) + ToNumber(pb))
 }
 
 // Sub is the - operator.

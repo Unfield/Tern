@@ -65,9 +65,9 @@ func Attr(rt *js.Realm, replacements, hasOwn, escape func() js.Value, orig js.Va
 			}
 		}
 		if js.Truthy(isBool) {
-			return " " + name + `=""`
+			return rt.Str(" " + name + `=""`)
 		}
-		return " " + name + `="` + js.ToString(callEscape(escape(), normalized, true)) + `"`
+		return rt.Str(" " + name + `="` + js.ToString(callEscape(escape(), normalized, true)) + `"`)
 	})
 }
 
@@ -160,26 +160,25 @@ func (c *classes) toClass(value, hash, directives js.Value) (js.Value, bool) {
 		if !ok {
 			return nil, false
 		}
-		keys, vals, ok := d.PlainEntries()
-		if !ok {
+		valid := true
+		if !d.PlainEach(func(k string, _ js.Value) {
+			if k == "" || !ascii(k) {
+				valid = false // "" would loop forever in the JavaScript too: let it, where it can be stopped
+			}
+		}) || !valid {
 			return nil, false
 		}
-		for _, k := range keys {
-			if k == "" || !ascii(k) {
-				return nil, false // "" would loop forever in the JavaScript too: let it, where it can be stopped
-			}
-		}
-		for i, key := range keys {
-			if js.Truthy(vals[i]) {
+		d.PlainEach(func(key string, v js.Value) {
+			if js.Truthy(v) {
 				if classname != "" {
 					classname = classname + " " + key
 				} else {
 					classname = key
 				}
-				continue
+				return
 			}
 			if classname == "" {
-				continue
+				return
 			}
 			// Remove each whole-word occurrence of key.
 			a := 0
@@ -200,7 +199,7 @@ func (c *classes) toClass(value, hash, directives js.Value) (js.Value, bool) {
 					a = b
 				}
 			}
-		}
+		})
 	}
 	if classname == "" {
 		return js.Null, true

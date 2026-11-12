@@ -249,7 +249,8 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 
 **Building**
 
-- [ ] Fewer allocations in native renders: concatenating and pushing HTML, arguments of calls, and page data ([ADR 0022](adr/0022-keep-boxed-values.md))
+- [x] Fewer allocations in native renders: boxes for HTML and page data from slabs, 40% fewer allocations on the 100-row table ([ADR 0022](adr/0022-keep-boxed-values.md#since))
+- [ ] Reuse the arguments slices of calls in native renders, where the callee doesn't keep them
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
 - [x] Full-text search for content collections and app data, on SQLite or PostgreSQL, with a search box in Tern UI ([docs/search.md](search.md))
 - [x] Feature flags and gradual rollouts, decided on the server, per user or team ([docs/flags.md](flags.md))

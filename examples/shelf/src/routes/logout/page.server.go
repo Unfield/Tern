@@ -8,6 +8,9 @@ import (
 	"shelf/internal/shelf"
 )
 
+// Access lets anyone sign out.
+var Access = kit.Public
+
 // Signing out changes state, so it's a form post, not a link.
 var Actions = kit.Actions{
 	"default": kit.Action(func(ctx *kit.Ctx) (struct{}, error) {

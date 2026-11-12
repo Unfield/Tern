@@ -136,6 +136,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		a.i18n = cat
 	}
 	a.opts.csp = resolveCSP(&a.opts)
+	if err := checkAccessConfig(m, &a.opts); err != nil {
+		return nil, err
+	}
 	o = a.opts // plugins may have added hooks, middleware and matchers
 
 	list := make([]*routes.Route, 0, len(m.Routes))
@@ -399,7 +402,7 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 			// answer that isn't JSON makes the router load it in full.
 			w.WriteHeader(http.StatusNoContent)
 			return
-		case def.Revalidate != 0 && a.dev == nil && !cached(r):
+		case def.Revalidate != 0 && !def.Access.Restricted() && a.dev == nil && !cached(r):
 			if a.servePageCache(w, r, orig, def, isData, c.locale) {
 				return
 			}
@@ -412,6 +415,13 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request) {
 
 	for _, hook := range a.opts.hooks {
 		if err := a.safely(func() error { return hook(c) }); err != nil {
+			a.failRequest(c, def, isData, err)
+			return
+		}
+	}
+	if def != nil {
+		endpoint := !isData && (def.Page == nil || !a.wantsPage(r, def))
+		if err := a.safely(func() error { return a.checkAccess(c, def, endpoint) }); err != nil {
 			a.failRequest(c, def, isData, err)
 			return
 		}

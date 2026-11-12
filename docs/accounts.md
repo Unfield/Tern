@@ -39,7 +39,13 @@ app, err := ternApp(kit.WithPlugins(acc))
 - `accounts.Current(ctx)` is the signed-in `*accounts.User`, or nil.
 - `acc.Require(ctx)` is the user, or a redirect to the sign-in page with `?next=` set to come back. Return its error from a load or action.
 
-A layout load is a good place to guard a group of pages:
+To keep a route to signed-in users, give the app `acc.Guard()` and the route `var Access = kit.SignedIn` ([who may use a route](guide.md#who-may-use-a-route)); a group's rule covers every page in it:
+
+```go
+app, err := ternApp(kit.WithPlugins(acc), acc.Guard())
+```
+
+Loads still call `acc.Require` to get the user, as here in a layout:
 
 ```go
 func LayoutLoad(ctx *kit.Ctx) (Account, error) {

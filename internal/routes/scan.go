@@ -25,6 +25,7 @@ import (
 	"io/fs"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -61,6 +62,10 @@ type Route struct {
 	Layouts []Layout
 	// ErrorPages are the +error.svelte files that apply, outermost first.
 	ErrorPages []string
+	// Access is the package whose `var Access` applies to the route: its
+	// own, or a directory above's SignedIn or Permission rule; nil when
+	// none does.
+	Access *GoPackage
 }
 
 // GoPackage describes the Go package in a route directory.
@@ -76,6 +81,42 @@ type GoPackage struct {
 	LayoutLoad bool
 	// Methods lists the exported endpoint handlers, in HTTPMethods order.
 	Methods []string
+	// Access is the package's `var Access` rule: "" for none, "public",
+	// "signedIn" or "permission".
+	Access string
+	// Perms are a "permission" rule's permissions, where they're written
+	// as string literals.
+	Perms []string
+}
+
+// AccessLabel describes the package's rule for people: "public",
+// "signed in" or "permission links.edit".
+func (p *GoPackage) AccessLabel() string {
+	switch {
+	case p == nil:
+		return ""
+	case p.Access == "public":
+		return "public"
+	case p.Access == "signedIn":
+		return "signed in"
+	case p.Access == "permission" && len(p.Perms) > 0:
+		return "permission " + strings.Join(p.Perms, ", ")
+	case p.Access == "permission":
+		return "permission"
+	}
+	return ""
+}
+
+// Restricted reports whether the package's Access rule keeps anyone out,
+// and so applies to the directories below it too.
+func (p *GoPackage) Restricted() bool {
+	return p != nil && (p.Access == "signedIn" || p.Access == "permission")
+}
+
+// ServerCode reports whether the package has code that runs on the
+// server for requests: loads, actions or endpoints.
+func (p *GoPackage) ServerCode() bool {
+	return p != nil && (p.Load || p.LayoutLoad || p.Actions || len(p.Methods) > 0)
 }
 
 // Layout is a directory that has a +layout.svelte, a LayoutLoad, or both.
@@ -128,6 +169,20 @@ type Manifest struct {
 	Root string
 	// Routes, in matching priority order.
 	Routes []*Route
+	// Open lists the directories with server code (loads, actions or
+	// endpoints) and no Access rule, of their own or from above. Code
+	// generation refuses them (see CheckAccess); tools that only read
+	// routes don't.
+	Open []string
+}
+
+// CheckAccess reports the routes with server code and no Access rule.
+func (m *Manifest) CheckAccess() error {
+	var errs []error
+	for _, dir := range m.Open {
+		errs = append(errs, fmt.Errorf("%s: this route has server code but no Access rule: add `var Access = kit.SignedIn`, `kit.Permission(\"…\")` or `kit.Public` to its package (`go tool tern fix access` marks every such route kit.Public)", path.Join(m.Root, dir)))
+	}
+	return errors.Join(errs...)
 }
 
 // Scan reads the routes directory root in fsys and returns its manifest.
@@ -148,7 +203,7 @@ func Scan(fsys fs.FS, root string) (*Manifest, error) {
 		return nil, errors.Join(s.errs...)
 	}
 	Sort(s.routes)
-	return &Manifest{Root: root, Routes: s.routes}, nil
+	return &Manifest{Root: root, Routes: s.routes, Open: s.open}, nil
 }
 
 type scanner struct {
@@ -157,10 +212,13 @@ type scanner struct {
 	fset   *token.FileSet
 	routes []*Route
 	errs   []error
+	// open lists the directories with server code and no Access rule.
+	open []string
 }
 
 type node struct {
 	parent    *node
+	access    *GoPackage // whose Access applies here
 	dir       string
 	id        string
 	segments  []Segment
@@ -232,6 +290,15 @@ func (s *scanner) walk(dir string, parent *node) {
 	var pkg *GoPackage
 	if len(goFiles) > 0 {
 		pkg = s.parseGoPackage(dir, goFiles)
+	}
+	switch {
+	case pkg != nil && pkg.Access != "":
+		n.access = pkg
+	case parent != nil && parent.access.Restricted():
+		n.access = parent.access
+	}
+	if pkg.ServerCode() && n.access == nil {
+		s.open = append(s.open, dir)
 	}
 
 	if files[FileLayout] != "" || (pkg != nil && pkg.LayoutLoad) {
@@ -305,9 +372,20 @@ func (s *scanner) parseGoPackage(dir string, files []string) *GoPackage {
 					continue
 				}
 				for _, spec := range d.Specs {
-					for _, id := range spec.(*ast.ValueSpec).Names {
-						if id.Name == "Actions" {
+					vs := spec.(*ast.ValueSpec)
+					for i, id := range vs.Names {
+						switch id.Name {
+						case "Actions":
 							pkg.Actions = true
+						case "Access":
+							var value ast.Expr
+							if i < len(vs.Values) {
+								value = vs.Values[i]
+							}
+							pkg.Access, pkg.Perms = accessRule(f, value)
+							if pkg.Access == "" {
+								s.errorf(rel, "Access must be kit.Public, kit.SignedIn or kit.Permission(\"…\")")
+							}
 						}
 					}
 				}
@@ -323,7 +401,7 @@ func (s *scanner) parseGoPackage(dir string, files []string) *GoPackage {
 }
 
 func (s *scanner) addRoute(n *node, page string, pkg *GoPackage) {
-	r := &Route{ID: n.id, Dir: n.dir, Segments: n.segments, Page: page, Go: pkg}
+	r := &Route{ID: n.id, Dir: n.dir, Segments: n.segments, Page: page, Go: pkg, Access: n.access}
 	for a := n; a != nil; a = a.parent {
 		if a.layout != nil {
 			r.Layouts = append(r.Layouts, *a.layout)
@@ -362,4 +440,57 @@ func (s *scanner) checkConflicts() {
 		}
 		byKey[key] = r
 	}
+}
+
+// MissingAccess lists the route directories with server code (loads,
+// actions or endpoints) and no Access rule, of their own or from above.
+func MissingAccess(fsys fs.FS, root string) ([]string, error) {
+	m, err := Scan(fsys, root)
+	if err != nil {
+		return nil, err
+	}
+	return m.Open, nil
+}
+
+// accessRule classifies the value of a route package's `var Access`:
+// kit.Public, kit.SignedIn or kit.Permission(…), with kit being the
+// import of github.com/Unfield/Tern/kit under any name.
+func accessRule(f *ast.File, value ast.Expr) (rule string, perms []string) {
+	kitName := ""
+	for _, imp := range f.Imports {
+		if imp.Path.Value != `"github.com/Unfield/Tern/kit"` {
+			continue
+		}
+		kitName = "kit"
+		if imp.Name != nil {
+			kitName = imp.Name.Name
+		}
+	}
+	isKit := func(e ast.Expr, name string) bool {
+		sel, ok := e.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != name {
+			return false
+		}
+		x, ok := sel.X.(*ast.Ident)
+		return ok && kitName != "" && x.Name == kitName
+	}
+	switch {
+	case value == nil:
+		return "", nil
+	case isKit(value, "Public"):
+		return "public", nil
+	case isKit(value, "SignedIn"):
+		return "signedIn", nil
+	}
+	if call, ok := value.(*ast.CallExpr); ok && isKit(call.Fun, "Permission") && len(call.Args) > 0 {
+		for _, arg := range call.Args {
+			if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				if v, err := strconv.Unquote(lit.Value); err == nil {
+					perms = append(perms, v)
+				}
+			}
+		}
+		return "permission", perms
+	}
+	return "", nil
 }

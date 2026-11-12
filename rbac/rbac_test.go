@@ -84,3 +84,33 @@ func TestRequireAndHook(t *testing.T) {
 		}
 	}
 }
+
+func TestGuard(t *testing.T) {
+	m := &kit.Manifest{
+		AppHTML: `<html><head>%tern.head%</head><body>%tern.body%</body></html>`,
+		Routes: []kit.RouteDef{
+			{ID: "/projects", Access: kit.Permission("projects:write"), Endpoint: map[string]kit.HandlerFunc{"POST": func(c *kit.Ctx) error { return c.Text(200, "created") }}},
+		},
+	}
+	signedIn := kit.WithSignedIn(func(c *kit.Ctx) error {
+		if c.Header("X-Roles") == "" {
+			return kit.Error(http.StatusUnauthorized, "Sign in")
+		}
+		return nil
+	})
+	a, err := kit.New(m, signedIn, policy.Guard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for role, want := range map[string]int{"": http.StatusUnauthorized, "viewer": http.StatusForbidden, "editor": http.StatusOK} {
+		r := httptest.NewRequest(http.MethodPost, "/projects", nil)
+		if role != "" {
+			r.Header.Set("X-Roles", role)
+		}
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != want {
+			t.Errorf("%q: %d, want %d", role, w.Code, want)
+		}
+	}
+}

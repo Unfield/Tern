@@ -39,6 +39,8 @@ import (
 	"shelf/internal/shelf"
 )
 
+var Access = kit.Public
+
 type Data struct {
 	Links []shelf.Link `json:"links"`
 }

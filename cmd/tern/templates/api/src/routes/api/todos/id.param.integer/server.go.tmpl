@@ -9,6 +9,9 @@ import (
 	"{{.Module}}/internal/store"
 )
 
+// Access lets anyone use the API.
+var Access = kit.Public
+
 // Path holds the route parameter.
 type Path struct {
 	ID int64 `path:"id" json:"-"`

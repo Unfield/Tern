@@ -11,7 +11,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	app, err := ternApp(auth.Plugin(acc))
+	app, err := ternApp(auth.Plugin(acc), acc.Guard())
 	if err != nil {
 		log.Fatal(err)
 	}

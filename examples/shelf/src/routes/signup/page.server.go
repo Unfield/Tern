@@ -9,6 +9,9 @@ import (
 	"shelf/internal/shelf"
 )
 
+// Access lets anyone in: this is where accounts are made.
+var Access = kit.Public
+
 type NewAccount struct {
 	Name     string `form:"name" validate:"required,max=80"`
 	Email    string `form:"email" validate:"required,email,max=254"`

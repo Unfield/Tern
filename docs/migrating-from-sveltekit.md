@@ -80,7 +80,9 @@ var Actions = kit.Actions{
 | `handleError` | errors are logged with the request; customize `+error.svelte` |
 | `hooks.client.ts` | `beforeNavigate`, `onNavigate` and `afterNavigate` from `@ternkit/tern` |
 
-Sessions, CSRF protection (built in), security headers, rate limiting, CORS, metrics and health checks are [plugins](guide.md#plugins).
+CSRF protection, security headers, a Content-Security-Policy and a rate limit on writes are on by default ([docs/security.md](security.md)); sessions, CORS, metrics and health checks are [plugins](guide.md#plugins).
+
+Where a SvelteKit app checks the user in `handle` or in each load, a Tern route declares who may use it: `var Access = kit.SignedIn` in its package, which covers the routes below too. A route with server code and no rule doesn't build ([who may use a route](guide.md#who-may-use-a-route)).
 
 ## Client modules
 

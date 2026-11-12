@@ -10,6 +10,10 @@ import (
 	"{{.Module}}/internal/app"
 )
 
+// Access keeps these pages, and every directory below, to signed-in users:
+// signed out, they go to the sign-in page.
+var Access = kit.SignedIn
+
 type Shell struct {
 	User  accounts.User         `json:"user"`
 	Team  accounts.Membership   `json:"team"`

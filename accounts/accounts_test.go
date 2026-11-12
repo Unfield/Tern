@@ -89,6 +89,7 @@ func newHarnessDB(t *testing.T, db *sql.DB, opts ...func(*Options)) *harness {
 			})},
 			{ID: "/signout", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.SignOut(c) })},
 			{ID: "/me", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Require(c) })},
+			{ID: "/guarded", Access: kit.SignedIn, Endpoint: post(func(c *kit.Ctx) (any, error) { return map[string]string{"name": Current(c).Name}, nil })},
 			{ID: "/sessions", Endpoint: post(func(c *kit.Ctx) (any, error) { return acc.Sessions(c) })},
 			{ID: "/revoke", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.Revoke(c, form(c, "id")) })},
 			{ID: "/others", Endpoint: post(func(c *kit.Ctx) (any, error) { return nil, acc.SignOutOthers(c) })},
@@ -139,7 +140,7 @@ func newHarnessDB(t *testing.T, db *sql.DB, opts ...func(*Options)) *harness {
 	if o.NotifyNewDevices {
 		plugins = append(plugins, signals.New(signals.Options{Secret: "test"}))
 	}
-	app, err := kit.New(m, kit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))), kit.WithPlugins(plugins...))
+	app, err := kit.New(m, kit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))), kit.WithPlugins(plugins...), acc.Guard())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,6 +234,13 @@ func TestSignUpInOut(t *testing.T) {
 	}
 	if code, out := h.post(b, "/me"); code != 200 || out["name"] != "Ada" {
 		t.Fatalf("me after signup: %d %v", code, out)
+	}
+	// A kit.SignedIn route, checked by acc.Guard.
+	if code, out := h.post(b, "/guarded"); code != 200 || out["name"] != "Ada" {
+		t.Fatalf("guarded, signed in: %d %v", code, out)
+	}
+	if code, _ := h.post(h.client(), "/guarded"); code != 401 {
+		t.Fatalf("guarded, signed out: %d, want 401", code)
 	}
 	if code, out := h.post(h.client(), "/signup", "email", "ada@example.com", "password", "another one"); code != 400 || !strings.Contains(out["error"].(string), "already exists") {
 		t.Fatalf("duplicate signup: %d %v", code, out)

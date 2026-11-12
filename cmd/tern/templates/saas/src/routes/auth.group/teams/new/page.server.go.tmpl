@@ -9,6 +9,9 @@ import (
 	"{{.Module}}/internal/app"
 )
 
+// Access: making a team needs an account.
+var Access = kit.SignedIn
+
 type Page struct {
 	// HasTeam is whether the user can go back to a team they're in.
 	HasTeam bool `json:"hasTeam"`

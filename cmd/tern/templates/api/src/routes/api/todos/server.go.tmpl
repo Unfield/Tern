@@ -11,6 +11,10 @@ import (
 	"{{.Module}}/internal/store"
 )
 
+// Access lets anyone use the API. Use kit.SignedIn or kit.Permission("…")
+// once it has users; the directories below inherit those.
+var Access = kit.Public
+
 // ListQuery filters the list: ?done=true or ?done=false.
 type ListQuery struct {
 	Done *bool `json:"done,omitempty"`

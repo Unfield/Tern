@@ -8,6 +8,9 @@ import (
 	"shelf/internal/shelf"
 )
 
+// Access keeps the shelf, and every route below it, to signed-in users.
+var Access = kit.SignedIn
+
 type Data struct {
 	Links []shelf.Link `json:"links"`
 	Show  string       `json:"show"`

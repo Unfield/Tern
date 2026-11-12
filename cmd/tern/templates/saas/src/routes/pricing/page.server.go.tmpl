@@ -11,6 +11,9 @@ import (
 	"{{.Module}}/internal/app"
 )
 
+// Access lets anyone see it.
+var Access = kit.Public
+
 type Page struct {
 	Plans []billing.Plan `json:"plans"`
 	// Current is the team's plan, "" when signed out.

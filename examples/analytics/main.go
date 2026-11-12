@@ -9,6 +9,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -76,6 +78,14 @@ func main() {
 		// Behind a reverse proxy, visitors' addresses come from it.
 		kit.WithTrustedProxies(proxies...),
 		kit.WithHook(app.LoadUser),
+		// Routes with `var Access = kit.SignedIn` send signed-out visitors to
+		// the login page.
+		kit.WithSignedIn(func(ctx *kit.Ctx) error {
+			if _, ok := app.CurrentUser(ctx); !ok {
+				return kit.Redirect(http.StatusSeeOther, "/login?next="+url.QueryEscape(ctx.URL().RequestURI()))
+			}
+			return nil
+		}),
 		kit.WithPlugins(
 			migrate.Plugin(st.DB, migrations.FS),
 			seedPlugin{demo: os.Getenv("DEMO") == "1"},

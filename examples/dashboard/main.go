@@ -10,6 +10,7 @@ import (
 	"github.com/Unfield/Tern/plugins/requestlog"
 	"github.com/Unfield/Tern/plugins/secure"
 
+	"dashboard/internal/app"
 	"dashboard/internal/db"
 	"dashboard/internal/session"
 )
@@ -22,6 +23,12 @@ func main() {
 	}
 	app, err := ternApp(
 		kit.WithHook(session.Hook),
+		// Routes with `var Access = kit.SignedIn` send signed-out visitors to
+		// the login page.
+		kit.WithSignedIn(func(ctx *kit.Ctx) error {
+			_, _, err := app.User(ctx)
+			return err
+		}),
 		kit.WithLogger(logging.New(logging.Options{})),
 		kit.WithOpenAPI("/api/openapi.json", "Acme Dashboard API", "1.0.0"),
 		kit.WithPlugins(

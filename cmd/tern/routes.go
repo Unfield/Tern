@@ -51,10 +51,13 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 			Kind    string `json:"kind"`
 			Load    bool   `json:"load"`
 			Layouts int    `json:"layouts"`
+			// Access is who may use the route: "public", "signed in",
+			// "permission …", or "" for a route without server code.
+			Access string `json:"access"`
 		}
 		out := make([]routeJSON, 0, len(list))
 		for _, r := range list {
-			out = append(out, routeJSON{Pattern: r.Pattern(), ID: r.ID, Kind: kind(r), Load: r.HasLoad(), Layouts: len(r.Layouts)})
+			out = append(out, routeJSON{Pattern: r.Pattern(), ID: r.ID, Kind: kind(r), Load: r.HasLoad(), Layouts: len(r.Layouts), Access: r.Access.AccessLabel()})
 		}
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -71,9 +74,17 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	rows := [][]string{{"ROUTE", "KIND", "LOAD", "LAYOUTS", "DIRECTORY"}}
+	rows := [][]string{{"ROUTE", "KIND", "ACCESS", "LOAD", "LAYOUTS", "DIRECTORY"}}
 	for _, r := range list {
-		rows = append(rows, []string{r.Pattern(), kind(r), check(r.HasLoad()), strconv.Itoa(len(r.Layouts)), r.ID})
+		access := r.Access.AccessLabel()
+		switch {
+		case access != "":
+		case slices.Contains(m.Open, r.Dir):
+			access = "missing"
+		default:
+			access = "-"
+		}
+		rows = append(rows, []string{r.Pattern(), kind(r), access, check(r.HasLoad()), strconv.Itoa(len(r.Layouts)), r.ID})
 	}
 	p.Println()
 	p.Table(rows, func(col int, cell string) string {
@@ -86,11 +97,21 @@ func cmdRoutes(args []string, stdout, stderr io.Writer) int {
 			}
 			return p.Cyan(cell)
 		case 2:
+			switch cell {
+			case "-":
+				return p.Dim(cell)
+			case "public":
+				return cell
+			case "missing":
+				return p.Red(cell)
+			}
+			return p.Green(cell)
+		case 3:
 			if cell == "yes" {
 				return p.Green(cell)
 			}
 			return p.Dim(cell)
-		case 4:
+		case 5:
 			return p.Dim(cell)
 		}
 		return cell

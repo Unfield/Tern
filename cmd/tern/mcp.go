@@ -31,6 +31,7 @@ const mcpInstructions = `Tern is a web framework: Svelte 5 components on the cli
 Conventions:
 - Routes live in src/routes. Directory names are Go-safe: slug.param for [slug], lang.optional for [[lang]], path.rest for [...path], name.group for (name), id.param.integer for a matcher. new_route converts SvelteKit-style paths.
 - A route directory holds +page.svelte, +layout.svelte, +error.svelte, and any .go files forming one package: func Load(ctx *kit.Ctx) (T, error) for page data, LayoutLoad for layouts, var Actions = kit.Actions{...} for forms, and GET/POST/... for endpoints.
+- A route with Go code needs var Access = kit.Public, kit.SignedIn or kit.Permission("…"); SignedIn and Permission also cover the directories below. Don't make a route public to get past the error: choose who should use it.
 - Run generate after changing Go route files or adding routes: it writes tern.gen.go and the TypeScript types ($types, $routes, $api). Then check type-checks everything, including the markup of Go components.
 - <script lang="go" live> makes a live component: its logic is Go on the server (State, Derived, Func from the goscript package) and its markup is Svelte.
 - The CLI is go tool tern (dev, build, gen, check, routes, migrate new).
@@ -114,6 +115,7 @@ func mcpServer(root string) *mcp.Server {
 				"layout":   boolean("Also create +layout.svelte"),
 				"methods":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Endpoint methods to add, such as GET and POST"},
 				"livePage": boolean("Make +page.svelte a live component with Go logic"),
+				"access":   str("Who may use the route's Go code (loads, actions, endpoints): signedIn (the default), public, or permission:<name>, such as permission:links.edit"),
 			}, "path"),
 			Handler: t.newRoute},
 		{Name: "new_live_component", Title: "Create a live component",
@@ -548,7 +550,12 @@ func (t *mcpTools) newRoute(_ context.Context, raw json.RawMessage) (string, err
 		Layout   bool     `json:"layout"`
 		Methods  []string `json:"methods"`
 		LivePage bool     `json:"livePage"`
+		Access   string   `json:"access"`
 	}](raw)
+	if err != nil {
+		return "", err
+	}
+	access, err := accessDecl(a.Access)
 	if err != nil {
 		return "", err
 	}
@@ -599,9 +606,10 @@ func (t *mcpTools) newRoute(_ context.Context, raw json.RawMessage) (string, err
 		}
 	}
 	if a.Load || a.Actions {
-		if err := add(dir+"/page.server.go", pageGo(pkg, a.Load, a.Actions)); err != nil {
+		if err := add(dir+"/page.server.go", pageGo(pkg, a.Load, a.Actions)+access); err != nil {
 			return "", err
 		}
+		access = "" // one per package
 	}
 	if len(a.Methods) > 0 {
 		var b strings.Builder
@@ -613,12 +621,30 @@ func (t *mcpTools) newRoute(_ context.Context, raw json.RawMessage) (string, err
 			}
 			fmt.Fprintf(&b, "\n// %s handles %s %s.\nfunc %s(ctx *kit.Ctx) error {\n\treturn ctx.JSON(200, map[string]string{\"ok\": \"yes\"})\n}\n", m, m, svelteKitToPattern(a.Path), m)
 		}
+		b.WriteString(access)
 		if err := add(dir+"/endpoint.go", b.String()); err != nil {
 			return "", err
 		}
 	}
 	report = append(report, "", "URL: "+svelteKitToPattern(a.Path), "Run generate to update tern.gen.go and the types.")
 	return strings.Join(report, "\n"), nil
+}
+
+// accessDecl is the `var Access` declaration for new_route's access
+// argument: routes with Go code need one, and default to signed-in users.
+func accessDecl(access string) (string, error) {
+	rule := ""
+	switch {
+	case access == "" || access == "signedIn":
+		rule = "kit.SignedIn"
+	case access == "public":
+		rule = "kit.Public"
+	case strings.HasPrefix(access, "permission:") && len(access) > len("permission:"):
+		rule = fmt.Sprintf("kit.Permission(%q)", strings.TrimPrefix(access, "permission:"))
+	default:
+		return "", fmt.Errorf("access must be signedIn, public or permission:<name>, not %q", access)
+	}
+	return "\n// Access says who may use this route; see docs/security.md.\nvar Access = " + rule + "\n", nil
 }
 
 func pageGo(pkg string, load, actions bool) string {

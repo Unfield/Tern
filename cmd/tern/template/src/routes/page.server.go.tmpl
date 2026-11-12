@@ -8,6 +8,10 @@ import (
 	"github.com/Unfield/Tern/kit"
 )
 
+// Access says who may use this page: everyone. Routes with server code
+// need one; kit.SignedIn and kit.Permission("…") keep others out.
+var Access = kit.Public
+
 // Data is passed to +page.svelte. Its TypeScript type is generated for you.
 type Data struct {
 	Message    string    `json:"message"`

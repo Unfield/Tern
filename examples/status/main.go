@@ -83,6 +83,11 @@ func main() {
 			}
 			return nil
 		}),
+		// Routes with `var Access = kit.SignedIn` are for the administrator.
+		kit.WithSignedIn(func(ctx *kit.Ctx) error {
+			_, err := app.RequireAdmin(ctx)
+			return err
+		}),
 		kit.WithPlugins(
 			// Start order: migrations, then the job queue, then the checks.
 			migrate.Plugin(st.DB, migrations),

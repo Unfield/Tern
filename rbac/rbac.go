@@ -116,3 +116,11 @@ func (p *Policy) Hook(prefix, perm string) kit.HookFunc {
 		return p.Require(ctx, perm)
 	}
 }
+
+// Guard is the check behind kit.Permission routes: a user without every
+// permission the route names gets 403.
+//
+//	ternApp(acc.Guard(), policy.Guard())
+func (p *Policy) Guard() kit.Option {
+	return kit.WithPermissions(p.Require)
+}

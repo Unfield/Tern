@@ -63,5 +63,8 @@ func newServer(logger *slog.Logger) (*kit.App, error) {
 		// the devices list see visitors' own addresses.
 		kit.WithTrustedProxies(proxies...),
 		kit.WithPlugins(plugins...),
+		// Routes with `var Access = kit.SignedIn` send signed-out visitors to
+		// the sign-in page.
+		a.Accounts.Guard(),
 	)
 }

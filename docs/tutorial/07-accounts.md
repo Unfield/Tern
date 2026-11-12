@@ -173,7 +173,7 @@ func main() {
 	if err := shelf.Open(context.Background(), path); err != nil {
 		log.Fatal(err)
 	}
-	app, err := ternApp(kit.WithPlugins(
+	app, err := ternApp(shelf.Accounts.Guard(), kit.WithPlugins(
 		migrate.Plugin(shelf.DB, migrations.FS),
 		shelf.Accounts,
 	))
@@ -201,6 +201,9 @@ import (
 
 	"shelf/internal/shelf"
 )
+
+// Access lets anyone in: this is where accounts are made.
+var Access = kit.Public
 
 type NewAccount struct {
 	Name     string `form:"name" validate:"required,max=80"`
@@ -250,6 +253,9 @@ import (
 
 	"shelf/internal/shelf"
 )
+
+// Access lets anyone in: this is where people sign in.
+var Access = kit.Public
 
 type Credentials struct {
 	Email    string `form:"email" validate:"required,email"`
@@ -319,6 +325,9 @@ import (
 
 	"shelf/internal/shelf"
 )
+
+// Access lets anyone sign out.
+var Access = kit.Public
 
 // Signing out changes state, so it's a form post, not a link.
 var Actions = kit.Actions{
@@ -448,9 +457,16 @@ func LayoutLoad(ctx *kit.Ctx) (Layout, error) {
 
 ## Only your links
 
-Last, the shelf's loads and actions need a user. `shelf.Accounts.Require(ctx)` returns the signed-in user; signed out, it returns a redirect to `/login?next=…`, which comes back to the same page after signing in. Return it as the error, and the visitor is sent to sign in.
+`shelf.Accounts.Guard()` in `main.go` is what `kit.SignedIn` checks: signed out, a page sends the visitor to `/login?next=…`, which comes back after signing in, and an endpoint answers 401. Close the shelf with it. In `src/routes/page.server.go`:
 
-In `src/routes/page.server.go`:
+```go
+// Access keeps the shelf, and every route below it, to signed-in users.
+var Access = kit.SignedIn
+```
+
+`kit.SignedIn` applies to the directories below, so delete the `var Access` line from `src/routes/links/id.param.integer/page.server.go`: the link pages inherit it. Sign up, sign in and sign out said `kit.Public`, which keeps them open; `kit.Public` never applies below its own directory, so a page you add later is closed until you say otherwise.
+
+The loads and actions still need to know *who* is signed in. `shelf.Accounts.Require(ctx)` returns the user; on these routes it always finds one. In `src/routes/page.server.go`:
 
 ```go
 func Load(ctx *kit.Ctx) (Data, error) {
@@ -536,7 +552,7 @@ var Actions = kit.Actions{
 }
 ```
 
-Check the user in actions as well as in loads. An action is a POST that anyone can send, whether or not they ever loaded the page.
+`Access` covers every request to a route: the page, its data, and its actions, which are POSTs anyone can send whether or not they loaded the page. `go tool tern routes` lists who may use each route, to check at a glance.
 
 Open the shelf: you're sent to sign in. Create an account, and you're back on an empty shelf of your own; the links from before belong to no one. Someone else's link is a 404 for you, as if it didn't exist, because `Get` only finds your own.
 

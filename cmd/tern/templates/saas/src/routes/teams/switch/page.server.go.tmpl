@@ -9,6 +9,9 @@ import (
 	"{{.Module}}/internal/app"
 )
 
+// Access: switching teams needs an account.
+var Access = kit.SignedIn
+
 // Load: the switcher posts here; a visit goes to the dashboard.
 func Load(ctx *kit.Ctx) (struct{}, error) {
 	return struct{}{}, kit.Redirect(http.StatusSeeOther, "/dashboard")

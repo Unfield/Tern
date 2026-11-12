@@ -60,6 +60,10 @@ func Generate(root string) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Routes are closed by default (ADR 0027).
+	if err := m.CheckAccess(); err != nil {
+		return nil, err
+	}
 	if _, err := os.Stat(filepath.Join(root, AppHTML)); err != nil {
 		return nil, fmt.Errorf("%s is missing: every Tern app needs an HTML template containing %%tern.head%% and %%tern.body%%", AppHTML)
 	}
@@ -264,6 +268,9 @@ func (g *generator) goFile() error {
 				b.WriteString(", NoCSR: true")
 			}
 			b.WriteString("},\n")
+		}
+		if r.Access != nil {
+			fmt.Fprintf(&b, "\t\t\tAccess: %s.Access,\n", g.pkgs[r.Access.Dir].alias)
 		}
 		if rp != nil && rp.prerender && (r.Page != "" || slices.Contains(rp.methods, "GET")) {
 			b.WriteString("\t\t\tPrerender: true,\n")

@@ -5,6 +5,9 @@ import (
 	"github.com/Unfield/Tern/kit"
 )
 
+// Access lets anyone see it.
+var Access = kit.Public
+
 // Session is who is signed in, for every page: nil when no one is.
 type Session struct {
 	User *accounts.User `json:"user"`

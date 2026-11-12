@@ -41,6 +41,7 @@ var ternManifest = &kit.Manifest{
 		{
 			ID:      "/api/ask",
 			Layouts: []int{0},
+			Access:  route1.Access,
 			Endpoint: map[string]kit.HandlerFunc{
 				"GET":  kit.StreamOutputEndpoint(route1.GET),
 				"POST": kit.StreamEndpoint("POST", route1.POST),
@@ -55,6 +56,7 @@ var ternManifest = &kit.Manifest{
 		{
 			ID:      "/api/items/id.param.integer",
 			Layouts: []int{0},
+			Access:  route2.Access,
 			Endpoint: map[string]kit.HandlerFunc{
 				"GET":    route2.GET,
 				"DELETE": route2.DELETE,
@@ -71,11 +73,13 @@ var ternManifest = &kit.Manifest{
 			ID:      "/blog/slug.param",
 			Layouts: []int{0, 1},
 			Page:    &kit.PageDef{Component: "src/routes/blog/slug.param/+page.svelte", Load: kit.LoadOf(route3.Load), Actions: route3.Actions},
+			Access:  route3.Access,
 		},
 		{
 			ID:        "/docs/path.rest",
 			Layouts:   []int{0},
 			Page:      &kit.PageDef{Component: "src/routes/docs/path.rest/+page.svelte"},
+			Access:    route4.Access,
 			Prerender: true,
 			Entries:   func(*kit.Ctx) ([]map[string]string, error) { return route4.Entries() },
 		},
@@ -83,6 +87,7 @@ var ternManifest = &kit.Manifest{
 			ID:      "/",
 			Layouts: []int{0},
 			Page:    &kit.PageDef{Component: "src/routes/+page.svelte"},
+			Access:  route0.Access,
 		},
 		{
 			ID:      "/lang.optional/about",

@@ -10,6 +10,9 @@ import (
 	"{{.Module}}/internal/app"
 )
 
+// Access lets anyone in: this is how people sign in.
+var Access = kit.Public
+
 type Page struct {
 	Token string `json:"token"`
 }

@@ -6,6 +6,7 @@ Tern turns protections on without being asked, and turning one off takes an opti
 
 | Protection | What it stops | Turned off with |
 |---|---|---|
+| Routes closed by default | a route with server code that nobody said who may use: it doesn't build | — |
 | Cross-origin request protection | other sites posting forms to the app, or calling its endpoints with the user's cookies | `kit.WithoutCSRFProtection()` |
 | Cookies `SameSite=Lax` and `Secure`, and session cookies `HttpOnly` | cookies sent with cross-site requests or over plain HTTP, and scripts reading sessions | — |
 | Security headers | other sites framing the app (clickjacking), full URLs leaking in referrers, pages using the camera, microphone or location | `kit.WithoutSecurityHeaders()` |
@@ -77,3 +78,15 @@ ratelimit.New(ratelimit.Rate(30, time.Minute), ratelimit.Methods()) // every req
 - **npm:** `npm audit` or `pnpm audit`, whichever lockfile the project has. The packages end up in the browser; high and critical advisories are warnings.
 
 Both need the network; `tern doctor -offline` skips them. To run them in CI, add `go tool tern doctor` as a step: it exits 1 when a check fails.
+
+## Who may use a route
+
+Every route with server code declares who may use it, and the build stops at one that doesn't:
+
+```go
+var Access = kit.SignedIn // or kit.Public, or kit.Permission("links.edit")
+```
+
+`kit.SignedIn` and `kit.Permission` cover the directories below; `kit.Public` covers its own only, so a route added later starts closed. Tern applies the rule to the page, its data, its form actions and its endpoints, before any of the route's code runs, and never serves a signed-in route from the page cache. `acc.Guard()` and `policy.Guard()` are the checks behind the rules; see the [guide](guide.md#who-may-use-a-route). `go tool tern routes` shows each route's rule, to review them in one place.
+
+Rules say who may use a route, not which records a user may see: a load still asks for the user's own data (`shelf.List(ctx, user.ID, …)`), and returns 404 for someone else's.

@@ -544,3 +544,14 @@ func (a *Accounts) ActAs(c *kit.Ctx, u *User) {
 	st.user, st.team, st.teamLoaded = u, nil, false
 	st.teamMu.Unlock()
 }
+
+// Guard is the check behind kit.SignedIn routes: signed out, a page
+// redirects to the sign-in page and an endpoint answers 401.
+//
+//	ternApp(kit.WithPlugins(acc), acc.Guard())
+func (a *Accounts) Guard() kit.Option {
+	return kit.WithSignedIn(func(c *kit.Ctx) error {
+		_, err := a.Require(c)
+		return err
+	})
+}

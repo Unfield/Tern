@@ -19,7 +19,7 @@ func writeFiles(t *testing.T, root string, files ...string) {
 		}
 		var data []byte
 		if strings.HasSuffix(p, ".go") {
-			data = []byte("package page\nfunc Load() {}\nfunc GET() {}\n")
+			data = []byte("package page\nimport \"github.com/Unfield/Tern/kit\"\nvar Access = kit.Permission(\"pages.read\")\nfunc Load() {}\nfunc GET() {}\n")
 		}
 		if err := os.WriteFile(p, data, 0o644); err != nil {
 			t.Fatal(err)
@@ -58,8 +58,8 @@ func TestRoutesCommand(t *testing.T) {
 			t.Errorf("line %d = %q, want prefix %q", i, lines[i], want)
 		}
 	}
-	if !strings.Contains(lines[3], "yes") {
-		t.Errorf("blog line = %q, want a load", lines[3])
+	if !strings.Contains(lines[3], "yes") || !strings.Contains(lines[3], "permission pages.read") {
+		t.Errorf("blog line = %q, want a load and its permission", lines[3])
 	}
 	if !strings.Contains(lines[2], "page+endpoint") {
 		t.Errorf("api line = %q, want page+endpoint kind", lines[2])

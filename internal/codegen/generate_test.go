@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -52,6 +53,8 @@ type Session struct {
 }
 
 func LayoutLoad(ctx *kit.Ctx) (Session, error) { return Session{}, nil }
+
+var Access = kit.Public
 `,
 	"src/routes/blog/+layout.svelte":           ``,
 	"src/routes/blog/slug.param/+page.svelte":  ``,
@@ -97,6 +100,8 @@ type Invalid struct {
 
 func Load(ctx *kit.Ctx) (*Post, error) { return &Post{}, nil }
 
+var Access = kit.Public
+
 var Actions = kit.Actions{
 	"save": kit.Action(save),
 	"raw":  func(ctx *kit.Ctx) (any, error) { return nil, nil },
@@ -112,7 +117,11 @@ func save(ctx *kit.Ctx) (Saved, error) {
 	"src/routes/docs/path.rest/+page.svelte": ``,
 	"src/routes/docs/path.rest/page.server.go": `package docs
 
+import "github.com/Unfield/Tern/kit"
+
 const Prerender = true
+
+var Access = kit.Public
 
 func Entries() ([]map[string]string, error) {
 	return []map[string]string{{"path": "intro"}}, nil
@@ -139,12 +148,16 @@ const Revalidate = 5 * time.Minute
 
 import "github.com/Unfield/Tern/kit"
 
+var Access = kit.Permission("items.write")
+
 func GET(ctx *kit.Ctx) error    { return nil }
 func DELETE(ctx *kit.Ctx) error { return nil }
 `,
 	"src/routes/api/ask/server.go": `package ask
 
 import "github.com/Unfield/Tern/kit"
+
+var Access = kit.SignedIn
 
 type Ask struct {
 	Question string ` + "`json:\"question\"`" + `
@@ -290,7 +303,7 @@ func TestGenerateSignatureErrors(t *testing.T) {
 			dir := writeFixture(t, map[string]string{
 				"src/app.html":            "%tern.head%%tern.body%",
 				"src/routes/+page.svelte": "",
-				"src/routes/page.go":      "package routes\n\nimport \"github.com/Unfield/Tern/kit\"\n\nvar _ *kit.Ctx\n\n" + tt.src + "\n",
+				"src/routes/page.go":      "package routes\n\nimport \"github.com/Unfield/Tern/kit\"\n\nvar _ *kit.Ctx\n\nvar Access = kit.Public\n\n" + tt.src + "\n",
 			})
 			_, err := Generate(dir)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
@@ -307,7 +320,7 @@ func TestGenerateUntidyModule(t *testing.T) {
 	dir := writeFixture(t, map[string]string{
 		"src/app.html":            "%tern.head%%tern.body%",
 		"src/routes/+page.svelte": "",
-		"src/routes/page.go":      "package routes\n\nimport (\n\t\"github.com/Unfield/Tern/kit\"\n\t\"example.com/missing\"\n)\n\nvar _ = missing.X\n\nfunc Load(ctx *kit.Ctx) (map[string]int, error) { return nil, nil }\n",
+		"src/routes/page.go":      "package routes\n\nimport (\n\t\"github.com/Unfield/Tern/kit\"\n\t\"example.com/missing\"\n)\n\nvar _ = missing.X\n\nfunc Load(ctx *kit.Ctx) (map[string]int, error) { return nil, nil }\n\nvar Access = kit.Public\n",
 	})
 	_, err := Generate(dir)
 	if err == nil || !strings.Contains(err.Error(), "example.com/missing") {
@@ -326,7 +339,7 @@ func TestGenerateMarkdown(t *testing.T) {
 	dir := writeFixture(t, map[string]string{
 		"src/app.html":                    "<html><head>%tern.head%</head><body>%tern.body%</body></html>",
 		"main.go":                         "package main\n\nfunc main() {}\n",
-		"src/routes/about/page.server.go": "package about\n\nimport \"github.com/Unfield/Tern/kit\"\n\nfunc Load(ctx *kit.Ctx) (struct{}, error) { return struct{}{}, nil }\n",
+		"src/routes/about/page.server.go": "package about\n\nimport \"github.com/Unfield/Tern/kit\"\n\nfunc Load(ctx *kit.Ctx) (struct{}, error) { return struct{}{}, nil }\n\nvar Access = kit.Public\n",
 		"src/routes/about/+page.md":       "---\ntitle: About us\ndescription: Who we are\n---\n# About\n\nWe use `{braces}` and <b>html</b>.\n",
 		"src/content/blog/post.md":        "---\ntitle: Post\n---\nHi\n",
 		"src/routes/both/+page.md":        "x",
@@ -370,5 +383,35 @@ func TestGenerateMarkdown(t *testing.T) {
 	build.Dir = dir
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("the generated code builds: %v\n%s", err, out)
+	}
+}
+
+func TestGenerateAccess(t *testing.T) {
+	dir := writeFixture(t, map[string]string{
+		"src/app.html":                                 "%tern.head%%tern.body%",
+		"src/routes/+page.svelte":                      "",
+		"src/routes/app.group/+layout.svelte":          "",
+		"src/routes/app.group/access.go":               "package app\n\nimport \"github.com/Unfield/Tern/kit\"\n\nvar Access = kit.SignedIn\n",
+		"src/routes/app.group/projects/+page.svelte":   "",
+		"src/routes/app.group/projects/page.server.go": "package projects\n\nimport \"github.com/Unfield/Tern/kit\"\n\nfunc Load(ctx *kit.Ctx) (struct{}, error) { return struct{}{}, nil }\n",
+	})
+	if _, err := Generate(dir); err != nil {
+		t.Fatal(err)
+	}
+	gen, err := os.ReadFile(filepath.Join(dir, GoFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The group's rule, from a package with nothing else in it.
+	if !regexp.MustCompile(`(?s)ID:\s+"/app.group/projects",.*?Access:\s+route0\.Access`).Match(gen) {
+		t.Errorf("projects has no Access:\n%s", gen)
+	}
+	// A prerendered route must be public.
+	page := filepath.Join(dir, "src/routes/app.group/projects/page.server.go")
+	if err := os.WriteFile(page, []byte("package projects\n\nconst Prerender = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Generate(dir); err == nil || !strings.Contains(err.Error(), "prerender only kit.Public routes") {
+		t.Errorf("a prerendered signed-in route: %v", err)
 	}
 }

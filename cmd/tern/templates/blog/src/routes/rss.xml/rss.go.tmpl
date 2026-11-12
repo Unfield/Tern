@@ -11,6 +11,9 @@ import (
 	"{{.Module}}/internal/blog"
 )
 
+// Access lets anyone read it.
+var Access = kit.Public
+
 const Prerender = true
 
 // SiteURL is the blog's public address, for links in the feed.

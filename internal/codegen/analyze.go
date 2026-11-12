@@ -62,6 +62,9 @@ func analyze(root, routesDir string, m *routes.Manifest) (map[string]*routePacka
 		if r.Go != nil {
 			dirs[r.Go.Dir] = r.Go
 		}
+		if r.Access != nil {
+			dirs[r.Access.Dir] = r.Access
+		}
 		for _, l := range r.Layouts {
 			if l.Go != nil {
 				dirs[l.Go.Dir] = l.Go
@@ -128,6 +131,17 @@ func analyze(root, routesDir string, m *routes.Manifest) (map[string]*routePacka
 	}
 	for i, d := range sorted {
 		out[d].alias = fmt.Sprintf("route%d", i)
+	}
+	for _, r := range m.Routes {
+		if r.Go == nil {
+			continue
+		}
+		if rp := out[r.Go.Dir]; rp != nil && rp.prerender && r.Access.Restricted() {
+			errs = append(errs, fmt.Sprintf("%s: route %s is prerendered, so everyone gets the same file, but its Access is for signed-in users; prerender only kit.Public routes", path.Join(routesDir, r.Dir), r.ID))
+		}
+	}
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%s", strings.Join(dedupe(errs), "\n"))
 	}
 	return out, nil
 }

@@ -27,6 +27,7 @@ var commands = []command{
 	{"ui", "add <Component>", "Copy Tern UI components into the project"},
 	{"add", "<plugin>", "Add a plugin to the app"},
 	{"doctor", "[target]", "Check the project before a deploy"},
+	{"fix", "access", "Mark routes without an Access rule public, after upgrading"},
 	{"mcp", "", "Serve the Model Context Protocol for AI coding tools"},
 	{"lsp", "", "Serve the language server for editors"},
 	{"version", "", "Print the Tern version"},
@@ -97,6 +98,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdUI(args[1:], stdout, stderr)
 	case "add":
 		return cmdAdd(args[1:], stdout, stderr)
+	case "fix":
+		return cmdFix(args[1:], stdout, stderr)
 	case "doctor":
 		return cmdDoctor(args[1:], stdout, stderr)
 	default:

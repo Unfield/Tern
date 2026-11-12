@@ -10,6 +10,9 @@ import (
 	"shelf/internal/shelf"
 )
 
+// Access lets anyone in: this is where people sign in.
+var Access = kit.Public
+
 type Credentials struct {
 	Email    string `form:"email" validate:"required,email"`
 	Password string `form:"password" validate:"required"`

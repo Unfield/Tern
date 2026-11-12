@@ -113,6 +113,9 @@ type RouteDef struct {
 	Page *PageDef
 	// Endpoint maps HTTP methods to handlers.
 	Endpoint map[string]HandlerFunc
+	// Access says who may use the route; set by `var Access` in the route's
+	// package or a directory above it.
+	Access Access
 	// Prerender renders the page to static HTML at build time; set by
 	// `const Prerender = true` in the route's package.
 	Prerender bool
@@ -179,6 +182,8 @@ type options struct {
 	cspSources      [][]string
 	noSecHeaders    bool
 	noRateLimit     bool
+	signedIn        func(*Ctx) error
+	permissions     func(*Ctx, ...string) error
 	ssr             bool
 	ssrWorkers      int
 	ssrCache        int

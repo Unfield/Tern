@@ -58,6 +58,10 @@ type Data struct {
 	ServerTime time.Time `json:"serverTime"`
 }
 
+// Access says who may use this page: everyone. Routes with server code
+// need one; kit.SignedIn and kit.Permission("…") keep others out.
+var Access = kit.Public
+
 // Load runs on the server for every request to this page.
 func Load(ctx *kit.Ctx) (Data, error) {
 	return Data{
@@ -66,6 +70,8 @@ func Load(ctx *kit.Ctx) (Data, error) {
 	}, nil
 }
 ```
+
+`Access` says who may use the page's server code. Every route with Go code declares one, or the build stops and names the route: routes are closed until you open them. The shelf stays public for now; [step 7](07-accounts.md) closes it to everyone but its owner.
 
 And `src/routes/+page.svelte` uses it:
 

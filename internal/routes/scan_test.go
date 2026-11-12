@@ -44,15 +44,22 @@ const (
 	goHelper     = "package page\nfunc helper() {}\n"
 )
 
+// access is a file declaring an Access rule, such as access("page", "kit.Public").
+func access(pkg, rule string) string {
+	return "package " + pkg + "\nimport \"github.com/Unfield/Tern/kit\"\nvar Access = " + rule + "\n"
+}
+
 func TestScan(t *testing.T) {
 	fsys := mapFS(
 		"src/routes/+layout.svelte",
 		"src/routes/layout.server.go="+goLayoutLoad,
+		"src/routes/access.go="+access("page", "kit.Public"),
 		"src/routes/+error.svelte",
 		"src/routes/+page.svelte",
 		"src/routes/about/+page.svelte",
 		"src/routes/blog/+page.svelte",
 		"src/routes/blog/page.server.go="+goLoad,
+		"src/routes/blog/access.go="+access("page", "kit.SignedIn"),
 		"src/routes/blog/slug.param/+page.svelte",
 		"src/routes/blog/slug.param/page.server.go="+goLoad,
 		"src/routes/blog/slug.param/actions.go="+goActions,
@@ -62,6 +69,7 @@ func TestScan(t *testing.T) {
 		"src/routes/app.group/dashboard/+error.svelte",
 		"src/routes/app.group/dashboard/+page.svelte",
 		"src/routes/api/health/server.go="+goEndpoint,
+		"src/routes/api/health/access.go="+access("health", "kit.Public"),
 		"src/routes/api/util/util.go="+goHelper, // Go without a route role
 		"src/routes/docs/path.rest/+page.svelte",
 		"src/routes/.hidden/+page.svelte",
@@ -260,4 +268,64 @@ func routeFor(t testing.TB, id string) *Route {
 		}
 	}
 	return r
+}
+
+func TestAccessRules(t *testing.T) {
+	fsys := mapFS(
+		"r/+page.svelte",
+		"r/page.server.go="+goLoad,
+		"r/access.go="+access("page", "kit.Public"),
+		// Public applies to its own directory only.
+		"r/about/+page.svelte",
+		"r/news/+page.svelte",
+		"r/news/page.server.go="+goLoad,
+		// SignedIn and Permission apply below, unless a directory says otherwise.
+		"r/app.group/+layout.svelte",
+		"r/app.group/access.go="+access("app", "kit.SignedIn"),
+		"r/app.group/projects/+page.svelte",
+		"r/app.group/projects/page.server.go="+goLoad,
+		"r/app.group/admin/+page.svelte",
+		"r/app.group/admin/page.server.go=package admin\nimport t \"github.com/Unfield/Tern/kit\"\nfunc Load() {}\nvar Access = t.Permission(\"admin\")\n",
+		"r/app.group/login/+page.svelte",
+		"r/app.group/login/page.server.go=package login\nimport \"github.com/Unfield/Tern/kit\"\nvar Actions = 1\nvar Access = kit.Public\n",
+	)
+	missing, err := MissingAccess(fsys, "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(missing, []string{"news"}) {
+		t.Errorf("MissingAccess = %v, want [news]", missing)
+	}
+	if m, err := Scan(fsys, "r"); err != nil || m.CheckAccess() == nil || !strings.Contains(m.CheckAccess().Error(), "r/news: this route has server code but no Access rule") {
+		t.Errorf("Scan: %v", err)
+	}
+	delete(fsys, "r/news/page.server.go")
+	m, err := Scan(fsys, "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[string]string{
+		"/":                   "public",
+		"/about":              "",
+		"/app.group/projects": "signedIn",
+		"/app.group/admin":    "permission",
+		"/app.group/login":    "public",
+	} {
+		r := findRoute(t, m, id)
+		got := ""
+		if r.Access != nil {
+			got = r.Access.Access
+		}
+		if got != want {
+			t.Errorf("%s: Access %q, want %q", id, got, want)
+		}
+	}
+	if r := findRoute(t, m, "/app.group/projects"); r.Access.Dir != "app.group" {
+		t.Errorf("projects' rule comes from %q, want app.group", r.Access.Dir)
+	}
+
+	bad := mapFS("r/+page.svelte", "r/page.server.go="+goLoad, "r/access.go="+access("page", "something()"))
+	if _, err := Scan(bad, "r"); err == nil || !strings.Contains(err.Error(), "Access must be kit.Public") {
+		t.Errorf("an Access of another kind: %v", err)
+	}
 }

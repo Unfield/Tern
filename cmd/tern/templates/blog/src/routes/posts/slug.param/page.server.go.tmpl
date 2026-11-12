@@ -8,6 +8,9 @@ import (
 	"{{.Module}}/internal/blog"
 )
 
+// Access lets anyone read it.
+var Access = kit.Public
+
 const Prerender = true
 
 // Entries lists every post, so tern build prerenders them all.

@@ -97,6 +97,22 @@ Colocated components, styles and Go helpers are fine. The route's Go package doe
 
 By convention the code lives in `page.server.go`, `layout.server.go` and `server.go`, but file names do not matter. Because route directories are normal Go packages, `go test ./...`, `go vet`, gopls and linters work on them as usual.
 
+### Who may use a route
+
+A route with server code (a load, actions or an endpoint) says who may use it, in its package:
+
+```go
+var Access = kit.Public                    // anyone
+var Access = kit.SignedIn                  // a signed-in user
+var Access = kit.Permission("links.edit")  // a signed-in user with the permission
+```
+
+Without one, the build stops and names the route: routes are closed by default ([ADR 0027](adr/0027-secure-by-default.md)). `kit.SignedIn` and `kit.Permission` apply to the directories below too, so one in a `(app)` group covers every page in it, and a directory below can say otherwise, as a login page does with `kit.Public`. `kit.Public` covers its own directory only, so a route added later is never public by accident.
+
+Tern checks the rule before the loads, actions and endpoints run, for the page, its data and its form posts alike. What a signed-in user is comes from the app: `acc.Guard()` from [accounts](accounts.md), or `kit.WithSignedIn(check)` with a check of your own; `policy.Guard()` from `rbac` checks permissions. Signed out, pages redirect to sign in and endpoints answer 401. `go tool tern routes` lists every route's rule.
+
+Upgrading an app from before v1.16, `go tool tern fix access` marks each route without a rule `kit.Public`, which keeps it as it was; then tighten the ones that should be.
+
 ## Loading data
 
 A page's `Load` runs on the server for every request to the page, and for client-side navigations to it:
@@ -1047,7 +1063,7 @@ func Load(ctx *kit.Ctx) (Page, error) {
 - **Wildcards:** `"projects:*"` grants every `projects:` permission.
 - **Role includes:** `"role:viewer"` includes another role's permissions.
 - **Checks in components:** `policy.Can(ctx, perm)` returns a bool, for showing or hiding parts of a page.
-- **Guarding a section:** `kit.WithHook(policy.Hook("/admin", "admin:access"))` guards everything under `/admin`.
+- **Guarding routes:** with `policy.Guard()` among the app's options, `var Access = kit.Permission("admin:access")` in a route's package guards it and every route below ([who may use a route](#who-may-use-a-route)). `kit.WithHook(policy.Hook("/admin", "admin:access"))` guards everything under a path, routes or not.
 
 ## Databases
 

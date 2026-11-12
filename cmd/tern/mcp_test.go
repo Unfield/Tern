@@ -60,6 +60,18 @@ func TestMCPTools(t *testing.T) {
 	if !strings.HasPrefix(string(goFile), "package slug\n") || !strings.Contains(string(goFile), "func Load(ctx *kit.Ctx) (Page, error)") || !strings.Contains(string(goFile), "var Actions = kit.Actions{") {
 		t.Errorf("page.server.go:\n%s", goFile)
 	}
+	// Signed-in users by default, declared once per package.
+	endpoint, _ := os.ReadFile(filepath.Join(root, "src/routes/blog/slug.param/endpoint.go"))
+	if !strings.Contains(string(goFile), "var Access = kit.SignedIn") || strings.Contains(string(endpoint), "var Access") {
+		t.Errorf("Access:\n%s\n%s", goFile, endpoint)
+	}
+	call(t, tools.newRoute, `{"path":"/api/items","methods":["GET"],"access":"permission:items.read"}`)
+	if api, _ := os.ReadFile(filepath.Join(root, "src/routes/api/items/endpoint.go")); !strings.Contains(string(api), `var Access = kit.Permission("items.read")`) {
+		t.Errorf("a permission:\n%s", api)
+	}
+	if _, err := tools.newRoute(context.Background(), json.RawMessage(`{"path":"/y","load":true,"access":"everyone"}`)); err == nil {
+		t.Error("an unknown access should fail")
+	}
 	if again := call(t, tools.newRoute, `{"path":"/blog/[slug]"}`); !strings.Contains(again, "exists, left alone") {
 		t.Errorf("existing files should be kept: %s", again)
 	}
@@ -69,7 +81,7 @@ func TestMCPTools(t *testing.T) {
 
 	var list []routeInfo
 	_ = json.Unmarshal([]byte(call(t, tools.routes, `{}`)), &list)
-	if len(list) != 2 || list[1].Pattern != "/blog/[slug]" || !list[1].Load || !list[1].Actions || list[1].Kind != "page+endpoint" {
+	if len(list) != 3 || list[2].Pattern != "/blog/[slug]" || !list[2].Load || !list[2].Actions || list[2].Kind != "page+endpoint" {
 		t.Errorf("routes = %+v", list)
 	}
 
@@ -87,7 +99,7 @@ func TestMCPTools(t *testing.T) {
 
 	var info map[string]any
 	_ = json.Unmarshal([]byte(call(t, tools.project, `{}`)), &info)
-	if info["module"] != "example.com/app" || info["tern"] != "v1.2.1" || info["routes"] != float64(2) || info["liveComponents"] != float64(1) {
+	if info["module"] != "example.com/app" || info["tern"] != "v1.2.1" || info["routes"] != float64(3) || info["liveComponents"] != float64(1) {
 		t.Errorf("project = %v", info)
 	}
 

@@ -53,5 +53,6 @@ You've built an app with pages and layouts, data from Go with generated types, a
 - **Sign in with a passkey**, verify emails, and let users reset their passwords: [Accounts](../accounts.md).
 - **Live updates** across a user's tabs and devices: [Realtime](../guide.md#realtime).
 - **Translations** of the interface: [Translations](../guide.md#translations).
+- **Let assistants use it:** save links from Claude or ChatGPT, with tools that run as the user: [Apps for assistants](../mcp-server.md). The finished Shelf has them.
 
 The [guide](../guide.md) covers all of Tern, and the finished Shelf is in [examples/shelf](../../examples/shelf).

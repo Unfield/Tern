@@ -943,6 +943,8 @@ func GET(ctx *kit.Ctx) error {
 
 Other services can verify the same tokens against `/oauth/jwks`, or ask `/oauth/introspect`. The signing key is created on first start and kept in the store. `MemoryStore` forgets everything on restart, so use `NewSQLStore` in production.
 
+- **Clients that register themselves:** with `ClientMetadataDocuments: true`, a client may use an HTTPS URL as its `client_id`, and the provider fetches the client's name and redirect addresses from it (Client ID Metadata Documents). That's how AI assistants connect to an app; see [Apps for assistants](mcp-server.md). Such clients are public, use PKCE and always get the consent screen.
+- **Tokens for a resource:** a client may name the API it wants a token for with `resource` (RFC 8707), and the token's audience is then that URL. `token.For("https://example.com/api")` checks it. `Bearer` checks scopes, not the audience, so an API that must accept only its own tokens checks `For` too. Resources on the issuer's origin are allowed, and `Options.Resources` adds others.
 - **Your own consent page:** set `ConsentURL` to a page of your app, and the plugin sends users there instead of its built-in page. The page's load returns `provider.ConsentRequest(ctx)`, and Tern UI's `ConsentScreen` shows it and posts the decision back. The plugin checks the request again on that post.
 
 ### Roles and permissions

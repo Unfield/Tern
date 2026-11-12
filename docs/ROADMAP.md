@@ -258,7 +258,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 
 **AI**
 - [ ] Streaming endpoints for model responses, with typed partial results on the client
-- [ ] An app's actions and endpoints served over MCP, so assistants can use the app with the user's permissions
+- [x] An app's tools served over MCP, so assistants can use the app with the user's permissions ([docs/mcp-server.md](mcp-server.md))
 
 **Tooling**
 - [ ] An editor extension: jump between a page and its Go load, see routes, and get `tern check` errors as you type

@@ -14,7 +14,7 @@ Each step adds one idea and ends with an app that runs. Along the way you use mo
 8. [Tests](08-tests.md): the whole app, tested from Go
 9. [Ship it](09-ship.md): one binary, deployed over SSH
 
-The finished app is [examples/shelf](../../examples/shelf), if you want to compare.
+The finished app is [examples/shelf](../../examples/shelf), if you want to compare. It goes one step further than the tutorial: assistants such as Claude can use it, through the tools in `assistants.go` ([Apps for assistants](../mcp-server.md)).
 
 ## What you need
 

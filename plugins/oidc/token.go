@@ -58,8 +58,8 @@ func (p *Plugin) client(r *http.Request) (*Client, error) {
 	if !basic {
 		id, secret = r.PostForm.Get("client_id"), r.PostForm.Get("client_secret")
 	}
-	c := p.clients[id]
-	if c == nil {
+	c, err := p.lookupClient(r.Context(), id)
+	if err != nil {
 		return nil, errors.New("unknown client")
 	}
 	if c.Public {
@@ -105,7 +105,12 @@ func (p *Plugin) token(w http.ResponseWriter, r *http.Request) {
 		}
 		scopes := p.allowedScopes(c, strings.Fields(r.PostForm.Get("scope")))
 		scopes = slices.DeleteFunc(scopes, func(s string) bool { return s == "openid" || s == "offline_access" })
-		p.issue(ctx, w, c, c.ID, scopes, time.Now(), "", "")
+		resource := r.PostForm.Get("resource")
+		if resource != "" && !p.resourceAllowed(resource) {
+			tokenError(w, http.StatusBadRequest, "invalid_target", "tokens can't be issued for that resource")
+			return
+		}
+		p.issue(ctx, w, c, c.ID, scopes, time.Now(), "", "", resource)
 	default:
 		tokenError(w, http.StatusBadRequest, "unsupported_grant_type", "unsupported grant_type")
 	}
@@ -119,6 +124,12 @@ func (p *Plugin) codeGrant(ctx context.Context, w http.ResponseWriter, r *http.R
 	}
 	if code.ClientID != c.ID || code.RedirectURI != r.PostForm.Get("redirect_uri") {
 		tokenError(w, http.StatusBadRequest, "invalid_grant", "the code was issued to another client or redirect URI")
+		return
+	}
+	// The token request names the same resource as the authorization
+	// request, or none (RFC 8707 §2.2).
+	if res := r.PostForm.Get("resource"); res != "" && res != code.Resource {
+		tokenError(w, http.StatusBadRequest, "invalid_target", "the resource doesn't match the authorization request")
 		return
 	}
 	verifier := r.PostForm.Get("code_verifier")
@@ -139,14 +150,14 @@ func (p *Plugin) codeGrant(ctx context.Context, w http.ResponseWriter, r *http.R
 		// OAuth clients get one with every code.
 		refresh = randomToken()
 		if err := p.opts.Store.SaveRefresh(ctx, hash(refresh), RefreshToken{
-			ClientID: c.ID, Subject: code.Subject, Scopes: code.Scopes, Family: randomToken(),
+			ClientID: c.ID, Subject: code.Subject, Scopes: code.Scopes, Family: randomToken(), Resource: code.Resource,
 			AuthTime: code.AuthTime, Expires: time.Now().Add(p.opts.RefreshTokenTTL),
 		}); err != nil {
 			p.serverError(w, err)
 			return
 		}
 	}
-	p.issue(ctx, w, c, code.Subject, code.Scopes, code.AuthTime, code.Nonce, refresh)
+	p.issue(ctx, w, c, code.Subject, code.Scopes, code.AuthTime, code.Nonce, refresh, code.Resource)
 }
 
 func (p *Plugin) refreshGrant(ctx context.Context, w http.ResponseWriter, r *http.Request, c *Client) {
@@ -170,6 +181,10 @@ func (p *Plugin) refreshGrant(ctx context.Context, w http.ResponseWriter, r *htt
 		tokenError(w, http.StatusBadRequest, "invalid_grant", "the refresh token was already used")
 		return
 	}
+	if res := r.PostForm.Get("resource"); res != "" && res != t.Resource {
+		tokenError(w, http.StatusBadRequest, "invalid_target", "the resource doesn't match the authorization request")
+		return
+	}
 	scopes := t.Scopes
 	if requested := strings.Fields(r.PostForm.Get("scope")); len(requested) > 0 {
 		if !containsAll(t.Scopes, requested) {
@@ -180,12 +195,12 @@ func (p *Plugin) refreshGrant(ctx context.Context, w http.ResponseWriter, r *htt
 	}
 	next := randomToken()
 	if err := p.opts.Store.SaveRefresh(ctx, hash(next), RefreshToken{
-		ClientID: c.ID, Subject: t.Subject, Scopes: t.Scopes, Family: t.Family, AuthTime: t.AuthTime, Expires: t.Expires,
+		ClientID: c.ID, Subject: t.Subject, Scopes: t.Scopes, Family: t.Family, Resource: t.Resource, AuthTime: t.AuthTime, Expires: t.Expires,
 	}); err != nil {
 		p.serverError(w, err)
 		return
 	}
-	p.issue(ctx, w, c, t.Subject, scopes, t.AuthTime, "", next)
+	p.issue(ctx, w, c, t.Subject, scopes, t.AuthTime, "", next, t.Resource)
 }
 
 func (p *Plugin) serverError(w http.ResponseWriter, err error) {
@@ -210,11 +225,17 @@ func (p *Plugin) sign(claims any, typ string) (string, error) {
 	return jwt.Signed(signer).Claims(claims).Serialize()
 }
 
-func (p *Plugin) issue(ctx context.Context, w http.ResponseWriter, c *Client, subject string, scopes []string, authTime time.Time, nonce, refresh string) {
+// issue writes a token response. An access token for a resource has it as
+// its audience; otherwise the audience is the client.
+func (p *Plugin) issue(ctx context.Context, w http.ResponseWriter, c *Client, subject string, scopes []string, authTime time.Time, nonce, refresh, resource string) {
 	now := time.Now()
+	aud := jwt.Audience{c.ID}
+	if resource != "" {
+		aud = jwt.Audience{resource}
+	}
 	at := accessClaims{
 		Claims: jwt.Claims{
-			Issuer: p.opts.Issuer, Subject: subject, Audience: jwt.Audience{c.ID},
+			Issuer: p.opts.Issuer, Subject: subject, Audience: aud,
 			IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now),
 			Expiry: jwt.NewNumericDate(now.Add(p.opts.AccessTokenTTL)), ID: randomToken()[:22],
 		},
@@ -286,6 +307,16 @@ type AccessToken struct {
 	Scopes   []string
 	Expires  time.Time
 	ID       string
+	// Audience is who the token is for: the resource it was issued for
+	// (RFC 8707), or the client.
+	Audience []string
+}
+
+// For reports whether the token was issued for resource, such as an MCP
+// server's URL. Resource servers must check it, so a token issued to one
+// of them can't be replayed against another.
+func (t *AccessToken) For(resource string) bool {
+	return slices.Contains(t.Audience, resource) || slices.Contains(t.Audience, strings.TrimRight(resource, "/"))
 }
 
 // HasScope reports whether the token was granted scope.
@@ -313,7 +344,7 @@ func (p *Plugin) Verify(ctx context.Context, raw string) (*AccessToken, error) {
 	} else if revoked {
 		return nil, ErrInvalidToken
 	}
-	return &AccessToken{Subject: c.Subject, ClientID: c.ClientID, Scopes: strings.Fields(c.Scope), Expires: c.Expiry.Time(), ID: c.ID}, nil
+	return &AccessToken{Subject: c.Subject, ClientID: c.ClientID, Scopes: strings.Fields(c.Scope), Expires: c.Expiry.Time(), ID: c.ID, Audience: c.Audience}, nil
 }
 
 // Bearer authenticates an API request by its "Authorization: Bearer"
@@ -419,7 +450,7 @@ func (p *Plugin) introspect(w http.ResponseWriter, r *http.Request) {
 	token := r.PostForm.Get("token")
 	ctx := r.Context()
 	if at, err := p.Verify(ctx, token); err == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"active": true, "token_type": "access_token", "sub": at.Subject, "client_id": at.ClientID, "scope": strings.Join(at.Scopes, " "), "exp": at.Expires.Unix(), "iss": p.opts.Issuer})
+		writeJSON(w, http.StatusOK, map[string]any{"active": true, "token_type": "access_token", "sub": at.Subject, "client_id": at.ClientID, "aud": at.Audience, "scope": strings.Join(at.Scopes, " "), "exp": at.Expires.Unix(), "iss": p.opts.Issuer})
 		return
 	}
 	if t, err := p.opts.Store.GetRefresh(ctx, hash(token)); err == nil && !t.Used {

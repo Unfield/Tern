@@ -1,5 +1,7 @@
 # The MCP server
 
+This page is about MCP in your editor, while you build an app. To let assistants use a deployed app, see [Apps for assistants](mcp-server.md).
+
 `tern mcp` serves the [Model Context Protocol](https://modelcontextprotocol.io) on stdin and stdout, so AI coding tools can work with a Tern app: list its routes and their types, scaffold routes and live components, run code generation, type checks, tests and builds, and read Tern's documentation for the version the app uses.
 
 ## Setup

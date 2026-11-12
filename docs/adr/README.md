@@ -26,6 +26,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0020](0020-billing.md) | Billing with Stripe | Accepted |
 | [0021](0021-rendering-on-demand.md) | Rendering on demand and caching | Accepted |
 | [0022](0022-keep-boxed-values.md) | Keep boxed values in native rendering | Accepted |
+| [0023](0023-apps-over-mcp.md) | Apps over MCP | Accepted |
 
 ## Template
 

@@ -79,3 +79,19 @@ func classify(err error) (status int, message string, expected bool) {
 	}
 	return http.StatusInternalServerError, "Internal Error", false
 }
+
+// UserError is what a user may see of err: its status and message. An
+// error from Error or NotFound keeps its own; any other is logged with the
+// request, and its message is "Internal Error", except under tern dev.
+// Code that answers requests its own way, such as an MCP server, uses it to
+// report errors as endpoints do.
+func (c *Ctx) UserError(err error) (status int, message string) {
+	status, message, expected := classify(err)
+	if !expected {
+		c.app.logError(c, err)
+		if c.app.dev != nil {
+			message = err.Error()
+		}
+	}
+	return status, message
+}

@@ -118,6 +118,7 @@ func list() ([]*Page, error) {
 			{Source: "docs/errors.md", Slug: "errors", Title: "Error reports", Section: "Building"},
 			{Source: "docs/testing.md", Slug: "testing", Title: "Testing", Section: "Building"},
 			{Source: "docs/signals.md", Slug: "signals", Title: "Security signals", Section: "Building"},
+			{Source: "docs/mcp-server.md", Slug: "assistants", Title: "Apps for assistants (MCP)", Section: "Building"},
 			{Source: "docs/mcp.md", Slug: "mcp", Title: "AI coding tools (MCP)", Section: "Building"},
 			{Source: "docs/experimental-go-script.md", Slug: "go-script", Title: "Go in components", Section: "Building"},
 			{Source: "docs/deployment.md", Slug: "deployment", Title: "Deployment", Section: "Shipping"},

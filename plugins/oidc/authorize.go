@@ -33,8 +33,8 @@ func (p *Plugin) authorize(ctx *kit.Ctx) error {
 	// Until the client and redirect URI are known to be valid, errors are
 	// shown here rather than redirected, so the endpoint can't be used to
 	// redirect users anywhere.
-	client := p.clients[q.Get("client_id")]
-	if client == nil {
+	client, err := p.lookupClient(ctx, q.Get("client_id"))
+	if err != nil {
 		return errorPage(ctx, "This app is not registered.")
 	}
 	redirect := q.Get("redirect_uri")
@@ -59,6 +59,10 @@ func (p *Plugin) authorize(ctx *kit.Ctx) error {
 		return fail("invalid_request", "code_challenge_method must be S256")
 	case challenge != "" && (len(challenge) < 43 || len(challenge) > 128):
 		return fail("invalid_request", "invalid code_challenge")
+	}
+	resource := q.Get("resource")
+	if resource != "" && !p.resourceAllowed(resource) {
+		return fail("invalid_target", "tokens can't be issued for that resource")
 	}
 	scopes := p.allowedScopes(client, strings.Fields(q.Get("scope")))
 	prompt := strings.Fields(q.Get("prompt"))
@@ -86,7 +90,9 @@ func (p *Plugin) authorize(ctx *kit.Ctx) error {
 		if err != nil {
 			return err
 		}
-		consented = !slices.Contains(prompt, "consent") && containsAll(given, scopes)
+		// A consent must have been given, even for a request with no scopes:
+		// with none, "every scope was approved" would be true for any app.
+		consented = given != nil && !slices.Contains(prompt, "consent") && containsAll(given, scopes)
 	}
 	if !consented {
 		switch {
@@ -112,7 +118,7 @@ func (p *Plugin) authorize(ctx *kit.Ctx) error {
 
 	code := randomToken()
 	err = p.opts.Store.SaveCode(ctx, hash(code), AuthCode{
-		ClientID: client.ID, RedirectURI: redirect, Subject: subject, Scopes: scopes,
+		ClientID: client.ID, RedirectURI: redirect, Subject: subject, Scopes: scopes, Resource: resource,
 		Nonce: q.Get("nonce"), CodeChallenge: challenge, AuthTime: time.Now(), Expires: time.Now().Add(p.opts.CodeTTL),
 	})
 	if err != nil {
@@ -156,6 +162,7 @@ var pages = template.Must(template.New("").Parse(`
 <style nonce="{{.Nonce}}">body{font:16px/1.5 system-ui,sans-serif;background:#f4f4f5;color:#18181b;display:grid;place-items:center;min-height:100vh;margin:0}main{background:#fff;border-radius:12px;box-shadow:0 1px 3px #0002;padding:2rem;max-width:24rem;width:calc(100% - 2rem)}h1{font-size:1.25rem;margin:0 0 .5rem}ul{padding-left:1.2rem}.actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.5rem}button{font:inherit;border-radius:8px;padding:.5rem 1rem;border:1px solid #d4d4d8;background:#fff;cursor:pointer}button[value=allow]{background:#18181b;color:#fff;border-color:#18181b}@media (prefers-color-scheme:dark){body{background:#09090b;color:#fafafa}main{background:#18181b}button{background:#27272a;color:#fafafa;border-color:#3f3f46}button[value=allow]{background:#fafafa;color:#18181b}}</style></head><body><main>{{end}}
 {{define "consent"}}{{template "head" .}}
 <h1>{{.Client}} wants to access your account</h1>
+{{if .Returns}}<p>You'll go back to <strong>{{.Returns}}</strong> afterwards. Allow it only if you started this there.</p>{{end}}
 <p>It will be able to:</p>
 <ul>{{range .Scopes}}<li>{{.}}</li>{{end}}</ul>
 <form method="post">
@@ -169,7 +176,7 @@ var pages = template.Must(template.New("").Parse(`
 // form posts back.
 func consentParams(q url.Values) url.Values {
 	out := url.Values{}
-	for _, k := range []string{"client_id", "redirect_uri", "response_type", "scope", "state", "nonce", "code_challenge", "code_challenge_method"} {
+	for _, k := range []string{"client_id", "redirect_uri", "response_type", "scope", "state", "nonce", "code_challenge", "code_challenge_method", "resource"} {
 		if v := q.Get(k); v != "" {
 			out.Set(k, v)
 		}
@@ -202,6 +209,10 @@ type Consent struct {
 	Client string `json:"client"`
 	// Scopes describe what it may do, such as "See your email address".
 	Scopes []string `json:"scopes"`
+	// Returns is the site the user goes back to, such as "claude.ai", for
+	// clients that registered themselves with a metadata document: their
+	// name is theirs to choose, so the page should show where they lead.
+	Returns string `json:"returns,omitempty"`
 	// Action is where the form posts, with the Params as hidden inputs and
 	// a "decision" of "allow" or "deny" from the buttons.
 	Action string            `json:"action"`
@@ -217,8 +228,8 @@ type Consent struct {
 //	func Load(ctx *kit.Ctx) (oidc.Consent, error) { return provider.ConsentRequest(ctx) }
 func (p *Plugin) ConsentRequest(ctx *kit.Ctx) (Consent, error) {
 	q := ctx.Request.URL.Query()
-	client := p.clients[q.Get("client_id")]
-	if client == nil {
+	client, err := p.lookupClient(ctx, q.Get("client_id"))
+	if err != nil {
 		return Consent{}, kit.Error(http.StatusBadRequest, "This app is not registered.")
 	}
 	if !slices.Contains(client.RedirectURIs, q.Get("redirect_uri")) {
@@ -242,10 +253,11 @@ func (p *Plugin) ConsentRequest(ctx *kit.Ctx) (Consent, error) {
 		params[k] = v[0]
 	}
 	return Consent{
-		Client: clientName(client),
-		Scopes: describeScopes(p.allowedScopes(client, strings.Fields(q.Get("scope")))),
-		Action: ctx.Path(p.opts.Path + "/authorize"),
-		Params: params,
+		Client:  clientName(client),
+		Returns: returnsTo(client, q.Get("redirect_uri")),
+		Scopes:  describeScopes(p.allowedScopes(client, strings.Fields(q.Get("scope")))),
+		Action:  ctx.Path(p.opts.Path + "/authorize"),
+		Params:  params,
 	}, nil
 }
 
@@ -266,7 +278,18 @@ func (p *Plugin) consentPage(ctx *kit.Ctx, client *Client, scopes []string, q ur
 			actions = append(actions, u.Scheme+":")
 		}
 	}
-	return render(ctx, http.StatusOK, "consent", map[string]any{"Title": "Allow " + name + "?", "Client": name, "Scopes": lines, "Params": params, "FormAction": strings.Join(actions, " ")})
+	return render(ctx, http.StatusOK, "consent", map[string]any{"Title": "Allow " + name + "?", "Client": name, "Returns": returnsTo(client, q.Get("redirect_uri")), "Scopes": lines, "Params": params, "FormAction": strings.Join(actions, " ")})
+}
+
+// returnsTo is the host a self-registered client sends the user back to.
+func returnsTo(c *Client, redirect string) string {
+	if !c.fromMetadata {
+		return ""
+	}
+	if u, err := url.Parse(redirect); err == nil {
+		return u.Hostname()
+	}
+	return ""
 }
 
 func errorPage(ctx *kit.Ctx, msg string) error {

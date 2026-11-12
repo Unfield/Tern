@@ -17,14 +17,16 @@ var ErrNotFound = errors.New("oidc: not found")
 
 // AuthCode is an issued authorization code.
 type AuthCode struct {
-	ClientID      string    `json:"clientId"`
-	RedirectURI   string    `json:"redirectUri"`
-	Subject       string    `json:"subject"`
-	Scopes        []string  `json:"scopes"`
-	Nonce         string    `json:"nonce,omitempty"`
-	CodeChallenge string    `json:"codeChallenge,omitempty"`
-	AuthTime      time.Time `json:"authTime"`
-	Expires       time.Time `json:"expires"`
+	ClientID      string   `json:"clientId"`
+	RedirectURI   string   `json:"redirectUri"`
+	Subject       string   `json:"subject"`
+	Scopes        []string `json:"scopes"`
+	Nonce         string   `json:"nonce,omitempty"`
+	CodeChallenge string   `json:"codeChallenge,omitempty"`
+	// Resource is the resource indicator the token is for (RFC 8707).
+	Resource string    `json:"resource,omitempty"`
+	AuthTime time.Time `json:"authTime"`
+	Expires  time.Time `json:"expires"`
 }
 
 // RefreshToken is an issued refresh token. Tokens refreshed from one
@@ -34,6 +36,7 @@ type RefreshToken struct {
 	Subject  string    `json:"subject"`
 	Scopes   []string  `json:"scopes"`
 	Family   string    `json:"family"`
+	Resource string    `json:"resource,omitempty"`
 	AuthTime time.Time `json:"authTime"`
 	Expires  time.Time `json:"expires"`
 	Used     bool      `json:"used"`
@@ -56,6 +59,8 @@ type Store interface {
 	RevokeAccess(ctx context.Context, jti string, expires time.Time) error
 	AccessRevoked(ctx context.Context, jti string) (bool, error)
 	SaveConsent(ctx context.Context, subject, clientID string, scopes []string) error
+	// Consent returns the scopes a user approved for a client: nil if they
+	// never did, and an empty, non-nil slice if they approved no scopes.
 	Consent(ctx context.Context, subject, clientID string) ([]string, error)
 	// SigningKey returns the stored signing key (PEM), or ErrNotFound.
 	SigningKey(ctx context.Context) ([]byte, error)

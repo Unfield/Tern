@@ -8,10 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Apps for assistants** ([ADR 0023](docs/adr/0023-apps-over-mcp.md), [docs/mcp-server.md](docs/mcp-server.md)): the `mcp` package serves an app's tools to AI assistants over MCP, at `/mcp`.
+  - Tools are Go functions with typed arguments, whose `json` names, `description` tags and `validate` rules become their schema and are checked before they run. They run as the signed-in user.
+  - It speaks MCP 2026-07-28 and the 2025 versions on one endpoint, without sessions.
+  - With `plugins/oidc`, users approve each assistant on the app's consent screen, and tokens are bound to the MCP server.
+- **`plugins/oidc`:** Client ID Metadata Documents (`ClientMetadataDocuments`), so clients such as assistants register themselves, fetched with protection against server-side request forgery. Resource indicators (RFC 8707), with `AccessToken.For` to check a token's audience. Authorization server metadata at `/.well-known/oauth-authorization-server` (RFC 8414).
+- `kit.ValidateInput` and `Ctx.UserError`, for code that answers requests its own way.
 - **A tutorial** on tern.land that builds a complete app, one step per page: a reading list with a database, validated forms, accounts, tests and a deploy. The finished app is [examples/shelf](examples/shelf).
 
 ### Fixed
 
+- **Security:** `plugins/oidc` skipped the consent screen for an app that asked for no scopes, since "every requested scope was approved" was true of none. Consent is now always needed once per app, unless it's `Trusted`.
 - `npm test` in a new project works before its first build: it runs `tern build`, which the tests need to render pages, instead of `tern gen`.
 
 ## [1.13.0] - 2026-11-12

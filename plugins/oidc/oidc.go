@@ -45,6 +45,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
@@ -71,6 +72,9 @@ type Client struct {
 	GrantTypes []string
 	// Scopes the client may request; the default is every supported scope.
 	Scopes []string
+
+	// fromMetadata marks clients described by a metadata document.
+	fromMetadata bool
 }
 
 func (c *Client) allowsGrant(g string) bool {
@@ -116,6 +120,22 @@ type Options struct {
 	// SigningKey is an RSA key in PEM. Without it, a key is created and
 	// kept in the Store.
 	SigningKey []byte
+
+	// ClientMetadataDocuments lets clients that aren't in Clients sign
+	// users in with an https URL as their client_id, which the provider
+	// fetches the client's metadata from (Client ID Metadata Documents).
+	// That's how AI assistants register with an app's MCP server. Such
+	// clients are public, must use PKCE, and always get the consent screen.
+	ClientMetadataDocuments bool
+	// MetadataClient fetches metadata documents. The default allows only
+	// https to public addresses on port 443, without redirects; replace it
+	// only in tests.
+	MetadataClient *http.Client
+	// Resources are the resource indicators (RFC 8707) clients may ask
+	// tokens for, such as "https://example.com/mcp". Tokens for a resource
+	// carry it as their audience. URLs on the issuer's own origin are always
+	// allowed.
+	Resources []string
 }
 
 // Plugin is the provider.
@@ -126,6 +146,10 @@ type Plugin struct {
 	key     *rsa.PrivateKey
 	kid     string
 	log     *slog.Logger
+
+	metadata       metadataClients
+	metadataOnce   sync.Once
+	metadataClient *http.Client
 }
 
 // New returns the provider.
@@ -195,9 +219,15 @@ func (p *Plugin) Setup(s *kit.Setup) error {
 	}
 
 	s.Handle("GET /.well-known/openid-configuration", http.HandlerFunc(p.discovery))
+	// The same document as OAuth authorization server metadata (RFC 8414),
+	// which OAuth clients such as MCP's look for first.
+	s.Handle("GET /.well-known/oauth-authorization-server", http.HandlerFunc(p.discovery))
 	if u.Path != "" && u.Path != "/" {
-		// An issuer with a path publishes discovery below it.
+		// An issuer with a path publishes discovery below it, and RFC 8414
+		// metadata with the path after the well-known part.
 		s.Handle("GET "+u.Path+"/.well-known/openid-configuration", http.HandlerFunc(p.discovery))
+		s.Handle("GET /.well-known/openid-configuration"+u.Path, http.HandlerFunc(p.discovery))
+		s.Handle("GET /.well-known/oauth-authorization-server"+u.Path, http.HandlerFunc(p.discovery))
 	}
 	s.Handle("GET "+p.opts.Path+"/jwks", http.HandlerFunc(p.jwks))
 	s.Endpoint(p.opts.Path+"/authorize", p.authorize)
@@ -279,7 +309,8 @@ func must[T any](v T, err error) T {
 func (p *Plugin) endpoint(name string) string { return p.opts.Issuer + p.opts.Path + "/" + name }
 
 func (p *Plugin) discovery(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	doc := map[string]any{
 		"issuer":                                         p.opts.Issuer,
 		"authorization_endpoint":                         p.endpoint("authorize"),
 		"token_endpoint":                                 p.endpoint("token"),
@@ -297,7 +328,26 @@ func (p *Plugin) discovery(w http.ResponseWriter, _ *http.Request) {
 		"code_challenge_methods_supported":               []string{"S256"},
 		"claims_supported":                               []string{"sub", "iss", "aud", "exp", "iat", "auth_time", "nonce", "name", "email", "email_verified", "picture", "preferred_username"},
 		"authorization_response_iss_parameter_supported": true,
-	})
+	}
+	if p.opts.ClientMetadataDocuments {
+		doc["client_id_metadata_document_supported"] = true
+	}
+	writeJSON(w, http.StatusOK, doc)
+}
+
+// resourceAllowed reports whether tokens may be issued for resource: an
+// absolute URL without a fragment, on the issuer's origin or listed in
+// Options.Resources.
+func (p *Plugin) resourceAllowed(resource string) bool {
+	u, err := url.Parse(resource)
+	if err != nil || !u.IsAbs() || u.Fragment != "" || u.Host == "" {
+		return false
+	}
+	if slices.Contains(p.opts.Resources, resource) || slices.Contains(p.opts.Resources, strings.TrimRight(resource, "/")) {
+		return true
+	}
+	iss, err := url.Parse(p.opts.Issuer)
+	return err == nil && strings.EqualFold(iss.Scheme, u.Scheme) && strings.EqualFold(iss.Host, u.Host)
 }
 
 func (p *Plugin) jwks(w http.ResponseWriter, _ *http.Request) {
@@ -331,3 +381,6 @@ func (p *Plugin) allowedScopes(c *Client, requested []string) []string {
 	}
 	return out
 }
+
+// Issuer is the provider's public URL, as Options.Issuer set it.
+func (p *Plugin) Issuer() string { return p.opts.Issuer }

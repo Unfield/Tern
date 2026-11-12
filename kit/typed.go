@@ -280,3 +280,27 @@ func (a *App) serveOpenAPI(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_ = json.NewEncoder(w).Encode(doc)
 }
+
+// ValidateInput checks in as a typed endpoint checks its input: the
+// validate tags of its fields, then its Validate method, if it has one. The
+// error is a 400 with the messages. MCP tools use it for their arguments.
+// in may be a struct or a pointer to one.
+func ValidateInput(c *Ctx, in any) error {
+	val := in
+	if rv := reflect.ValueOf(in); rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		val = rv.Elem().Interface()
+	}
+	if err := checkTyped(c, val); err != nil {
+		return err
+	}
+	v, ok := in.(Validator)
+	if !ok {
+		v, ok = val.(Validator)
+	}
+	if ok {
+		if err := v.Validate(); err != nil {
+			return asBadRequest(err)
+		}
+	}
+	return nil
+}

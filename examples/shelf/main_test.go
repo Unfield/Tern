@@ -1,8 +1,10 @@
 package main
 
 import (
+	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Unfield/Tern/kit/kittest"
@@ -74,5 +76,23 @@ func TestLinksArePrivate(t *testing.T) {
 	bob := signUp(t, ada.Browser(), "bob@example.com")
 	if page := bob.Get("/links/1"); page.Status != 404 {
 		t.Errorf("Bob sees Ada's link: %d", page.Status)
+	}
+}
+
+// Assistants need a token: the MCP server says where to get one.
+func TestAssistantsNeedAToken(t *testing.T) {
+	app, err := newApp(filepath.Join(t.TempDir(), "shelf.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := kittest.NewClient(t, app)
+	req, _ := http.NewRequest(http.MethodPost, client.URL("/mcp"), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	req.Header.Set("Content-Type", "application/json")
+	page := client.Do(req)
+	if page.Status != 401 || !strings.Contains(page.Header.Get("WWW-Authenticate"), "/.well-known/oauth-protected-resource/mcp") {
+		t.Fatalf("POST /mcp without a token: %d %q", page.Status, page.Header.Get("WWW-Authenticate"))
+	}
+	if page := client.Get("/.well-known/oauth-authorization-server"); page.Status != 200 || !strings.Contains(page.Body, `"client_id_metadata_document_supported":true`) {
+		t.Errorf("authorization server metadata: %d %s", page.Status, page.Body)
 	}
 }

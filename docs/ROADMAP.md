@@ -262,7 +262,7 @@ Faster pages that can't come from a cache, smaller binaries and less memory, eac
 
 - [ ] Less memory on data-heavy pages (about 110 MB resident for the items benchmark, with four workers): a heap profile of where it goes, and the biggest uses cut
 
-## v1.16: Secure by default, and typed SQL (in progress)
+## v1.16: Secure by default, and typed SQL (released)
 
 - [x] Security headers, a Content-Security-Policy and a rate limit on writes, on by default ([docs/security.md](security.md))
 - [x] Known vulnerabilities in Go modules and npm packages, in `tern doctor` and CI

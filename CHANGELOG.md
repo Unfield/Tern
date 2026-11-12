@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-12
+
+Secure by default, and typed SQL. This release turns on protections that apps had to remember before, so upgrading takes a few steps:
+
+1. Run `go tool tern fix access`. Routes with server code now say who may use them, and the build stops at one that doesn't; the command marks each such route `kit.Public`, as it was. Then tighten the ones that should be: `kit.SignedIn`, or `kit.Permission("…")`.
+2. If a route uses `kit.SignedIn`, give the app the check: `acc.Guard()` with `accounts`, or `kit.WithSignedIn`. With `kit.Permission`, also `policy.Guard()`.
+3. Pages now get a Content-Security-Policy. If they load scripts, frames or connections from other origins, such as analytics, allow them with `kit.WithCSPSources`; `tern dev` shows what's blocked.
+4. `storage.Serve` needs `ServeOptions.Signer`, or `Public: true` for files anyone may see.
+5. Behind a reverse proxy, name it with `kit.WithTrustedProxies`, so the new rate limit tells clients apart; the app warns until you do.
+
 ### Added
 
 - **`tern doctor`** ([docs/deployment.md](docs/deployment.md#before-you-deploy-tern-doctor)) checks a project before a deploy: Go and Node, the Go module's and npm package's versions, code generation, native rendering's fallbacks, the migrations, the target's environment against `.env.example`, HTTPS, security headers and uncommitted changes. It exits 1 when a check fails.
@@ -485,7 +495,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/Unfield/Tern/releases/tag/v1.16.0
 [1.15.0]: https://github.com/Unfield/Tern/releases/tag/v1.15.0
 [1.14.0]: https://github.com/Unfield/Tern/releases/tag/v1.14.0
 [1.13.0]: https://github.com/Unfield/Tern/releases/tag/v1.13.0

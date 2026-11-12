@@ -268,7 +268,7 @@ Faster pages that can't come from a cache, smaller binaries and less memory, eac
 - [x] Known vulnerabilities in Go modules and npm packages, in `tern doctor` and CI
 - [x] Routes closed by default: each route with server code says who may use it ([ADR 0027](adr/0027-secure-by-default.md))
 - [x] Typed SQL from `queries/*.sql`, checked against the schema ([ADR 0028](adr/0028-typed-sql.md))
-- [ ] Checks for risky migrations
+- [x] Checks for risky migrations: `tern migrate check`, and in `tern doctor`
 - [ ] An HTTP client for outgoing requests that refuses internal addresses
 - [ ] Settings and secrets declared once, checked at start and kept out of logs
 - [ ] Encrypted fields for personal data

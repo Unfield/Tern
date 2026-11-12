@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Unfield/Tern/sqldb"
 )
 
 func writeDoctorFiles(t *testing.T, root string, files map[string]string) {
@@ -102,5 +105,34 @@ func TestGovulnFindings(t *testing.T) {
 	want := []vulnModule{{module: "stdlib", fixed: "v1.27.4", count: 2}, {module: "example.com/lib", fixed: "v0.9.1", count: 1}}
 	if !slices.Equal(called, want) {
 		t.Errorf("called = %+v, want %+v", called, want)
+	}
+}
+
+func TestMigrateCheck(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	writeDoctorFiles(t, root, map[string]string{
+		"go.mod":                    "module example.com/app\n\nrequire (\n\tgithub.com/jackc/pgx/v5 v5.0.0 // indirect\n\tmodernc.org/sqlite v1.0.0\n)\n",
+		"migrations/1_users.sql":    "CREATE TABLE users (id INTEGER PRIMARY KEY, old TEXT);\n-- +down\nDROP TABLE users;\n",
+		"migrations/2_drop_old.sql": "ALTER TABLE users DROP COLUMN old;\n-- +down\nALTER TABLE users ADD COLUMN old TEXT;\n",
+	})
+	if d := appDialect(root); d != sqldb.SQLite {
+		t.Errorf("a SQLite app with pgx only as Tern's indirect dependency: %v", d)
+	}
+	var out, errOut bytes.Buffer
+	if code := cmdMigrate([]string{"check"}, &out, &errOut); code != 0 || !strings.Contains(out.String(), "migrations/2_drop_old.sql:1") || !strings.Contains(out.String(), "drops the column users.old") {
+		t.Errorf("exit %d:\n%s%s", code, out.String(), errOut.String())
+	}
+	if c := doctorMigrations(root); c.Status != checkWarn || !strings.Contains(c.Detail, "1 risky change") {
+		t.Errorf("doctor: %+v", c)
+	}
+	// An error fails both.
+	writeDoctorFiles(t, root, map[string]string{"migrations/3_plan.sql": "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL;\n-- +down\nALTER TABLE users DROP COLUMN plan;\n"})
+	out.Reset()
+	if code := cmdMigrate([]string{"check"}, &out, &errOut); code != 1 {
+		t.Errorf("exit %d with a NOT NULL column without a default:\n%s", code, out.String())
+	}
+	if c := doctorMigrations(root); c.Status != checkFail {
+		t.Errorf("doctor: %+v", c)
 	}
 }

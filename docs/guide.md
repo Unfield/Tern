@@ -1091,6 +1091,14 @@ app, err := ternApp(kit.WithPlugins(migrate.Plugin(db, migrations)))
 
 Each migration runs in a transaction and is recorded in `tern_migrations`. If a migration fails, the server doesn't start. Editing a migration after it was applied is reported as an error (`migrate.ErrChanged`); add a new one instead. On PostgreSQL, instances starting at the same time take turns. `migrate.Up`, `migrate.Down` and `migrate.Status` are available for your own tooling.
 
+`go tool tern migrate check`, and `tern doctor` before a deploy, look for changes that fail or break the app while a deploy rolls out, when the old version still runs beside the new:
+
+- **Errors:** a `NOT NULL` column added without a `DEFAULT` to a table that already exists, which fails once it has rows. A SQLite app's migrations also run up, down and up again in a scratch database, which finds migrations that don't run and `-- +down` sections that don't undo them.
+- **Warnings:** dropping or renaming a table or column the running version may still use; `UPDATE` or `DELETE` without `WHERE`, and `TRUNCATE`; on PostgreSQL, changing a column's type, which locks the table. Do these in two releases, the code first, or mark the statement on the line before with `-- safe: <why>` once you know it is.
+- **Notes:** a migration without `-- +down`, which `migrate.Down` stops at.
+
+`migrate.Check` runs the same checks from your own tools.
+
 ### Background jobs
 
 The `jobs` package runs work outside requests, such as sending email, with retries. Jobs are stored in your database, so they survive restarts, and instances sharing a database run each job once:
@@ -1691,13 +1699,15 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern dev [-port 5173] [-host localhost]` | development server: hot module replacement for Svelte, automatic rebuilds and reloads for Go, build errors shown in the browser |
 | `tern build [-o build/app]` | production binary with the client, server renderer and prerendered pages embedded |
 | `tern deploy [target]` | deploy to a server over SSH, to Fly.io or to a container registry, as `tern.json` says; `-rollback`, `-releases`, `-logs` (see [deployment](deployment.md#tern-deploy)) |
-| `tern gen` | regenerate `tern.gen.go`, the client manifest and types |
+| `tern gen` | regenerate `tern.gen.go`, the client manifest, types and [typed queries](sql.md) |
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
-| `tern doctor [-json] [target]` | check the project before a deploy: tools and versions, code generation, native rendering, migrations, and the target's environment and HTTPS ([deployment](deployment.md#before-you-deploy-tern-doctor)) |
+| `tern doctor [-json] [-offline] [target]` | check the project before a deploy: tools and versions, code generation, native rendering, migrations, known vulnerabilities, security options, and the target's environment and HTTPS ([deployment](deployment.md#before-you-deploy-tern-doctor)) |
+| `tern migrate new <name>`, `tern migrate check` | create a migration; check them for changes that fail or break a deploy ([migrations](#database-migrations)) |
+| `tern fix access` | after upgrading, mark routes without an `Access` rule public ([who may use a route](#who-may-use-a-route)) |
 | `tern add [-n] <plugin>...` | add plugins to `main.go`, by name or Go package; without arguments, list them |
 | `tern lsp` | serve the [language server](editors.md) for editors, which the VS Code and Zed extensions start |
-| `tern routes [-json] [dir]` | list routes; `-json` prints them for scripts and editors |
+| `tern routes [-json] [dir]` | list routes and who may use each; `-json` prints them for scripts and editors |
 | `tern new [-template minimal\|blog\|api\|saas] [-ui] [-git] [-install] [dir]` | create a project; asks when no directory is given |
 | `tern ui add <Component>...` | copy Tern UI components into `src/lib/ui` to change them; `tern ui list` lists them |
 | `tern version` | print the version |

@@ -236,7 +236,26 @@ func doctorMigrations(root string) doctorCheck {
 	if err != nil {
 		return doctorCheck{Name: "Migrations", Status: checkFail, Detail: err.Error(), Fix: "Fix the migration files"}
 	}
-	return doctorCheck{Name: "Migrations", Status: checkOK, Detail: plural(len(ms), "migration") + ", applied when the app starts"}
+	problems, err := checkMigrations(root)
+	if err != nil {
+		return doctorCheck{Name: "Migrations", Status: checkFail, Detail: err.Error(), Fix: "Fix the migration files"}
+	}
+	var errs, warns []string
+	for _, p := range problems {
+		switch p.Level {
+		case migrate.Error:
+			errs = append(errs, p.String())
+		case migrate.Warning:
+			warns = append(warns, p.String())
+		}
+	}
+	switch {
+	case len(errs) > 0:
+		return doctorCheck{Name: "Migrations", Status: checkFail, Detail: errs[0], Fix: "go tool tern migrate check lists every problem"}
+	case len(warns) > 0:
+		return doctorCheck{Name: "Migrations", Status: checkWarn, Detail: plural(len(warns), "risky change") + ", such as " + warns[0], Fix: "go tool tern migrate check lists them; mark one -- safe: <why> once it is"}
+	}
+	return doctorCheck{Name: "Migrations", Status: checkOK, Detail: plural(len(ms), "migration") + ", applied when the app starts; no risky changes"}
 }
 
 // doctorTarget checks the deployment target: its environment against

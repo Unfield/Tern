@@ -135,7 +135,7 @@ Any other `provider` value runs a program named `tern-deploy-<provider>` from th
 
 - **Tools:** Go as new as `go.mod` asks, and Node 22 or later for the build.
 - **Tern:** the Go module and the npm package are the same version; they're released together.
-- **Routes and migrations:** code generation succeeds, and the migration files parse.
+- **Routes and migrations:** code generation succeeds, and the migrations are safe to deploy: none fails on a table with rows or breaks the version still running ([database migrations](guide.md#database-migrations)).
 - **Native rendering:** what the last `tern build` left to the JavaScript engine.
 - **The target in `tern.json`** (the only one, or `production`; or name one, `tern doctor staging`): its environment sets every variable in `.env.example`, and it serves HTTPS, with `domains` or behind a proxy.
 - **Security:** options that turn off a protection Tern has on by default, and what each costs ([docs/security.md](security.md)).

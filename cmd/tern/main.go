@@ -23,7 +23,7 @@ var commands = []command{
 	{"gen", "", "Generate route wiring and TypeScript types"},
 	{"check", "", "Generate code and type-check the app"},
 	{"routes", "[dir]", "List the app's routes"},
-	{"migrate", "new <name>", "Create a database migration"},
+	{"migrate", "new <name> | check", "Create a database migration, or check them before a deploy"},
 	{"ui", "add <Component>", "Copy Tern UI components into the project"},
 	{"add", "<plugin>", "Add a plugin to the app"},
 	{"doctor", "[target]", "Check the project before a deploy"},

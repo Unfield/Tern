@@ -92,3 +92,7 @@ var Access = kit.SignedIn // or kit.Public, or kit.Permission("links.edit")
 `kit.SignedIn` and `kit.Permission` cover the directories below; `kit.Public` covers its own only, so a route added later starts closed. Tern applies the rule to the page, its data, its form actions and its endpoints, before any of the route's code runs, and never serves a signed-in route from the page cache. `acc.Guard()` and `policy.Guard()` are the checks behind the rules; see the [guide](guide.md#who-may-use-a-route). `go tool tern routes` shows each route's rule, to review them in one place.
 
 Rules say who may use a route, not which records a user may see: a load still asks for the user's own data (`shelf.List(ctx, user.ID, …)`), and returns 404 for someone else's.
+
+## Migrations
+
+`go tool tern migrate check` finds migrations that fail on a table with rows or break the version of the app still running during a deploy, and `tern doctor` runs it before each deploy; see [database migrations](guide.md#database-migrations).

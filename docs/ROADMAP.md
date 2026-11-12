@@ -243,6 +243,25 @@ Every page rendered by Go, and smaller binaries.
 - [x] `tern build` leaves the JavaScript engine out of apps that don't need it, for smaller binaries
 - [x] Native rendering for emails and live components too
 
+## v2.0: Leaner native rendering (planned)
+
+Faster pages that can't come from a cache, smaller binaries and less memory, each change measured with `benchmarks/compare.sh` and the Tern vs SvelteKit run in CI.
+
+**Uncached renders** (`/items` takes about 250 µs, most of it calls between compiled functions and allocating values)
+
+- [ ] Reuse the arguments slices of calls, where the callee doesn't keep them (`arguments`, rest parameters and `bind` copy first)
+- [ ] Direct calls between compiled functions when the callee is known at compile time, without the generic call protocol
+- [ ] Revisit unboxed values ([ADR 0022](adr/0022-keep-boxed-values.md)) only with a profile from a real app that shows boxing as the main cost
+
+**Binary size** (the dashboard example: 37.4 MB, 11 MB of it the compiled renderer)
+
+- [ ] Generated code that shares more: common call and property-access sequences as runtime helpers instead of inline code
+- [ ] Static assets kept only compressed, decompressed for the rare client that doesn't accept gzip
+
+**Memory**
+
+- [ ] Less memory on data-heavy pages (about 110 MB resident for the items benchmark, with four workers): a heap profile of where it goes, and the biggest uses cut
+
 ## Later
 
 Planned, in no fixed order yet. Tell us in the issues which you need first.
@@ -250,7 +269,6 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 **Building**
 
 - [x] Fewer allocations in native renders: boxes for HTML and page data from slabs, 40% fewer allocations on the 100-row table ([ADR 0022](adr/0022-keep-boxed-values.md#since))
-- [ ] Reuse the arguments slices of calls in native renders, where the callee doesn't keep them
 - [ ] A `tern build` that needs only Go, with Svelte's compiler compiled to Go and esbuild for bundling ([ADR 0026](adr/0026-svelte-compiler-in-go.md))
 - [ ] CommonJS modules in native rendering
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all

@@ -118,7 +118,7 @@ Built alongside a real app, a self-hosted web analytics tool, so every piece is 
 - [x] `tern build` compiling it and reporting what isn't native; fallback to the engine for anything that fails
 - [x] Every example rendering natively with the engine's HTML, checked with `TERN_NATIVE_VERIFY=1`
 - [ ] Typed fast paths from the loads' Go structs (phase 2)
-- [ ] Smaller binaries for large apps, and the vs-sveltekit benchmark tracked in CI
+- [x] Smaller binaries for large apps, and the vs-sveltekit benchmark tracked in CI: function descriptors as static data, no server bundle without the engine (dashboard 38.9 → 37.4 MB); each run on `main` compared with the last, with a warning when Tern is 10% slower or its binary 5% larger
 
 ## v1.6: Fully native rendering, and accounts (released)
 

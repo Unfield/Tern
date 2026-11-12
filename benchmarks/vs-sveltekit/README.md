@@ -47,7 +47,7 @@ With native rendering, Tern is faster than SvelteKit on ten Node processes in ev
 The [Benchmarks workflow](../../.github/workflows/bench.yml) runs on every push and pull request:
 
 - **Render benchmarks:** [benchmarks/compare.sh](../compare.sh) builds this app at the commit before and at the new one, renders `/`, `/items` and `/items/__data.json` in-process (`render_bench_test.go`), alternating between the two on one machine, and compares them with benchstat. It fails when a page is significantly slower by more than 10%.
-- **Tern vs SvelteKit:** on pushes to `main`, `run.sh` runs for 5 seconds per scenario and the table lands in the job summary, with `results.jsonl` kept as an artifact for 90 days. Shared machines are noisy: compare runs with each other, not with the numbers above.
+- **Tern vs SvelteKit:** on pushes to `main`, `run.sh` runs for 5 seconds per scenario and the table lands in the job summary, with `results.jsonl` kept as an artifact for 90 days. [summary.sh](summary.sh) compares Tern's numbers and binary size with the last successful run on `main` and warns when a scenario is more than 10% slower or the binary more than 5% larger. Shared machines are noisy: compare runs with each other, not with the numbers above.
 
 Locally, `./benchmarks/compare.sh main` compares the working tree with `main`.
 

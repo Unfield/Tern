@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Actions on records** in the admin panel: `admin.Action` and `admin.DangerAction` add buttons to each record's page that run Go code.
 - `acc.SignOutUser` ends every session of an account.
 - Shelf's admin panel has its users, audit log and errors.
+- The Tern vs SvelteKit benchmark in CI compares each run on `main` with the last one, Tern's binary size included, and warns when Tern is more than 10% slower.
+
+### Changed
+
+- **Smaller binaries with native rendering.** The compiled renderer's function descriptors are static data instead of code that runs at startup, modules' state starts out with a loop instead of one assignment per variable, and a binary without the JavaScript engine leaves out the server bundle it no longer needs. The dashboard example's binary goes from 38.9 to 37.4 MB, and starts faster.
 
 ### Fixed
 

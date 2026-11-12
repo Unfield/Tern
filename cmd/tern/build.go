@@ -195,11 +195,42 @@ func goBuildTo(w io.Writer, out string, native bool, env []string) error {
 	}
 	if withoutEngine(native) {
 		args = append(args, "-tags=tern_nojs")
+		// Nothing runs the server bundle without the engine: leave it out
+		// of the binary, a megabyte or more.
+		restore, err := hideServerBundle()
+		if err != nil {
+			return err
+		}
+		defer restore()
 	}
 	cmd := exec.Command("go", append(args, "-o", out, ".")...)
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout, cmd.Stderr = w, w
 	return cmd.Run()
+}
+
+// hideServerBundle moves the server bundle out of the directory the app
+// embeds, leaving a placeholder, since an embedded directory can't be
+// empty. restore puts it back.
+func hideServerBundle() (restore func(), err error) {
+	dir := filepath.FromSlash(codegen.ServerOut)
+	hidden := dir + ".hidden"
+	_ = os.RemoveAll(hidden)
+	if err := os.Rename(dir, hidden); err != nil {
+		return nil, err
+	}
+	err = os.MkdirAll(dir, 0o755)
+	if err == nil {
+		err = os.WriteFile(filepath.Join(dir, ".keep"), nil, 0o644)
+	}
+	if err != nil {
+		_ = os.Rename(hidden, dir)
+		return nil, err
+	}
+	return func() {
+		_ = os.RemoveAll(dir)
+		_ = os.Rename(hidden, dir)
+	}, nil
 }
 
 // withoutEngine is whether the binary leaves the JavaScript engine out:

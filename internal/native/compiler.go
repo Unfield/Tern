@@ -154,7 +154,7 @@ func Compile(ir *IR, opts Options) (*Result, error) {
 	fmt.Fprintf(&b, "\tics     [%d]js.IC\n\tglobals [%d]js.GlobalRef\n\tloaded  [%d]bool\n}\n\n", c.ics, c.globalRefs, len(ir.Modules))
 	fmt.Fprintf(&b, "// %s makes a realm and evaluates the app's modules in it, in the order\n// JavaScript would. setup, if not nil, runs first: it adds host functions.\nfunc %s(setup func(*js.Realm)) *js.Realm {\n\tr := &%s{Realm: js.NewRealm()}\n\tif setup != nil {\n\t\tsetup(r.Realm)\n\t}\n", newFunc, newFunc, realmType)
 	for _, m := range c.order {
-		fmt.Fprintf(&b, "\tr.%s = %s\n", strings.TrimPrefix(m.goVar, "r."), m.zero)
+		fmt.Fprintf(&b, "\t%s\n", m.zero)
 	}
 	fmt.Fprintf(&b, "\tr.load%d()\n", entry.index)
 	b.WriteString("\treturn r.Realm\n}\n\n")
@@ -180,7 +180,7 @@ func Compile(ir *IR, opts Options) (*Result, error) {
 	} else {
 		fmt.Fprintf(&b, "\nvar %s = %q\n", srcVar, sources)
 	}
-	fmt.Fprintf(&b, "\nvar %s = js.NewSources(%s)\n\n", c.name("sources"), srcVar)
+	fmt.Fprintf(&b, "\nvar %s = js.Sources{GZ: &%s}\n\n", c.name("sources"), srcVar)
 	for _, d := range c.fnInfos {
 		b.WriteString(d)
 	}
@@ -309,7 +309,7 @@ func (c *Compiler) fnInfo(name string, length int, n *Node) string {
 	v := c.name("fi" + strconv.Itoa(len(c.fnInfos)))
 	src := "nil"
 	if c.ir.Modules[c.cur.index].Code != "" {
-		src = c.name("sources")
+		src = "&" + c.name("sources")
 	}
 	c.fnInfos = append(c.fnInfos, fmt.Sprintf("var %s = js.FnInfo{Name: %s, Length: %d, Src: %s, Module: %d, Start: %d, End: %d}\n", v, quote(name), length, src, c.cur.index, n.Start, n.End))
 	return v

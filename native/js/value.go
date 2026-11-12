@@ -15,6 +15,7 @@ package js
 import (
 	"math"
 	"math/big"
+	"unsafe"
 )
 
 // Value is a JavaScript value.
@@ -124,4 +125,14 @@ func Box(f float64) Value {
 		return boxedInts[i]
 	}
 	return f
+}
+
+// SetUndefined sets n Values in a row, from first, to Undefined: the
+// fields of a compiled module's variables, which are js.Values one after
+// another, so they're laid out without gaps.
+func SetUndefined(first *Value, n int) {
+	vals := unsafe.Slice(first, n)
+	for i := range vals {
+		vals[i] = Undefined
+	}
 }

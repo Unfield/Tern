@@ -42,6 +42,10 @@ jobs:
   vs-sveltekit:
     name: Tern vs SvelteKit
     if: github.event_name == 'push'
+    permissions:
+      contents: read
+      # To read the results of the last run on main, to compare.
+      actions: read
     runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && fromJSON('["self-hosted", "linux", "hetzner"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
@@ -66,16 +70,18 @@ jobs:
           WARM: 2s
           WORKERS: 4
         run: ./run.sh
+      - name: Record the binary size
+        working-directory: benchmarks/vs-sveltekit
+        run: jq -nc --argjson b "$(stat -c %s tern/build/ternbench)" '{server: "tern", scenario: "binary", binary_bytes: $b}' >>results.jsonl
+      - name: Results of the last run on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh run list --workflow bench.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$id" ]; then gh run download "$id" --name vs-sveltekit-results --dir previous || true; fi
       - name: Summary
         working-directory: benchmarks/vs-sveltekit
-        run: |
-          {
-            echo "### Tern vs SvelteKit (requests per second, p50 / p99 ms, memory)"
-            echo
-            echo "| Scenario | Tern | SvelteKit, 1 process | SvelteKit, cluster |"
-            echo "|---|---|---|---|"
-            jq -rs 'group_by(.scenario)[] | [.[0].scenario, (map({(.server): "\(.rps | floor) · \(.p50_ms) / \(.p99_ms) · \(.rss_mb) MB"}) | add | .tern, .["sveltekit-1"], .["sveltekit-cluster"])] | "| " + join(" | ") + " |"' results.jsonl
-          } >>"$GITHUB_STEP_SUMMARY"
+        run: ./summary.sh results.jsonl ../../previous/results.jsonl >>"$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: vs-sveltekit-results

@@ -259,15 +259,21 @@ func (c *Compiler) compileModule(m *module) string {
 		fmt.Fprintf(&b, "\t%s js.Value\n", goIdent(name))
 	}
 	b.WriteString("\tns *js.Object\n}\n\n")
+	// The fields start as undefined. Many fields are set by one call over
+	// them, rather than a store each: smaller code in the realm's New.
 	var zero strings.Builder
-	fmt.Fprintf(&zero, "%s{", m.goType)
-	for i, name := range fields {
-		if i > 0 {
-			zero.WriteString(", ")
+	if len(fields) >= 4 {
+		fmt.Fprintf(&zero, "js.SetUndefined(&%s.%s, %d)", m.goVar, goIdent(fields[0]), len(fields))
+	} else {
+		fmt.Fprintf(&zero, "%s = %s{", m.goVar, m.goType)
+		for i, name := range fields {
+			if i > 0 {
+				zero.WriteString(", ")
+			}
+			fmt.Fprintf(&zero, "%s: js.Undefined", goIdent(name))
 		}
-		fmt.Fprintf(&zero, "%s: js.Undefined", goIdent(name))
+		zero.WriteString("}")
 	}
-	zero.WriteString("}")
 	m.zero = zero.String()
 
 	// Imports resolve now that every module's exports are known.

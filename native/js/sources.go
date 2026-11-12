@@ -12,6 +12,10 @@ import (
 // .toString: gzipped JSON, an array of each module's code, unpacked when
 // first needed.
 type Sources struct {
+	// GZ is the gzipped sources: generated code points it at an embedded
+	// string, so a Sources, and the FnInfos that point at it, are data the
+	// linker lays out rather than code that runs at start.
+	GZ   *string
 	once sync.Once
 	gz   string
 	mods []string
@@ -23,7 +27,11 @@ func NewSources(gz string) *Sources { return &Sources{gz: gz} }
 // Module is the code of module i.
 func (s *Sources) Module(i int) string {
 	s.once.Do(func() {
-		r, err := gzip.NewReader(strings.NewReader(s.gz))
+		gz := s.gz
+		if s.GZ != nil {
+			gz = *s.GZ
+		}
+		r, err := gzip.NewReader(strings.NewReader(gz))
 		if err != nil {
 			return
 		}

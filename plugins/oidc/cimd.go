@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Unfield/Tern/safehttp"
 )
 
 // Client ID Metadata Documents (draft-ietf-oauth-client-id-metadata-
@@ -261,28 +263,8 @@ func publicOnly(_, address string, _ syscall.RawConn) error {
 	if err != nil {
 		return err
 	}
-	a = a.Unmap()
-	if !a.IsGlobalUnicast() || a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() || isSharedOrReserved(a) {
-		return fmt.Errorf("address %s isn't public", a)
+	if !safehttp.Public(a) {
+		return fmt.Errorf("address %s isn't public", a.Unmap())
 	}
 	return nil
-}
-
-var reservedPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("100.64.0.0/10"), // carrier-grade NAT
-	netip.MustParsePrefix("192.0.0.0/24"),  // IETF protocol assignments
-	netip.MustParsePrefix("198.18.0.0/15"), // benchmarking
-	netip.MustParsePrefix("240.0.0.0/4"),   // reserved
-	netip.MustParsePrefix("64:ff9b::/96"),  // NAT64, which can reach IPv4 private ranges
-	netip.MustParsePrefix("2001:db8::/32"), // documentation
-	netip.MustParsePrefix("fec0::/10"),     // site-local
-}
-
-func isSharedOrReserved(a netip.Addr) bool {
-	for _, p := range reservedPrefixes {
-		if p.Contains(a) {
-			return true
-		}
-	}
-	return false
 }

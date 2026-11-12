@@ -176,6 +176,8 @@ func addImport(imports map[string]bool, t string) {
 		imports["time"] = true
 	case "json.RawMessage":
 		imports["encoding/json"] = true
+	case "sealed.String", "sealed.Bytes":
+		imports["github.com/Unfield/Tern/sealed"] = true
 	}
 }
 

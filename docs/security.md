@@ -96,3 +96,11 @@ Rules say who may use a route, not which records a user may see: a load still as
 ## Migrations
 
 `go tool tern migrate check` finds migrations that fail on a table with rows or break the version of the app still running during a deploy, and `tern doctor` runs it before each deploy; see [database migrations](guide.md#database-migrations).
+
+## Data and requests
+
+- **Settings and secrets:** declare them once with [`settings`](guide.md#settings-and-secrets); a missing or invalid one stops the app at start, and a `settings.Secret` never prints its value.
+- **Personal data:** [`sealed`](guide.md#encrypted-fields) keeps columns encrypted, with rotating keys and keyed hashes for lookups.
+- **Outgoing requests to addresses users give:** [`safehttp`](guide.md#requests-to-addresses-users-give) only reaches public addresses.
+- **Uploads:** `storage.Receive` checks types against the contents and sizes against limits, `Save` removes photos' location and other metadata, and `storage.Serve` sends files sandboxed, as downloads unless they're images, media, PDF or text, and needs a Signer or `Public: true` ([uploads](guide.md#file-uploads-and-storage)).
+- **Queries:** [typed SQL](sql.md) sends every value as a bound parameter.

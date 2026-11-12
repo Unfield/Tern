@@ -40,6 +40,7 @@ func TestGenerateErrors(t *testing.T) {
 		{"declared time parameter", "-- name: Since :many\n-- param since time.Time\nSELECT id FROM links WHERE julianday(added_at) > julianday(:since);", ""},
 		{"unchecked", "-- name: Find :many\n-- unchecked\n-- param q string\n-- column id int64\n-- column title string\nSELECT id, title FROM links WHERE title ILIKE '%' || :q || '%';", ""},
 		{"unchecked without types", "-- name: Find :many\n-- unchecked\nSELECT id FROM links WHERE title ILIKE :q;", "needs a -- param line for :q"},
+		{"sealed column", "-- name: SetNote :exec\n-- param note sealed.String\nUPDATE links SET note = :note WHERE id = :id;\n-- name: NoteOf :one\n-- column note *sealed.String\nSELECT note FROM links WHERE id = :id;", ""},
 		{"unnamed column", "-- name: Q :one\nSELECT id + 1 FROM users;", `column 1 is named "id + 1"; name it with AS`},
 		{"positional placeholders", "-- name: Q :many\nSELECT id FROM users WHERE email = ?;", "use named parameters, :name, instead of ?"},
 		{"exec returning", "-- name: Q :exec\nDELETE FROM users WHERE id = :id RETURNING id;", "the query returns rows (RETURNING); make it :one or :many"},

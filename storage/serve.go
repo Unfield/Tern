@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -48,9 +49,13 @@ func (s *Signer) Valid(key string, q url.Values) bool {
 
 // ServeOptions configure Serve.
 type ServeOptions struct {
-	// Signer, if set, makes every file private: only links from
-	// Signer.URL work. Without it, files are public.
+	// Signer makes every file private: only links from Signer.URL work.
+	// Serve needs either a Signer or Public.
 	Signer *Signer
+	// Public serves every file to anyone who has its address, such as a
+	// site's images. Without it, Serve needs a Signer: files are private
+	// unless the app says otherwise.
+	Public bool
 	// CacheControl is sent with files; the default is
 	// "private, max-age=3600" for signed files and "public, max-age=3600"
 	// otherwise.
@@ -85,6 +90,9 @@ type server struct {
 func (s *server) Name() string { return "storage" }
 
 func (s *server) Setup(set *kit.Setup) error {
+	if s.opts.Signer == nil && !s.opts.Public {
+		return fmt.Errorf("storage: Serve(%q) needs ServeOptions.Signer, for private files, or Public: true, for files anyone may see", s.prefix)
+	}
 	set.Handle("GET "+s.prefix, s)
 	set.Handle("HEAD "+s.prefix, s)
 	return nil

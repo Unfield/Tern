@@ -41,6 +41,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/Unfield/Tern/kit"
+	"github.com/Unfield/Tern/safehttp"
 )
 
 // Widths are the widths <Image> requests; others are refused, which keeps
@@ -62,7 +63,10 @@ type Options struct {
 	Quality int
 	// MaxAge is how long browsers cache resized images; the default is a day.
 	MaxAge time.Duration
-	// HTTPClient fetches the originals.
+	// HTTPClient fetches the originals. The default, from safehttp, only
+	// connects to public addresses, so a listed host that resolves to the
+	// app's own network, or redirects there, is refused; pass a client of
+	// your own for originals on a private network.
 	HTTPClient *http.Client
 }
 
@@ -86,7 +90,7 @@ func New(opts Options) *Plugin {
 		opts.CacheDir = filepath.Join(os.TempDir(), "tern-images")
 	}
 	if opts.HTTPClient == nil {
-		opts.HTTPClient = &http.Client{Timeout: 15 * time.Second}
+		opts.HTTPClient = safehttp.New(safehttp.Options{Timeout: 15 * time.Second, MaxBody: 32 << 20})
 	}
 	return &Plugin{opts: opts, sem: make(chan struct{}, runtime.NumCPU())}
 }

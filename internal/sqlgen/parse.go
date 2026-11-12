@@ -62,7 +62,7 @@ var (
 
 // goTypes are the types a "-- param" or "-- column" line may name, with
 // or without a * for NULL.
-var goTypes = []string{"int64", "int", "float64", "string", "bool", "[]byte", "time.Time", "json.RawMessage"}
+var goTypes = []string{"int64", "int", "float64", "string", "bool", "[]byte", "time.Time", "json.RawMessage", "sealed.String", "sealed.Bytes"}
 
 // parseDir reads every .sql file in dir.
 func parseDir(dir string) ([]*query, error) {

@@ -320,6 +320,8 @@ func sample(t string) any {
 		return []byte{}
 	case "json.RawMessage":
 		return "{}"
+	case "sealed.String", "sealed.Bytes":
+		return "s1.0.x" // what a sealed value looks like to the database
 	}
 	return "x"
 }

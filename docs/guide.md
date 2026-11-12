@@ -1200,7 +1200,7 @@ files, err := storage.NewS3(storage.S3Options{
 })
 ```
 
-Receive files in a form action with `storage.Receive`. It raises the request's body limit to fit, checks sizes, and detects each file's type from its contents rather than trusting the browser:
+Receive files in a form action with `storage.Receive`. It raises the request's body limit to fit, checks sizes, and detects each file's type from its contents rather than trusting the browser. `Save` stores JPEG and PNG photos without their metadata, such as the GPS coordinates of where they were taken; the pixels stay as they are, and `ReceiveOptions.KeepMetadata` keeps it:
 
 ```go
 "default": kit.Action(func(ctx *kit.Ctx) (struct{}, error) {
@@ -1233,13 +1233,56 @@ kit.WithPlugins(storage.Serve("/files/", files, storage.ServeOptions{Signer: sig
 url := signer.URL("/files/", key, time.Hour) // a link that expires
 ```
 
-- **Signed links:** with a `Signer`, every file is private. Only signed, unexpired links work.
+- **Signed links:** with a `Signer`, every file is private. Only signed, unexpired links work. `Serve` needs a `Signer`, or `Public: true` for files anyone may see, such as a site's images: files are private unless you say otherwise.
 - **Unsafe file types:** files are sent with `nosniff` and a sandboxing Content Security Policy. Only images, media, PDF and plain text display inline; HTML, SVG and everything else download. An uploaded file can't run scripts on your site.
 - **Range requests:** disk files support them, for video.
 - **S3:** files are redirected to short-lived presigned URLs, so downloads don't pass through your app.
 - **Direct uploads:** `bucket.PresignPut(key, ttl)` lets browsers upload large files straight to S3.
 
 S3 requests are signed with AWS Signature Version 4. The signing is tested against AWS's published examples, and in CI against an S3-compatible server (SeaweedFS).
+
+## Settings and secrets
+
+The `settings` package reads the app's settings from the environment into a struct, and reports every missing or invalid one at once when the app starts, before it serves anything:
+
+```go
+type Settings struct {
+	DatabaseURL   string          `env:"DATABASE_URL,required"`
+	SessionSecret settings.Secret `env:"SESSION_SECRET,required,min=32"`
+	Workers       int             `env:"WORKERS" default:"4"`
+	Timeout       time.Duration   `env:"TIMEOUT" default:"10s"`
+}
+
+var s Settings
+if err := settings.Load(&s); err != nil {
+	log.Fatal(err) // settings: DATABASE_URL is required and isn't set; SESSION_SECRET must be at least 32 characters, and is 12
+}
+```
+
+A `settings.Secret` never shows its value: printed, logged or encoded as JSON it's `[secret]`, so a log line or an error report can't leak it. `s.SessionSecret.Reveal()` returns it, where it's used. `tern doctor` compares a deploy target's environment with `.env.example`.
+
+## Encrypted fields
+
+The `sealed` package encrypts personal data in database columns with AES-256-GCM. A `sealed.String` is an ordinary string in Go and ciphertext in the database, so a copy of the database or a backup shows nothing:
+
+```go
+sealed.SetKeys(s.FieldKey) // at start: a settings.Secret of 32 characters or more
+
+db.ExecContext(ctx, `UPDATE users SET phone = ? WHERE id = ?`, sealed.String(phone), id)
+
+var phone sealed.String
+db.QueryRowContext(ctx, `SELECT phone FROM users WHERE id = ?`, id).Scan(&phone)
+```
+
+- **Rotating keys:** `sealed.SetKeys(newKey, oldKey)` seals with the new key and still opens what the old one sealed; `sealed.Current(stored)` finds rows to write again before dropping it.
+- **Finding rows:** encrypted values can't be searched. Store `sealed.Blind(value)`, a keyed hash, beside one and look rows up by it: `WHERE phone_hash = ?`.
+- **Existing data:** `sealed.AllowPlain(true)` reads values that aren't encrypted yet as they are, and they're sealed when written again.
+- **Logs:** sealed values log as `[sealed]`. `sealed.Bytes` is the same for binary data.
+- **Typed SQL:** `-- param phone sealed.String` and `-- column phone sealed.String` in [queries](sql.md).
+
+## Requests to addresses users give
+
+Fetching a URL a user typed (a webhook, a link preview, an avatar) can reach the app's own network: the cloud's metadata service, the database, an admin panel on localhost. `safehttp.New(safehttp.Options{})` is an `*http.Client` that only connects to public addresses, checked on the address it actually dials, so DNS names and redirects that point inward are refused with `safehttp.ErrBlocked`. It ignores proxy settings, follows at most 5 redirects, only uses ports 80 and 443, and limits time and the size of responses. `safehttp.Get(ctx, url)` uses a default one; `Options.Allow` names private addresses you trust. The `images` plugin fetches originals with it.
 
 ## Realtime
 

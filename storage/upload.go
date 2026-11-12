@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,19 +25,33 @@ type Upload struct {
 	// the browser.
 	ContentType string
 	header      *multipart.FileHeader
+	keep        bool // KeepMetadata
 }
 
 // Open reads the file.
 func (u *Upload) Open() (multipart.File, error) { return u.header.Open() }
 
-// Save stores the file in b under key.
+// Save stores the file in b under key. JPEG and PNG images are stored
+// without their metadata, unless ReceiveOptions.KeepMetadata says to keep
+// it: see ReceiveOptions.
 func (u *Upload) Save(ctx context.Context, b Bucket, key string) error {
 	f, err := u.Open()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	return b.Put(ctx, key, f, u.Size, u.ContentType)
+	if u.keep || (u.ContentType != "image/jpeg" && u.ContentType != "image/png") {
+		return b.Put(ctx, key, f, u.Size, u.ContentType)
+	}
+	data, err := io.ReadAll(io.LimitReader(f, u.Size+1))
+	if err != nil {
+		return err
+	}
+	if data, err = stripMetadata(u.ContentType, data); err != nil {
+		return &InvalidUpload{Field: "", Message: u.Filename + " is damaged, or isn't the image it says it is."}
+	}
+	u.Size = int64(len(data))
+	return b.Put(ctx, key, bytes.NewReader(data), u.Size, u.ContentType)
 }
 
 // ReceiveOptions limit what Receive accepts.
@@ -50,6 +65,11 @@ type ReceiveOptions struct {
 	Types []string
 	// Required makes an empty field an error.
 	Required bool
+	// KeepMetadata keeps what photos say about themselves. By default Save
+	// removes it from JPEG and PNG images: EXIF, with the GPS coordinates
+	// of where a photo was taken, XMP, IPTC and comments. The pixels stay
+	// as they are.
+	KeepMetadata bool
 }
 
 // InvalidUpload is returned for files Receive refuses; show Message next
@@ -118,7 +138,7 @@ func Receive(ctx *kit.Ctx, field string, opts ReceiveOptions) ([]*Upload, error)
 		if len(opts.Types) > 0 && !inline(ct, opts.Types) {
 			return nil, &InvalidUpload{Field: field, Message: fmt.Sprintf("%s is not an accepted kind of file.", name)}
 		}
-		out = append(out, &Upload{Filename: name, Size: h.Size, ContentType: ct, header: h})
+		out = append(out, &Upload{Filename: name, Size: h.Size, ContentType: ct, header: h, keep: opts.KeepMetadata})
 	}
 	return out, nil
 }

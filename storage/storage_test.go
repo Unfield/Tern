@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	pngenc "image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -115,7 +116,10 @@ func TestServe(t *testing.T) {
 	_ = disk.Put(ctx, "a/pic.png", bytes.NewReader([]byte("\x89PNG\r\n\x1a\nxxxxxxxx")), 16, "image/png")
 	_ = disk.Put(ctx, "a/page.html", strings.NewReader("<script>alert(1)</script>"), 25, "text/html")
 	signer := NewSigner(strings.Repeat("k", 32))
-	public := app(t, []kit.Plugin{Serve("/files/", disk, ServeOptions{})})
+	public := app(t, []kit.Plugin{Serve("/files/", disk, ServeOptions{Public: true})})
+	if _, err := kit.New(&kit.Manifest{AppHTML: "%tern.head%%tern.body%"}, kit.WithPlugins(Serve("/files/", disk, ServeOptions{}))); err == nil || !strings.Contains(err.Error(), "needs ServeOptions.Signer") {
+		t.Errorf("Serve without a Signer or Public: %v", err)
+	}
 	private := app(t, []kit.Plugin{Serve("/files/", disk, ServeOptions{Signer: signer})})
 	get := func(a http.Handler, u string, h ...string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, u, nil)
@@ -200,12 +204,17 @@ func TestReceive(t *testing.T) {
 		a.ServeHTTP(w, r)
 		return w
 	}
-	png := "\x89PNG\r\n\x1a\n" + strings.Repeat("x", 2000) // more than the app's 1 KB body limit
+	// A real PNG, with a text chunk that makes it more than the app's 1 KB
+	// body limit; Save removes the chunk.
+	var enc bytes.Buffer
+	_ = pngenc.Encode(&enc, testImage())
+	clean := enc.Bytes()
+	png := string(clean[:len(clean)-12]) + string(chunk("tEXt", "Comment\x00"+strings.Repeat("x", 2000))) + string(clean[len(clean)-12:])
 	if w := post(map[string]string{"photo.png": png}); w.Code != 200 || w.Body.String() != "image/png hi" {
 		t.Fatalf("upload: %d %s", w.Code, w.Body)
 	}
-	if obj, err := disk.Stat(context.Background(), saved); err != nil || obj.Size != int64(len(png)) || obj.ContentType != "image/png" {
-		t.Errorf("saved %s: %+v %v", saved, obj, err)
+	if obj, err := disk.Stat(context.Background(), saved); err != nil || obj.Size != int64(len(clean)) || obj.ContentType != "image/png" {
+		t.Errorf("saved %s: %+v %v (want %d bytes, without the text)", saved, obj, err, len(clean))
 	}
 	// The type comes from the contents, not the name.
 	if w := post(map[string]string{"fake.png": "<html><script>x</script>"}); w.Code != 400 || !strings.Contains(w.Body.String(), "not an accepted kind") {

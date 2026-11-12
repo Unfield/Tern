@@ -175,6 +175,11 @@ button {
 	width: 100%;
 	max-width: calc(var(--container) + 2 * var(--gutter));
 	margin: 0 auto;
+	/* Centered on a whole pixel: when the window and the container differ
+	   by an odd width, auto margins put everything at .5px, and sticky
+	   boxes (the header, the docs sidebar and contents) then jiggle while
+	   scrolling, snapped to a different pixel from one frame to the next. */
+	margin-left: max(0px, round(down, (100% - var(--container) - 2 * var(--gutter)) / 2, 1px));
 	padding: 0 var(--gutter);
 }
 

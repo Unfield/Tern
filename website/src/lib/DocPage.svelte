@@ -394,6 +394,7 @@
 		margin-bottom: var(--s-3);
 		color: var(--text);
 		font-size: 13px;
+		line-height: 16px;
 		font-weight: 600;
 		letter-spacing: 0;
 	}
@@ -410,7 +411,8 @@
 		border-left: 1px solid transparent;
 		color: var(--text-3);
 		font-size: 13px;
-		line-height: 1.45;
+		/* whole pixels in a sticky box; see .container in global.css */
+		line-height: 19px;
 		transition: color 140ms, border-color 140ms;
 	}
 	.toc .sub a {

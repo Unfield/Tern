@@ -63,6 +63,8 @@
 		margin: 0 0 var(--s-2) var(--s-3);
 		color: var(--text);
 		font-size: 13px;
+		/* whole pixels in a sticky box; see .container in global.css */
+		line-height: 16px;
 		font-weight: 600;
 		letter-spacing: 0;
 	}
@@ -77,7 +79,7 @@
 		border-radius: var(--radius-s);
 		color: var(--text-3);
 		font-size: 14px;
-		line-height: 1.45;
+		line-height: 20px;
 		transition: color 140ms, background 140ms;
 	}
 	li a:hover {

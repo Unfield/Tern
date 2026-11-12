@@ -212,7 +212,13 @@ func TestCheck(t *testing.T) {
 		p.verify(w, httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(b)))
 		return w
 	}
-	if w := post(checkReport{Challenge: ch.Challenge, Nonce: strconv.Itoa(nonce + 1)}); w.Code != http.StatusForbidden && zeroBits(sha256.Sum256([]byte(ch.Challenge+":"+strconv.Itoa(nonce+1)))) < 8 {
+	// A nonce that doesn't solve it; posting one that happens to would
+	// redeem the challenge.
+	wrong := nonce + 1
+	for zeroBits(sha256.Sum256([]byte(ch.Challenge+":"+strconv.Itoa(wrong)))) >= 8 {
+		wrong++
+	}
+	if w := post(checkReport{Challenge: ch.Challenge, Nonce: strconv.Itoa(wrong)}); w.Code != http.StatusForbidden {
 		t.Errorf("a wrong solution: %d", w.Code)
 	}
 	w := post(checkReport{Challenge: ch.Challenge, Nonce: strconv.Itoa(nonce)})

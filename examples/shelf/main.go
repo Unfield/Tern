@@ -45,6 +45,7 @@ func newApp(path string) (*kit.App, error) {
 		migrate.Plugin(shelf.DB, migrations.FS),
 		reindex{}, // after the migrations, which make the links table
 		shelf.Accounts,
+		shelf.Flags, // after accounts: flags are decided per user
 		provider,
 		server,
 		panel,

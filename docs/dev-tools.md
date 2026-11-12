@@ -4,7 +4,7 @@ Under `tern dev`, every page has a **T** button in its bottom-left corner. It op
 
 ## The panel
 
-- **Page:** the route, the address, the status and the params, and the route's files: each layout and the page, with its `page.server.go` or `layout.server.go` at the line of its load. Click a file to open it in your editor. Below them is the data each load returned, as a tree.
+- **Page:** the route, the address, the status and the params, and the route's files: each layout and the page, with its `page.server.go` or `layout.server.go` at the line of its load. Click a file to open it in your editor. Below them are the [feature flags](flags.md) the page checked and what each decided, and the data each load returned, as a tree.
 - **Requests:** the page's requests, its loads, client-side navigations and form actions, newest first. For each, the waterfall of its spans, such as each load and the render, and what it logged.
 - **Errors:** every error on the page, to open again.
 

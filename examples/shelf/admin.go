@@ -65,5 +65,6 @@ func adminPanel() (*admin.Admin, error) {
 			admin.AfterDelete(func(ctx context.Context, key string) error { return shelf.Index.Delete(ctx, key) }),
 		),
 		admin.Resource("users", users, admin.ReadOnly()),
+		shelf.Flags.Admin(),
 	), nil
 }

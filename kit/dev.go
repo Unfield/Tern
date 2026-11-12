@@ -125,6 +125,9 @@ type devInfo struct {
 	RequestID string `json:"requestId"`
 	// Components are the route's layouts, outermost first, then its page.
 	Components []string `json:"components"`
+	// Flags are the feature flags the request checked, and what each
+	// decided: the flags package keeps them in Locals["tern.flags"].
+	Flags map[string]bool `json:"flags,omitempty"`
 }
 
 // devInfo returns the response's devInfo under tern dev, nil otherwise.
@@ -141,5 +144,6 @@ func (a *App) devInfo(c *Ctx, def *RouteDef) *devInfo {
 			}
 		}
 	}
-	return &devInfo{RequestID: c.writer.Header().Get(RequestIDHeader), Components: a.components(def)}
+	flags, _ := c.Locals["tern.flags"].(map[string]bool)
+	return &devInfo{RequestID: c.writer.Header().Get(RequestIDHeader), Components: a.components(def), Flags: flags}
 }

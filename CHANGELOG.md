@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The `admin` tag marks keys, listed, searchable and filtered fields, read-only fields, references to other resources, and integers that hold times.
   - Tern UI's `Admin` component renders them, in a route of the app's own, so they work without JavaScript.
 - Shelf, the tutorial's app, has admin screens for its links and accounts.
+- **Feature flags** ([docs/flags.md](docs/flags.md)): the `flags` package turns features on for some users first, decided on the server: a kill switch, users and teams who always get a feature, and a rollout to a share of users, teams or visitors that keeps everyone who had it as it grows. Flags live in the database and are read from memory; `f.Admin()` adds a screen for them to the admin panel, and the dev tools show which flags each page checked.
+- Shelf has a `search` flag, on for everyone, and a screen for its flags.
 - **Search** ([ADR 0025](docs/adr/0025-search.md), [docs/search.md](docs/search.md)): the `search` package indexes an app's data in SQLite (FTS5), PostgreSQL (`tsvector`) or memory, and finds it as people type: words match as prefixes, without case or accents, within a scope such as one user's documents. Hits come with snippets that mark the matches, as text rather than HTML.
 - **`SearchBox` and `Highlight` in Tern UI:** results as the user types, with keyboard navigation and a hotkey, and a results page that works without JavaScript.
 - `admin.AfterSave` and `admin.AfterDelete`, to keep a search index or a cache in step with what admins change.

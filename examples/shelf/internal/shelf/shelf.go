@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Unfield/Tern/accounts"
+	"github.com/Unfield/Tern/flags"
 	"github.com/Unfield/Tern/search"
 	_ "modernc.org/sqlite" // the SQLite driver, in pure Go
 )
@@ -35,6 +36,8 @@ var (
 	Accounts *accounts.Accounts
 	// Index finds links by their titles and addresses, each user's own.
 	Index *search.Index
+	// Flags turn features on for some users first.
+	Flags *flags.Flags
 )
 
 // Open opens the SQLite database at path, creating it if needed, and sets
@@ -58,7 +61,13 @@ func Open(ctx context.Context, path string) error {
 	if err := idx.Migrate(ctx); err != nil {
 		return err
 	}
-	DB, Accounts, Index = db, acc, idx
+	fl, err := flags.New(db, flags.Options{Subject: flags.AccountsSubject},
+		flags.Flag{Name: "search", Description: "The search box on the shelf", On: true, Percent: 100},
+	)
+	if err != nil {
+		return err
+	}
+	DB, Accounts, Index, Flags = db, acc, idx, fl
 	return nil
 }
 

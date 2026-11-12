@@ -266,6 +266,11 @@
 			));
 		}
 		out.push(files);
+		const flags = Object.entries(p.flags || {}).sort(([a], [b]) => a.localeCompare(b));
+		if (flags.length) {
+			out.push(h('h3', null, 'Feature flags'));
+			out.push(h('ul', { class: 'flags' }, flags.map(([name, on]) => h('li', null, h('span', { class: 'flag ' + (on ? 'on' : 'off') }, on ? 'on' : 'off'), h('code', null, name)))));
+		}
 		out.push(h('h3', null, 'Data'));
 		p.components.forEach((c, i) => {
 			const node = p.nodes[i];
@@ -550,6 +555,10 @@ p { margin: 0 0 8px; }
 .kind { display: inline-block; min-width: 72px; color: var(--muted); font-size: 12px; }
 .file { border: 1px solid var(--line); background: var(--bg2); border-radius: 6px; padding: 2px 8px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); }
 .file:hover { border-color: var(--accent); }
+.flags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.flags li { display: flex; align-items: center; gap: 6px; }
+.flag { padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #1d272a; }
+.flag.on { color: var(--ok); } .flag.off { color: var(--muted); }
 .node { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--bg2); }
 .node-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
 details > summary { cursor: pointer; list-style: none; }

@@ -21,7 +21,9 @@
 
 <header class="top">
 	<h1>Your shelf</h1>
-	<SearchBox action="/search" hotkey="/" search={(q, signal) => api('GET /api/search', { query: { q }, signal })} label="Search your shelf" class="find" />
+	{#if data.flags?.search}
+		<SearchBox action="/search" hotkey="/" search={(q, signal) => api('GET /api/search', { query: { q }, signal })} label="Search your shelf" class="find" />
+	{/if}
 </header>
 
 <Form action="?/add" rules={forms.add} {form} bind:submitting={saving} class="add">

@@ -7,7 +7,7 @@
 import type { Payload } from './types.js';
 
 /** What the server tells the overlay about a response, in dev only. */
-export type DevInfo = { requestId: string; components: string[] };
+export type DevInfo = { requestId: string; components: string[]; flags?: Record<string, boolean> };
 
 export type DevEvent =
 	| {
@@ -22,6 +22,8 @@ export type DevEvent =
 			nodes: unknown[];
 			requestId: string;
 			components: string[];
+			/** The feature flags the request checked, and what each decided. */
+			flags: Record<string, boolean>;
 	  }
 	| { kind: 'action'; url: string; type: string; status: number; requestId: string; data: unknown };
 
@@ -45,7 +47,8 @@ export function devPage(p: Payload, url: URL) {
 		failed: p.failed ?? null,
 		nodes: p.nodes ?? [],
 		requestId: dev?.requestId ?? '',
-		components: dev?.components ?? []
+		components: dev?.components ?? [],
+		flags: dev?.flags ?? {}
 	});
 }
 

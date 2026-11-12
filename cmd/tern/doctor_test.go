@@ -73,8 +73,12 @@ func TestDoctorChecks(t *testing.T) {
 	if c := doctorMigrations(root); c.Status != checkOK || !strings.Contains(c.Detail, "1 migration") {
 		t.Errorf("migrations: %+v", c)
 	}
-	if c := doctorSecure(root); c.Status != checkWarn || c.Fix != "go tool tern add secure" {
-		t.Errorf("secure: %+v", c)
+	if c := doctorSecure(root); c.Status != checkOK {
+		t.Errorf("secure by default: %+v", c)
+	}
+	writeDoctorFiles(t, root, map[string]string{"app.go": "package main\n\nvar opts = []kit.Option{kit.WithoutContentSecurityPolicy()}\n"})
+	if c := doctorSecure(root); c.Status != checkWarn || !strings.Contains(c.Detail, "injected markup can run scripts") {
+		t.Errorf("an opt-out: %+v", c)
 	}
 	if !versionAtLeast("go1.27.0", "1.26") || versionAtLeast("go1.25.3", "1.26") || !versionAtLeast("go1.26", "1.26.0") {
 		t.Error("versionAtLeast")

@@ -175,6 +175,9 @@ type options struct {
 	csp             string
 	cache           *cache.Cache
 	cspReportOnly   bool
+	cspSet          bool
+	cspSources      [][]string
+	noSecHeaders    bool
 	ssr             bool
 	ssrWorkers      int
 	ssrCache        int
@@ -275,18 +278,19 @@ func WithoutNativeSSR() Option {
 	return func(o *options) { o.native = false }
 }
 
-// WithContentSecurityPolicy sends a Content-Security-Policy header on every
-// page. Tern adds a per-request nonce to script-src (creating the directive
-// if needed) and puts it on its own scripts, so a strict policy such as
-// "default-src 'self'" works without 'unsafe-inline'. Use %tern.nonce% in
-// src/app.html for your own inline scripts.
+// WithContentSecurityPolicy replaces the Content-Security-Policy every page
+// is sent (see DefaultContentSecurityPolicy). Tern adds a per-request nonce
+// to script-src (creating the directive if needed) and puts it on its own
+// scripts and on inline scripts in <svelte:head>, so a strict policy such
+// as "default-src 'self'" works without 'unsafe-inline'. Use %tern.nonce%
+// in src/app.html for your own inline scripts.
 func WithContentSecurityPolicy(policy string) Option {
-	return func(o *options) { o.csp, o.cspReportOnly = policy, false }
+	return func(o *options) { o.csp, o.cspReportOnly, o.cspSet = policy, false, true }
 }
 
 // WithContentSecurityPolicyReportOnly is like WithContentSecurityPolicy but
 // sends Content-Security-Policy-Report-Only, to test a policy without
 // enforcing it.
 func WithContentSecurityPolicyReportOnly(policy string) Option {
-	return func(o *options) { o.csp, o.cspReportOnly = policy, true }
+	return func(o *options) { o.csp, o.cspReportOnly, o.cspSet = policy, true, true }
 }

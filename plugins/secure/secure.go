@@ -1,13 +1,14 @@
-// Package secure sets security headers on every response of a Tern app:
+// Package secure changes the security headers a Tern app sends. Since
+// v1.16 kit sends them without the plugin (see ADR 0027): pages cannot be
+// framed by other sites, referrers are trimmed for cross-origin requests,
+// powerful browser features are off, and the page gets its own browsing
+// context group. Add the plugin to change one, or for HTTPS-only (HSTS),
+// which is opt-in because it is hard to undo:
 //
-//	ternApp(kit.WithPlugins(secure.New()))
+//	ternApp(kit.WithPlugins(secure.New(secure.HSTS(365*24*time.Hour, false))))
 //
-// The defaults are safe for most apps: pages cannot be framed by other
-// sites, referrers are trimmed for cross-origin requests, powerful browser
-// features are off, and the page gets its own browsing context group.
-// HTTPS-only (HSTS) is opt-in with [HSTS], because it is hard to undo.
-// For a Content-Security-Policy, use kit.WithContentSecurityPolicy, which
-// handles nonces.
+// For the Content-Security-Policy, see kit.WithCSPSources and
+// kit.WithContentSecurityPolicy, which handle nonces.
 package secure
 
 import (
@@ -44,6 +45,7 @@ func Header(name, value string) Option {
 	return func(p *Plugin) {
 		if value == "" {
 			delete(p.headers, name)
+			p.removed = append(p.removed, name)
 			return
 		}
 		p.headers[name] = value
@@ -53,6 +55,7 @@ func Header(name, value string) Option {
 // Plugin sets security headers. Create it with New.
 type Plugin struct {
 	headers map[string]string
+	removed []string
 }
 
 // New returns the security headers plugin.
@@ -78,6 +81,9 @@ func (p *Plugin) Setup(s *kit.Setup) error {
 	s.Middleware(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := w.Header()
+			for _, k := range p.removed {
+				h.Del(k)
+			}
 			for k, v := range p.headers {
 				h.Set(k, v)
 			}

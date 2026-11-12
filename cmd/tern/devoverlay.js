@@ -165,6 +165,26 @@
 		else browserError('UnhandledRejection', String(r), '');
 	});
 
+	// What the Content-Security-Policy blocked, and how to allow it.
+	addEventListener('securitypolicyviolation', (e) => {
+		const directive = String(e.effectiveDirective || e.violatedDirective || '').replace(/-(elem|attr)$/, '');
+		const blocked = e.blockedURI || 'inline';
+		let message, fix;
+		if (blocked === 'inline' || blocked === 'eval') {
+			message = `The Content-Security-Policy blocked ${blocked === 'eval' ? 'eval()' : 'an inline ' + directive.replace(/-src$/, '')} (${directive}).`;
+			fix = directive === 'script-src' && blocked === 'inline'
+				? 'Inline scripts run with the request’s nonce: put them in <svelte:head>, where Tern adds it, or use %tern.nonce% in src/app.html.'
+				: `Allow it with kit.WithCSPSources("${directive}", "'unsafe-${blocked === 'eval' ? 'eval' : 'inline'}'"), which weakens the policy.`;
+		} else {
+			let origin = blocked;
+			try { origin = new URL(blocked).origin; } catch {}
+			message = `The Content-Security-Policy blocked ${origin} (${directive}).`;
+			fix = `Allow it with kit.WithCSPSources("${directive}", "${origin}") in main.go.`;
+		}
+		if (state.errors.some((x) => x.source === 'csp' && x.message === message)) return;
+		addError({ source: 'csp', type: 'Content-Security-Policy', message: message + ' ' + fix, stackText: e.sourceFile ? `at ${e.sourceFile}:${e.lineNumber}:${e.columnNumber}` : '', frames: [], url: location.pathname + location.search, route: current()?.route });
+	});
+
 	// Frames of a JavaScript stack; those served from the project's src/ are the app's.
 	function parseStack(stack) {
 		const out = [];
@@ -348,7 +368,7 @@
 		return h('div', { class: 'errlist' }, [...state.errors].reverse().map((e) => {
 			const i = state.errors.indexOf(e);
 			return h('button', { type: 'button', class: 'erritem', onclick: () => { state.errorIndex = i; state.overlay = true; render(); } },
-				h('span', { class: 'badge ' + e.source }, e.source === 'browser' ? 'Browser' : 'Server'),
+				h('span', { class: 'badge ' + e.source }, e.source === 'browser' ? 'Browser' : e.source === 'csp' ? 'Security' : 'Server'),
 				h('span', { class: 'errmsg' }, (e.type ? e.type + ': ' : '') + e.message)
 			);
 		}));
@@ -411,7 +431,7 @@
 		return h('div', { class: 'backdrop', onclick: (ev) => { if (ev.target === ev.currentTarget) close(); } },
 			h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tern-err-title' },
 				h('header', { class: 'dialog-head' },
-					h('span', { class: 'badge ' + e.source }, { browser: 'Browser error', job: 'Job error', build: 'Build error' }[e.source] || 'Server error'),
+					h('span', { class: 'badge ' + e.source }, { browser: 'Browser error', job: 'Job error', build: 'Build error', csp: 'Blocked by the security policy' }[e.source] || 'Server error'),
 					n > 1 ? h('span', { class: 'pager' },
 						h('button', { type: 'button', 'aria-label': 'Previous error', disabled: state.errorIndex === 0, onclick: () => { state.errorIndex--; render(); } }, '‹'),
 						`${state.errorIndex + 1} of ${n}`,
@@ -590,7 +610,7 @@ details[open] > summary::before { content: '▾ '; }
 .erritem:hover { border-color: #3a4a4f; }
 .errmsg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge { flex: none; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(248,113,113,.15); color: var(--danger); }
-.badge.browser { background: rgba(251,191,36,.14); color: var(--warn); }
+.badge.browser, .badge.csp { background: rgba(251,191,36,.14); color: var(--warn); }
 .backdrop { position: fixed; inset: 0; z-index: 2147483001; background: rgba(5, 8, 9, .62); backdrop-filter: blur(3px); display: grid; place-items: start center; padding: 6vh 16px 16px; overflow: auto; }
 .dialog { width: min(960px, 100%); background: var(--bg); border: 1px solid var(--line); border-top: 3px solid var(--danger); border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,.6); padding: 16px 20px 14px; }
 .dialog-head { display: flex; align-items: center; gap: 12px; }

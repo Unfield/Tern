@@ -308,7 +308,11 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 				"path", c.Request.URL.Path, "route", c.routeID, "error", err)
 		case !res.Skip:
 			if res.Head != "" {
-				headParts = append([]string{"\n\t\t", res.Head}, headParts...)
+				head := res.Head
+				if a.opts.csp != "" {
+					head = stampNonce(head, nonce)
+				}
+				headParts = append([]string{"\n\t\t", head}, headParts...)
 			}
 			bodyParts = []string{`<div id="tern-root" data-tern-ssr style="display: contents">`, res.Body, `</div>`}
 		}

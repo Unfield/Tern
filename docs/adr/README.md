@@ -30,6 +30,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0024](0024-admin-screens.md) | Admin screens from Go structs | Accepted |
 | [0025](0025-search.md) | Full-text search | Accepted |
 | [0026](0026-svelte-compiler-in-go.md) | Svelte's compiler in Go | Proposed |
+| [0027](0027-secure-by-default.md) | Secure by default | Accepted |
 
 ## Template
 

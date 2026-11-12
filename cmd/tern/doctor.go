@@ -309,16 +309,41 @@ func envKeys(path string) []string {
 	return keys
 }
 
+// securityOptOuts are the options that turn off a protection Tern has on
+// by default (ADR 0027), and what each one costs.
+var securityOptOuts = []struct{ option, cost string }{
+	{"WithoutCSRFProtection", "other sites can post forms to the app"},
+	{"WithoutContentSecurityPolicy", "injected markup can run scripts"},
+	{"WithoutSecurityHeaders", "pages can be framed by other sites"},
+	{"WithoutRateLimit", "nothing slows down a script hammering forms"},
+}
+
+// doctorSecure looks in the app's own Go files at the root for options that
+// turn protections off.
 func doctorSecure(root string) doctorCheck {
-	file, err := mainFile(root)
-	if err != nil {
-		return doctorCheck{Name: "Security headers", Status: checkSkip, Detail: "no main.go with ternApp"}
+	files, _ := filepath.Glob(filepath.Join(root, "*.go"))
+	var found []string
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || strings.HasSuffix(f, ".gen.go") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, o := range securityOptOuts {
+			if bytes.Contains(b, []byte("kit."+o.option+"(")) && !slices.Contains(found, o.option) {
+				found = append(found, o.option)
+			}
+		}
 	}
-	b, _ := os.ReadFile(file)
-	if bytes.Contains(b, []byte("plugins/secure")) {
-		return doctorCheck{Name: "Security headers", Status: checkOK, Detail: "the secure plugin is on"}
+	if len(found) == 0 {
+		return doctorCheck{Name: "Security", Status: checkOK, Detail: "headers, Content-Security-Policy, CSRF protection and rate limits on"}
 	}
-	return doctorCheck{Name: "Security headers", Status: checkWarn, Detail: "pages can be framed by other sites, and referrers aren't trimmed", Fix: "go tool tern add secure"}
+	var costs []string
+	for _, o := range securityOptOuts {
+		if slices.Contains(found, o.option) {
+			costs = append(costs, "kit."+o.option+": "+o.cost)
+		}
+	}
+	return doctorCheck{Name: "Security", Status: checkWarn, Detail: strings.Join(costs, "; "), Fix: "Turn protections off only where needed; see docs/security.md"}
 }
 
 func doctorGit(root string) doctorCheck {

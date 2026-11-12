@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 
@@ -78,6 +80,20 @@ func (a *App) emailRenderer() (ssr.EmailRenderer, error) {
 			}
 		}
 		// Server rendering is off for pages; emails still need it.
+		if a.m.Native != nil && a.opts.native && os.Getenv("TERN_NATIVE") != "0" {
+			r, err := ssr.NewNative(a.m.Native, a.m.ServerBundle, ssr.Options{Workers: 1, Logger: a.logger}, ssr.NativeOptions{})
+			if err != nil {
+				a.emailsErr = err
+				return
+			}
+			if c, ok := r.(io.Closer); ok {
+				a.closers = append(a.closers, c)
+			}
+			if e, ok := r.(ssr.EmailRenderer); ok {
+				a.emails = e
+				return
+			}
+		}
 		if a.m.ServerBundle == "" {
 			a.emailsErr = errors.New("kit: emails need the server bundle; build the app with tern build")
 			return

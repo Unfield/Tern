@@ -135,6 +135,7 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		}
 		a.i18n = cat
 	}
+	a.opts.csp = resolveCSP(&a.opts)
 	o = a.opts // plugins may have added hooks, middleware and matchers
 
 	list := make([]*routes.Route, 0, len(m.Routes))
@@ -181,7 +182,9 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 				return nil, err
 			}
 		}
-		if o.ssr && m.ServerBundle != "" {
+		// A binary without the JavaScript engine has no server bundle,
+		// only the compiled renderer.
+		if o.ssr && (m.ServerBundle != "" || m.Native != nil) {
 			sopts := ssr.Options{Workers: o.ssrWorkers, Timeout: o.ssrTimeout, Logger: o.logger}
 			if m.Live {
 				sopts.Funcs = map[string]func(context.Context, []any) (any, error){"__tern_live_initial": liveInitial}
@@ -231,6 +234,11 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 	}
 	for _, mw := range slices.Backward(o.middleware) {
 		h = mw(h)
+	}
+	if !o.noSecHeaders {
+		// Outermost, so plugins/secure and the app's middleware can change
+		// them.
+		h = secureHeaders(h)
 	}
 	proxies, err := parseProxies(o.trustedProxies)
 	if err != nil {

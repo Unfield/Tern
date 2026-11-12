@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Secure by default** ([ADR 0027](docs/adr/0027-secure-by-default.md), [docs/security.md](docs/security.md)). These change what a running app sends; each has an option to restore the old behaviour.
+  - Every response carries the security headers `plugins/secure` used to add: `X-Frame-Options: DENY`, a strict `Referrer-Policy`, a `Permissions-Policy` that turns off the camera, microphone and location, and `Cross-Origin-Opener-Policy: same-origin`. `plugins/secure` now changes them; `kit.WithoutSecurityHeaders()` drops them.
+  - Every page is sent a strict `Content-Security-Policy`: only the app's own scripts run, and inline scripts with the request's nonce, which Tern now also puts on inline scripts in `<svelte:head>`. `kit.WithCSPSources` allows more origins, such as an analytics script; `kit.WithoutContentSecurityPolicy()` sends none. Under `tern dev`, the overlay shows what the policy blocked and the line that allows it.
+- `tern doctor` checks for options that turn protections off, and says what each costs, instead of checking for `plugins/secure`.
 - **Smaller binaries with native rendering.** The compiled renderer's function descriptors are static data instead of code that runs at startup, modules' state starts out with a loop instead of one assignment per variable, and a binary without the JavaScript engine leaves out the server bundle it no longer needs. The dashboard example's binary goes from 38.9 to 37.4 MB, and starts faster.
 
 ### Fixed

@@ -169,6 +169,9 @@ func (a *App) writeCachedPage(w http.ResponseWriter, r *http.Request, def *Route
 	nonce := newNonce()
 	h := w.Header()
 	for k, vs := range meta.Header {
+		// Replaced, not added to: headers set before the page, such as
+		// the security headers, would be sent twice.
+		h.Del(k)
 		for _, v := range vs {
 			h.Add(k, strings.ReplaceAll(v, a.cacheNonce, nonce))
 		}

@@ -487,7 +487,9 @@ func auth(ctx *kit.Ctx) error {
 | `kit.WithTrustedProxies(cidrs...)` | the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed; see `ctx.ClientIP()` |
 | `kit.WithLogger(l)` | the `*slog.Logger` for errors and server events |
 | `kit.WithAddr(addr)` | the listen address (default `HOST:PORT` from the environment, port 3000) |
-| `kit.WithContentSecurityPolicy(policy)` | send a Content-Security-Policy with a per-request script nonce |
+| `kit.WithCSPSources(directive, sources...)` | allow more sources in the default Content-Security-Policy, such as an analytics script |
+| `kit.WithContentSecurityPolicy(policy)` | replace the default Content-Security-Policy; Tern still adds the per-request script nonce |
+| `kit.WithoutContentSecurityPolicy()`, `kit.WithoutSecurityHeaders()` | turn off the default policy or headers ([docs/security.md](security.md)) |
 | `kit.WithoutSSR()` | render every page on the client only |
 | `kit.WithSSRWorkers(n)`, `kit.WithSSRTimeout(d)` | tune server rendering |
 
@@ -529,7 +531,7 @@ app, err := ternApp(kit.WithPlugins(
 | `plugins/requestlog` | One structured `slog` line per request: method, path, status, duration, size and request ID. |
 | `plugins/signals` | Tells people from bots: TLS, HTTP/2 and header fingerprints, a score with reasons, an optional client check, device IDs. See [docs/signals.md](signals.md). |
 | `plugins/compress` | gzip for HTML, JSON, XML and text responses. Streaming still flushes as values resolve. |
-| `plugins/secure` | Security headers: no framing, a strict referrer policy, browser features off, cross-origin isolation, and opt-in HSTS. |
+| `plugins/secure` | Changes the security headers Tern sends by default (no framing, a strict referrer policy, browser features off, cross-origin isolation), and turns on HSTS. |
 | `plugins/sessions` | Encrypted cookie sessions (AES-GCM): `sessions.Get(ctx).Set("user", id)`, `GetString`, `Value`, flash messages, and secret rotation with `OldSecrets`. |
 | `plugins/metrics` | Prometheus metrics at `/metrics`: requests by route and status, a latency histogram, in-flight requests and Go runtime stats. Routes are labeled by pattern, so the number of series stays bounded. |
 | `plugins/ratelimit` | A token bucket per client; by default only form actions and other writes are limited. Over the limit: 429 with `Retry-After`. |
@@ -764,9 +766,25 @@ func LayoutLoad(ctx *kit.Ctx) (Shell, error) {
 
 ## Content Security Policy
 
-`kit.WithContentSecurityPolicy("default-src 'self'")` sends a `Content-Security-Policy` header on every page. Tern adds a fresh nonce to `script-src` for each request and puts it on its own scripts, so strict policies work without `'unsafe-inline'`. Use `%tern.nonce%` in `src/app.html` for your own inline scripts. `kit.WithContentSecurityPolicyReportOnly` sends the report-only header to try a policy first.
+Every page is sent a `Content-Security-Policy` ([ADR 0027](adr/0027-secure-by-default.md)):
 
-Libraries that inject inline scripts during server rendering (for example a dark-mode script) need the nonce too; check whether they accept one, or move their script into `app.html` with `nonce="%tern.nonce%"`.
+```
+default-src 'self'; script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
+object-src 'none'; base-uri 'self'
+```
+
+Only the app's own scripts run, and inline scripts with the request's nonce. Tern puts the nonce on its own scripts and on inline scripts in `<svelte:head>`, such as a dark-mode script; use `%tern.nonce%` in `src/app.html` for your own. Inline scripts in a page's body don't get it, since that's where `{@html}` puts content that may come from users.
+
+To load something from elsewhere, name its origin:
+
+```go
+kit.WithCSPSources("script-src", "https://plausible.io"),
+kit.WithCSPSources("connect-src", "https://plausible.io"),
+kit.WithCSPSources("frame-src", "https://www.youtube-nocookie.com"),
+```
+
+Under `tern dev`, the overlay shows what the policy blocked, with the line to add. `kit.WithContentSecurityPolicy(policy)` replaces the policy (Tern still adds the nonce), `kit.WithContentSecurityPolicyReportOnly` tries one without enforcing it, and `kit.WithoutContentSecurityPolicy()` sends none. Prerendered pages are static files and get no policy.
 
 ## Static files and assets
 

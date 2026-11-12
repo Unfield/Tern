@@ -74,12 +74,22 @@ jobs:
         working-directory: benchmarks/vs-sveltekit
         run: |
           jq -nc --argjson b "$(stat -c %s tern/build/ternbench)" '{server: "tern", scenario: "binary", binary_bytes: $b}' >>results.jsonl
-      - name: Results of the last run on main
+      - name: The last run on main
+        id: previous
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          id=$(gh run list --workflow bench.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          if [ -n "$id" ]; then gh run download "$id" --name vs-sveltekit-results --dir previous || true; fi
+          id=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/bench.yml/runs?branch=main&status=success&per_page=1" | jq -r '.workflow_runs[0].id // empty') || true
+          echo "id=$id" >>"$GITHUB_OUTPUT"
+      - name: Its results
+        if: steps.previous.outputs.id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: vs-sveltekit-results
+          path: previous
+          run-id: ${{ steps.previous.outputs.id }}
+          github-token: ${{ github.token }}
       - name: Summary
         working-directory: benchmarks/vs-sveltekit
         run: ./summary.sh results.jsonl ../../previous/results.jsonl >>"$GITHUB_STEP_SUMMARY"

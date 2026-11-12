@@ -126,7 +126,10 @@ Any other `provider` value runs a program named `tern-deploy-<provider>` from th
   ✓ Migrations         4 migrations, applied when the app starts
   ! Environment        production doesn't set SESSION_SECRET, from .env.example
   ✓ HTTPS              served by the app for app.example.com
-  ✓ Security headers   the secure plugin is on
+  ✓ Security           headers, Content-Security-Policy, CSRF protection and rate limits on
+  ✗ Go modules         2 known vulnerabilities the app's code reaches: 2 in Go's standard library
+                       Update to Go 1.27.4; go run golang.org/x/vuln/cmd/govulncheck@latest ./... shows them
+  ✓ npm packages       no high or critical advisories (2 lower)
   ✓ Git                everything committed
 ```
 
@@ -135,7 +138,9 @@ Any other `provider` value runs a program named `tern-deploy-<provider>` from th
 - **Routes and migrations:** code generation succeeds, and the migration files parse.
 - **Native rendering:** what the last `tern build` left to the JavaScript engine.
 - **The target in `tern.json`** (the only one, or `production`; or name one, `tern doctor staging`): its environment sets every variable in `.env.example`, and it serves HTTPS, with `domains` or behind a proxy.
-- **Security headers** from the `secure` plugin, and **uncommitted changes**, which a release would be named after.
+- **Security:** options that turn off a protection Tern has on by default, and what each costs ([docs/security.md](security.md)).
+- **Known vulnerabilities:** govulncheck, built into Tern, on the Go modules and the Go version, counting only what the app's code reaches, which fails the check; and `npm audit` or `pnpm audit` on the npm packages, whose high and critical advisories are warnings. `tern doctor -offline` skips both.
+- **Uncommitted changes**, which a release would be named after.
 
 It exits 1 when a check fails, so CI can run it before deploying; warnings don't fail it. `-json` prints the checks for scripts.
 

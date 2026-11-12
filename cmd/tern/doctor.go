@@ -46,14 +46,15 @@ func cmdDoctor(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	asJSON := fs.Bool("json", false, "print the checks as JSON")
+	offline := fs.Bool("offline", false, "skip the checks that need the network: known vulnerabilities in Go modules and npm packages")
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "usage: tern doctor [-json] [target]\n\nChecks the project before a deploy: tools and versions, code generation, native rendering, migrations, and the target's settings in tern.json (the only one, or \"production\", by default). It exits 1 if a check fails.")
+		fmt.Fprintln(stderr, "usage: tern doctor [-json] [-offline] [target]\n\nChecks the project before a deploy: tools and versions, code generation, native rendering, migrations, known vulnerabilities in dependencies, security options, and the target's settings in tern.json (the only one, or \"production\", by default). It exits 1 if a check fails.")
 	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	root, _ := os.Getwd()
-	checks := runDoctor(root, fs.Arg(0))
+	checks := runDoctor(root, fs.Arg(0), !*offline)
 	failed := slices.ContainsFunc(checks, func(c doctorCheck) bool { return c.Status == checkFail })
 	if *asJSON {
 		enc := json.NewEncoder(stdout)
@@ -102,11 +103,15 @@ func printDoctor(w io.Writer, checks []doctorCheck) {
 	}
 }
 
-func runDoctor(root, targetName string) []doctorCheck {
+func runDoctor(root, targetName string, online bool) []doctorCheck {
 	var checks []doctorCheck
 	checks = append(checks, doctorGo(root), doctorNode(), doctorVersions(root), doctorGen(root), doctorNative(root), doctorMigrations(root))
 	checks = append(checks, doctorTarget(root, targetName)...)
-	checks = append(checks, doctorSecure(root), doctorGit(root))
+	checks = append(checks, doctorSecure(root))
+	if online {
+		checks = append(checks, doctorGoVulns(root), doctorNPMVulns(root))
+	}
+	checks = append(checks, doctorGit(root))
 	for i := range checks {
 		checks[i].State = map[checkStatus]string{checkOK: "ok", checkWarn: "warning", checkFail: "failure", checkSkip: "skipped"}[checks[i].Status]
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -82,5 +83,24 @@ func TestDoctorChecks(t *testing.T) {
 	}
 	if !versionAtLeast("go1.27.0", "1.26") || versionAtLeast("go1.25.3", "1.26") || !versionAtLeast("go1.26", "1.26.0") {
 		t.Error("versionAtLeast")
+	}
+}
+
+func TestGovulnFindings(t *testing.T) {
+	stream := `{"config":{"protocol_version":"v1.0.0"}}
+{"osv":{"id":"GO-1"}}
+{"finding":{"osv":"GO-1","fixed_version":"v1.27.2","trace":[{"module":"stdlib","package":"net/http","function":"Serve"}]}}
+{"finding":{"osv":"GO-1","fixed_version":"v1.27.2","trace":[{"module":"stdlib","package":"net/http","function":"Get"}]}}
+{"finding":{"osv":"GO-2","fixed_version":"v1.27.4","trace":[{"module":"stdlib","package":"crypto/tls","function":"Dial"}]}}
+{"finding":{"osv":"GO-3","fixed_version":"v0.9.0","trace":[{"module":"example.com/lib","package":"example.com/lib"}]}}
+{"finding":{"osv":"GO-4","fixed_version":"v0.9.1","trace":[{"module":"example.com/lib","package":"example.com/lib","function":"Parse"}]}}
+`
+	called, found := govulnFindings(strings.NewReader(stream))
+	if found != 4 {
+		t.Errorf("found = %d, want 4", found)
+	}
+	want := []vulnModule{{module: "stdlib", fixed: "v1.27.4", count: 2}, {module: "example.com/lib", fixed: "v0.9.1", count: 1}}
+	if !slices.Equal(called, want) {
+		t.Errorf("called = %+v, want %+v", called, want)
 	}
 }

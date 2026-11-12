@@ -68,3 +68,12 @@ ratelimit.New(ratelimit.Rate(30, time.Minute), ratelimit.Methods()) // every req
 ```
 
 `accounts` has limits of its own on sign-in, sign-up and password reset attempts.
+
+## Dependencies
+
+`tern doctor` checks them before a deploy ([docs/deployment.md](deployment.md#before-you-deploy-tern-doctor)):
+
+- **Go:** govulncheck, built into Tern, looks for known vulnerabilities in the Go modules and in the Go version itself, and fails the check for those the app's code reaches. Most are in Go's standard library, and a newer Go patch release fixes them.
+- **npm:** `npm audit` or `pnpm audit`, whichever lockfile the project has. The packages end up in the browser; high and critical advisories are warnings.
+
+Both need the network; `tern doctor -offline` skips them. To run them in CI, add `go tool tern doctor` as a step: it exits 1 when a check fails.

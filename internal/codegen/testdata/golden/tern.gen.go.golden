@@ -9,11 +9,12 @@ import (
 	"github.com/Unfield/Tern/kit"
 
 	route0 "example.com/app/src/routes"
-	route1 "example.com/app/src/routes/api/items/id.param.integer"
-	route2 "example.com/app/src/routes/blog/slug.param"
-	route3 "example.com/app/src/routes/docs/path.rest"
-	route4 "example.com/app/src/routes/news"
-	route5 "example.com/app/src/routes/news/latest"
+	route1 "example.com/app/src/routes/api/ask"
+	route2 "example.com/app/src/routes/api/items/id.param.integer"
+	route3 "example.com/app/src/routes/blog/slug.param"
+	route4 "example.com/app/src/routes/docs/path.rest"
+	route5 "example.com/app/src/routes/news"
+	route6 "example.com/app/src/routes/news/latest"
 )
 
 //go:embed src/app.html
@@ -38,37 +39,45 @@ var ternManifest = &kit.Manifest{
 	},
 	Routes: []kit.RouteDef{
 		{
+			ID:      "/api/ask",
+			Layouts: []int{0},
+			Endpoint: map[string]kit.HandlerFunc{
+				"GET":  kit.StreamOutputEndpoint(route1.GET),
+				"POST": kit.StreamEndpoint("POST", route1.POST),
+			},
+		},
+		{
 			ID:         "/news/latest",
 			Layouts:    []int{0},
 			Page:       &kit.PageDef{Component: "src/routes/news/latest/+page.svelte"},
-			Revalidate: route5.Revalidate,
+			Revalidate: route6.Revalidate,
 		},
 		{
 			ID:      "/api/items/id.param.integer",
 			Layouts: []int{0},
 			Endpoint: map[string]kit.HandlerFunc{
-				"GET":    route1.GET,
-				"DELETE": route1.DELETE,
+				"GET":    route2.GET,
+				"DELETE": route2.DELETE,
 			},
 		},
 		{
 			ID:           "/news",
 			Layouts:      []int{0},
 			Page:         &kit.PageDef{Component: "src/routes/news/+page.svelte", NoCSR: true},
-			Revalidate:   kit.Seconds(route4.Revalidate),
-			CacheControl: route4.CacheControl,
+			Revalidate:   kit.Seconds(route5.Revalidate),
+			CacheControl: route5.CacheControl,
 		},
 		{
 			ID:      "/blog/slug.param",
 			Layouts: []int{0, 1},
-			Page:    &kit.PageDef{Component: "src/routes/blog/slug.param/+page.svelte", Load: kit.LoadOf(route2.Load), Actions: route2.Actions},
+			Page:    &kit.PageDef{Component: "src/routes/blog/slug.param/+page.svelte", Load: kit.LoadOf(route3.Load), Actions: route3.Actions},
 		},
 		{
 			ID:        "/docs/path.rest",
 			Layouts:   []int{0},
 			Page:      &kit.PageDef{Component: "src/routes/docs/path.rest/+page.svelte"},
 			Prerender: true,
-			Entries:   func(*kit.Ctx) ([]map[string]string, error) { return route3.Entries() },
+			Entries:   func(*kit.Ctx) ([]map[string]string, error) { return route4.Entries() },
 		},
 		{
 			ID:      "/",

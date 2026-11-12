@@ -398,6 +398,56 @@ Call them from components with `$api`. The endpoint, parameters, query, body and
 </script>
 ```
 
+### Streaming endpoints
+
+An endpoint can send values as they come instead of one answer: the text of a model's reply as it's written, the progress of a long job, rows of a big export. It takes a `*kit.Stream[T]` and calls `Send`:
+
+```go
+// src/routes/api/ask/server.go
+type Ask struct {
+	Question string `json:"question" validate:"required,max=2000"`
+}
+
+type Delta struct {
+	Text string `json:"text"`
+}
+
+func POST(ctx *kit.Ctx, in Ask, out *kit.Stream[Delta]) error {
+	for text, err := range model.Answer(ctx, in.Question) { // your model client's streaming loop
+		if err != nil {
+			return err
+		}
+		if err := out.Send(Delta{Text: text}); err != nil {
+			return err // the reader went away; ctx is done too
+		}
+	}
+	return nil
+}
+```
+
+Read it in the browser with `stream` from `$api`, a typed async iterator:
+
+```svelte
+<script lang="ts">
+	import { stream } from '$api';
+
+	let answer = $state('');
+
+	async function ask(question: string) {
+		answer = '';
+		for await (const delta of stream('POST /api/ask', { body: { question } })) {
+			answer += delta.text;
+		}
+	}
+</script>
+```
+
+- **Signatures:** `func(ctx *kit.Ctx, in In, out *kit.Stream[T]) error`, or without input, `func(ctx *kit.Ctx, out *kit.Stream[T]) error`. Input comes in and is checked as for other typed endpoints.
+- **Partial results:** `T` can be any type, so a stream can send a struct that fills in as the model writes it, such as a `Draft` with its `Title` and `Points` so far, and the page shows each version as it comes.
+- **Errors:** an error before the first `Send` is an ordinary error response. After it, the stream ends with the error, which `stream` throws as an `ApiError`, with the status and the message users may see. A stream that ends without finishing, such as when the connection drops, throws too.
+- **Stopping:** `break` out of the loop, or call `abort()` on the stream, to stop it: the request is cancelled, and the endpoint's next `Send` fails, so it stops working for nobody.
+- **The wire:** server-sent events, with each value's JSON as an event's data, and a `done` or `error` event at the end. Proxies such as Nginx don't buffer them (`X-Accel-Buffering: no`), the compression plugin leaves them as they are, and other clients, such as `curl -N`, read them too.
+
 `kit.WithOpenAPI("/api/openapi.json", "Acme API", "1.0.0")` serves the OpenAPI 3.1 document. It has paths, parameters, request bodies and response schemas, with components for your Go structs, so you can generate clients for other languages or browse it with any OpenAPI tool.
 
 ## Hooks, middleware and configuration

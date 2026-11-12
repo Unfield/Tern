@@ -308,8 +308,15 @@ func (g *generator) openAPI() {
 				if len(params) > 0 {
 					op["parameters"] = params
 				}
+				ok := map[string]any{"description": "OK", "content": map[string]any{"application/json": map[string]any{"schema": e.schema(sig.out)}}}
+				if sig.stream {
+					// OpenAPI 3.1 can't say what each event is; x-item-schema does.
+					ok = map[string]any{"description": "Server-sent events: each event's data is a JSON value of x-item-schema. The stream ends with a done event, or an error event whose data is an Error.", "content": map[string]any{"text/event-stream": map[string]any{
+						"schema": map[string]any{"type": "string"}, "x-item-schema": e.schema(sig.out),
+					}}}
+				}
 				op["responses"] = map[string]any{
-					"200":     map[string]any{"description": "OK", "content": map[string]any{"application/json": map[string]any{"schema": e.schema(sig.out)}}},
+					"200":     ok,
 					"default": map[string]any{"description": "An error", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/Error"}}}},
 				}
 				item[strings.ToLower(m)] = op

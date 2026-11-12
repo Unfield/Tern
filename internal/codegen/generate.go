@@ -292,6 +292,10 @@ func (g *generator) goFile() error {
 				switch {
 				case !typed:
 					fmt.Fprintf(&b, "\t\t\t\t%q: %s.%s,\n", m, rp.alias, m)
+				case sig.stream && sig.in == nil:
+					fmt.Fprintf(&b, "\t\t\t\t%q: kit.StreamOutputEndpoint(%s.%s),\n", m, rp.alias, m)
+				case sig.stream:
+					fmt.Fprintf(&b, "\t\t\t\t%q: kit.StreamEndpoint(%q, %s.%s),\n", m, m, rp.alias, m)
 				case sig.in == nil:
 					fmt.Fprintf(&b, "\t\t\t\t%q: kit.OutputEndpoint(%s.%s),\n", m, rp.alias, m)
 				default:

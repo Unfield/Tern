@@ -50,6 +50,9 @@ type routePackage struct {
 // func(*kit.Ctx) (Out, error), and both are nil for plain handlers.
 type endpointSig struct {
 	in, out types.Type
+	// stream is set for func(ctx *kit.Ctx, [in In,] out *kit.Stream[T])
+	// error, whose out is T.
+	stream bool
 }
 
 // analyze type-checks the route packages and validates their exports.
@@ -218,14 +221,19 @@ func (rp *routePackage) inspect(p *packages.Package, scanned *routes.GoPackage) 
 		sig := obj.Type().(*types.Signature)
 		if !handlerSignature(sig) {
 			in, out, ok := typedSignature(sig)
+			stream := false
 			if !ok {
-				errs = append(errs, fmt.Sprintf("%s: %s must be func(ctx *kit.Ctx) error, func(ctx *kit.Ctx) (Out, error) or func(ctx *kit.Ctx, in In) (Out, error) with a struct In", pos(obj), m))
+				in, out, ok = streamSignature(sig)
+				stream = ok
+			}
+			if !ok {
+				errs = append(errs, fmt.Sprintf("%s: %s must be func(ctx *kit.Ctx) error, func(ctx *kit.Ctx) (Out, error), func(ctx *kit.Ctx, in In) (Out, error) with a struct In, or a stream: func(ctx *kit.Ctx, [in In,] out *kit.Stream[T]) error", pos(obj), m))
 				continue
 			}
 			if rp.endpoints == nil {
 				rp.endpoints = map[string]endpointSig{}
 			}
-			rp.endpoints[m] = endpointSig{in: in, out: out}
+			rp.endpoints[m] = endpointSig{in: in, out: out, stream: stream}
 		}
 		rp.methods = append(rp.methods, m)
 	}
@@ -316,6 +324,30 @@ func typedSignature(sig *types.Signature) (in, out types.Type, ok bool) {
 		return nil, nil, false
 	}
 	return in, sig.Results().At(0).Type(), true
+}
+
+// streamSignature matches func(ctx *kit.Ctx, [in In,] out *kit.Stream[T])
+// error, and returns In (nil without it) and T.
+func streamSignature(sig *types.Signature) (in, item types.Type, ok bool) {
+	n := sig.Params().Len()
+	if sig.TypeParams().Len() > 0 || sig.Results().Len() != 1 || !isError(sig.Results().At(0).Type()) || n < 2 || n > 3 || !isCtxPtr(sig.Params().At(0).Type()) {
+		return nil, nil, false
+	}
+	if n == 3 {
+		in = sig.Params().At(1).Type()
+		if _, isStruct := types.Unalias(in).Underlying().(*types.Struct); !isStruct {
+			return nil, nil, false
+		}
+	}
+	p, isPtr := types.Unalias(sig.Params().At(n - 1).Type()).(*types.Pointer)
+	if !isPtr || !isKitNamed(p.Elem(), "Stream") {
+		return nil, nil, false
+	}
+	args := types.Unalias(p.Elem()).(*types.Named).TypeArgs()
+	if args.Len() != 1 {
+		return nil, nil, false
+	}
+	return in, args.At(0), true
 }
 
 func isCtxPtr(t types.Type) bool {

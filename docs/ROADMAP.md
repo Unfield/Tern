@@ -258,7 +258,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [ ] Presence and shared state for live components, for collaborative screens
 
 **AI**
-- [ ] Streaming endpoints for model responses, with typed partial results on the client
+- [x] Streaming endpoints for model responses, with typed partial results on the client ([guide](guide.md#streaming-endpoints))
 - [x] An app's tools served over MCP, so assistants can use the app with the user's permissions ([docs/mcp-server.md](mcp-server.md))
 
 **Tooling**

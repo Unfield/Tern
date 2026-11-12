@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The `admin` tag marks keys, listed, searchable and filtered fields, read-only fields, references to other resources, and integers that hold times.
   - Tern UI's `Admin` component renders them, in a route of the app's own, so they work without JavaScript.
 - Shelf, the tutorial's app, has admin screens for its links and accounts.
+- **Streaming endpoints** ([guide](docs/guide.md#streaming-endpoints)): `func POST(ctx *kit.Ctx, in Ask, out *kit.Stream[Delta]) error` sends values as they come, such as a model's reply as it's written, as server-sent events. `$api`'s `stream` reads them as a typed async iterator, and throws the server's error as an `ApiError`. Leaving the loop stops the endpoint. The OpenAPI document describes them.
 - **Dev tools in `tern dev`** ([docs/dev-tools.md](docs/dev-tools.md)): a button on every page opens a panel with the route, its files at the line of each load, the data each load returned, and each request's spans and logs. Errors from the server, the browser and the build open over the page, with the app's frames, the source around each and a button that opens it in your editor (`TERN_EDITOR`, or Zed, Cursor or VS Code).
 
 ## [1.14.0] - 2026-11-12

@@ -4,6 +4,7 @@
 export interface Routes {
 	"/": Record<string, never>;
 	"/[[lang]]/about": { lang?: string | number };
+	"/api/ask": Record<string, never>;
 	"/api/items/[id]": { id: string | number };
 	"/blog/[slug]": { slug: string | number };
 	"/docs/[...path]": { path?: string | string[] };

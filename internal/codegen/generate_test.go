@@ -142,6 +142,22 @@ import "github.com/Unfield/Tern/kit"
 func GET(ctx *kit.Ctx) error    { return nil }
 func DELETE(ctx *kit.Ctx) error { return nil }
 `,
+	"src/routes/api/ask/server.go": `package ask
+
+import "github.com/Unfield/Tern/kit"
+
+type Ask struct {
+	Question string ` + "`json:\"question\"`" + `
+}
+
+type Delta struct {
+	Text string ` + "`json:\"text\"`" + `
+}
+
+func POST(ctx *kit.Ctx, in Ask, out *kit.Stream[Delta]) error { return out.Send(Delta{Text: in.Question}) }
+
+func GET(ctx *kit.Ctx, out *kit.Stream[Delta]) error { return nil }
+`,
 }
 
 func writeFixture(t *testing.T, files map[string]string) string {
@@ -198,6 +214,8 @@ func TestGenerate(t *testing.T) {
 		".tern/types/src/routes/blog/slug.param/$types.d.ts",
 		".tern/types/src/routes/lang.optional/about/$types.d.ts",
 		".tern/types/src/routes/api/items/id.param.integer/$types.d.ts",
+		".tern/generated/api.d.ts",
+		".tern/generated/openapi.json",
 	}
 	for _, name := range golden {
 		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))

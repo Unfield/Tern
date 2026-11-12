@@ -12,7 +12,7 @@ The plan, at a glance:
 | [v1.10](#v110-production-confidence-released) | Production confidence: tracing, error reports, test helpers (released) |
 | [v1.11](#v111-teams-and-billing-released) | Teams and billing, for SaaS apps (released) |
 | [v1.12](#v112-rendering-on-demand-and-caching-released) | Rendering on demand, and caching (released) |
-| [v1.13](#v113-native-rendering-phase-3) | Native rendering, phase 3: no JavaScript engine for most apps |
+| [v1.13](#v113-native-rendering-phase-3-released) | Native rendering, phase 3: no JavaScript engine for most apps (released) |
 | [Later](#later) | Search, feature flags, admin screens, AI, editor support, hosting |
 
 ## v0.1: Foundations (client-rendered)
@@ -235,7 +235,7 @@ Pages as fast as prerendered ones, with data that changes.
 - [x] Cache headers per route, for CDNs in front of the app
 - [x] Pages with nothing interactive can ship no JavaScript at all
 
-## v1.13: Native rendering, phase 3
+## v1.13: Native rendering, phase 3 (released)
 
 Every page rendered by Go, and smaller binaries.
 

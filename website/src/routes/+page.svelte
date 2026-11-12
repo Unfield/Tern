@@ -78,9 +78,9 @@
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
 		<a class="announce" href="/docs/changelog">
-			<span class="pill">New in 1.12</span>
-			<span class="long">Pages rendered on demand, and <code>const Revalidate</code></span>
-			<span class="short">Rendering on demand</span>
+			<span class="pill">New in 1.13</span>
+			<span class="long"><code>tern build</code> without the JavaScript engine</span>
+			<span class="short">No JavaScript engine</span>
 			<Icon name="arrow-right" size={14} />
 		</a>
 		<h1>Svelte on the client.<br /><span class="grad">Go on the server.</span></h1>

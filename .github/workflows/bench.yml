@@ -72,7 +72,8 @@ jobs:
         run: ./run.sh
       - name: Record the binary size
         working-directory: benchmarks/vs-sveltekit
-        run: jq -nc --argjson b "$(stat -c %s tern/build/ternbench)" '{server: "tern", scenario: "binary", binary_bytes: $b}' >>results.jsonl
+        run: |
+          jq -nc --argjson b "$(stat -c %s tern/build/ternbench)" '{server: "tern", scenario: "binary", binary_bytes: $b}' >>results.jsonl
       - name: Results of the last run on main
         env:
           GH_TOKEN: ${{ github.token }}

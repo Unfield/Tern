@@ -57,7 +57,11 @@ func (rt *Realm) NewRegExp(source, flags string) *Object {
 	if strings.ContainsRune(flags, 'u') && strings.ContainsRune(flags, 'v') {
 		panic(SyntaxErrorf("Invalid regular expression flags"))
 	}
-	re, err := regexp2.Compile(source, opts)
+	compiled, ok := expandIDProps(source)
+	if !ok {
+		panic(NotSupported("a negated ID_Start or ID_Continue in a class in /%s/", source))
+	}
+	re, err := regexp2.Compile(compiled, opts)
 	if err != nil && strings.ContainsRune(flags, 'v') {
 		// Set operations and string classes: the engine has them.
 		panic(NotSupported("the v flag's class syntax in /%s/", source))
@@ -103,39 +107,54 @@ func (rt *Realm) utf16Offset(s string, runeIndex int) int {
 	if rt.isASCII(s) {
 		return runeIndex
 	}
+	// regexp2 counts runes as range does: a lone surrogate's three WTF-8
+	// bytes are three runes, and one UTF-16 unit.
 	n, r := 0, 0
-	for _, c := range s {
-		if r == runeIndex {
-			break
+	for i := 0; i < len(s) && r < runeIndex; {
+		if s[i] == 0xED && i+2 < len(s) && s[i+1] >= 0xA0 && s[i+1] <= 0xBF {
+			i += 3
+			r += 3
+			n++
+			continue
 		}
+		c, size := utf8.DecodeRuneInString(s[i:])
 		if c >= 0x10000 {
 			n += 2
 		} else {
 			n++
 		}
+		i += size
 		r++
 	}
 	return n
 }
 
-// runeOffset converts a UTF-16 index into s to a rune index.
+// runeOffset is where the UTF-16 index unitIndex is in s, as the byte
+// offset regexp2's FindStringMatchStartingAt takes.
 func (rt *Realm) runeOffset(s string, unitIndex int) int {
 	if rt.isASCII(s) {
-		return unitIndex
+		return min(unitIndex, len(s))
 	}
-	n, r := 0, 0
-	for _, c := range s {
+	n := 0
+	for i := 0; i < len(s); {
 		if n >= unitIndex {
-			break
+			return i
 		}
+		// A lone surrogate, kept as WTF-8: ED A0–BF xx, one unit.
+		if s[i] == 0xED && i+2 < len(s) && s[i+1] >= 0xA0 && s[i+1] <= 0xBF {
+			i += 3
+			n++
+			continue
+		}
+		c, size := utf8.DecodeRuneInString(s[i:])
 		if c >= 0x10000 {
 			n += 2
 		} else {
 			n++
 		}
-		r++
+		i += size
 	}
-	return r
+	return len(s)
 }
 
 type match struct {

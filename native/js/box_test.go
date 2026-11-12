@@ -82,3 +82,18 @@ func TestPlainEach(t *testing.T) {
 		t.Error("an array was walked as a plain object")
 	}
 }
+
+func TestIDProperties(t *testing.T) {
+	rt := NewRealm()
+	re := rt.NewRegExp(`^(?:\p{ID_Start}[$\u200c\u200d\p{ID_Continue}]*)$`, "u")
+	test := func(s string) bool { return Truthy(Call(rt.Get(re, "test"), re, s)) }
+	for s, want := range map[string]bool{"foo": true, "ÉtéX9_": true, "名前": true, "℘x": true, "a\u200db": true, "9x": false, "a-b": false, "": false, "x·y": true} {
+		if got := test(s); got != want {
+			t.Errorf("%q: %v, want %v", s, got, want)
+		}
+	}
+	not := rt.NewRegExp(`^\P{ID_Start}$`, "u")
+	if !Truthy(Call(rt.Get(not, "test"), not, "9")) || Truthy(Call(rt.Get(not, "test"), not, "a")) {
+		t.Error("\\P{ID_Start}")
+	}
+}

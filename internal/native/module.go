@@ -150,6 +150,11 @@ func (c *Compiler) declareModule(m *module) {
 			}
 		}
 	}
+	// var declarations nested in the module's blocks and loops, such as
+	// for (var i = 0; …), belong to the module's scope too.
+	for _, name := range varNames(m.ast.List("body")) {
+		field(name, "var")
+	}
 }
 
 func moduleExportName(n *Node) string {

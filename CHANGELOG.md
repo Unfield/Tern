@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Native rendering:** a `var` declared in a loop or block at a module's top level no longer crashes the compiler; `\p{ID_Start}` and `\p{ID_Continue}` work in regular expressions; and a sticky or global regular expression after non-ASCII text starts where `lastIndex` says, where it started too early before.
+
 ## [1.15.0] - 2026-11-12
 
 ### Added

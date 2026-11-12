@@ -1660,6 +1660,7 @@ Run the CLI with `go tool tern`, which uses the version pinned in your `go.mod`:
 | `tern gen` | regenerate `tern.gen.go`, the client manifest and types |
 | `tern check [svelte-check options]` | generate, then type-check with `svelte-check`, including the markup of Go components |
 | `tern mcp` | serve the [Model Context Protocol](mcp.md) for AI coding tools |
+| `tern doctor [-json] [target]` | check the project before a deploy: tools and versions, code generation, native rendering, migrations, and the target's environment and HTTPS ([deployment](deployment.md#before-you-deploy-tern-doctor)) |
 | `tern add [-n] <plugin>...` | add plugins to `main.go`, by name or Go package; without arguments, list them |
 | `tern lsp` | serve the [language server](editors.md) for editors, which the VS Code and Zed extensions start |
 | `tern routes [-json] [dir]` | list routes; `-json` prints them for scripts and editors |

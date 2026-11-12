@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **`tern doctor`** ([docs/deployment.md](docs/deployment.md#before-you-deploy-tern-doctor)) checks a project before a deploy: Go and Node, the Go module's and npm package's versions, code generation, native rendering's fallbacks, the migrations, the target's environment against `.env.example`, HTTPS, security headers and uncommitted changes. It exits 1 when a check fails.
 - **Operations in the admin panel** ([docs/admin.md](docs/admin.md#operations)): `acc.UsersAdmin()` and `acc.AuditAdmin()` for accounts and their audit log, `queue.Admin()` for background jobs with Retry, and `admin.Errors(reporter)` for error reports grouped by cause.
 - **Actions on records** in the admin panel: `admin.Action` and `admin.DangerAction` add buttons to each record's page that run Go code.
 - `acc.SignOutUser` ends every session of an account.

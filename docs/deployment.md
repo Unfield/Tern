@@ -113,6 +113,32 @@ Any other `provider` value runs a program named `tern-deploy-<provider>` from th
 - The program builds the app as it needs. `GOOS=linux GOARCH=amd64 go tool tern build -o …` cross-compiles, or it can use the Dockerfile.
 - A nonzero exit status fails the deploy.
 
+## Before you deploy: tern doctor
+
+`go tool tern doctor` checks a project for what goes wrong only in production:
+
+```
+  ✓ Go                 go1.26.2
+  ✓ Node               v22.11.0
+  ✓ Tern               v1.15.0 on both sides
+  ✓ Routes             12 routes, generated
+  ! Native rendering   1 module falls back to the JavaScript engine, such as src/lib/Chart.svelte: …
+  ✓ Migrations         4 migrations, applied when the app starts
+  ! Environment        production doesn't set SESSION_SECRET, from .env.example
+  ✓ HTTPS              served by the app for app.example.com
+  ✓ Security headers   the secure plugin is on
+  ✓ Git                everything committed
+```
+
+- **Tools:** Go as new as `go.mod` asks, and Node 22 or later for the build.
+- **Tern:** the Go module and the npm package are the same version; they're released together.
+- **Routes and migrations:** code generation succeeds, and the migration files parse.
+- **Native rendering:** what the last `tern build` left to the JavaScript engine.
+- **The target in `tern.json`** (the only one, or `production`; or name one, `tern doctor staging`): its environment sets every variable in `.env.example`, and it serves HTTPS, with `domains` or behind a proxy.
+- **Security headers** from the `secure` plugin, and **uncommitted changes**, which a release would be named after.
+
+It exits 1 when a check fails, so CI can run it before deploying; warnings don't fail it. `-json` prints the checks for scripts.
+
 ## Configuration
 
 | Variable | Default | Meaning |

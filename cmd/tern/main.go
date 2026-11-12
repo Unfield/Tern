@@ -26,6 +26,7 @@ var commands = []command{
 	{"migrate", "new <name>", "Create a database migration"},
 	{"ui", "add <Component>", "Copy Tern UI components into the project"},
 	{"add", "<plugin>", "Add a plugin to the app"},
+	{"doctor", "[target]", "Check the project before a deploy"},
 	{"mcp", "", "Serve the Model Context Protocol for AI coding tools"},
 	{"lsp", "", "Serve the language server for editors"},
 	{"version", "", "Print the Tern version"},
@@ -96,6 +97,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdUI(args[1:], stdout, stderr)
 	case "add":
 		return cmdAdd(args[1:], stdout, stderr)
+	case "doctor":
+		return cmdDoctor(args[1:], stdout, stderr)
 	default:
 		ui.New(stderr).Error(fmt.Errorf("unknown command %q", cmd))
 		printUsage(stderr)

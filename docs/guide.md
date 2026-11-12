@@ -785,9 +785,9 @@ func LayoutLoad(ctx *kit.Ctx) (Shell, error) {
 Every page is sent a `Content-Security-Policy` ([ADR 0027](adr/0027-secure-by-default.md)):
 
 ```
-default-src 'self'; script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
-object-src 'none'; base-uri 'self'
+default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-7dQw…' 'nonce-…';
+style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:;
+connect-src 'self'; object-src 'none'; base-uri 'self'
 ```
 
 Only the app's own scripts run, and inline scripts with the request's nonce. Tern puts the nonce on its own scripts and on inline scripts in `<svelte:head>`, such as a dark-mode script; use `%tern.nonce%` in `src/app.html` for your own. Inline scripts in a page's body don't get it, since that's where `{@html}` puts content that may come from users.

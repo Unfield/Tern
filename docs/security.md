@@ -35,12 +35,14 @@ Every response carries:
 Every page is sent:
 
 ```
-default-src 'self'; script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
-object-src 'none'; base-uri 'self'
+default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-7dQw…' 'nonce-…';
+style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:;
+connect-src 'self'; object-src 'none'; base-uri 'self'
 ```
 
 - **Scripts:** only the app's own files run, and inline scripts carrying the request's nonce. Tern puts it on its own scripts and on inline scripts in `<svelte:head>`; use `%tern.nonce%` in `src/app.html` for yours. Inline scripts in a page's body don't get it: that's where `{@html}` puts content that may come from users.
+- **Svelte's event handler:** server rendering puts `onload="this.__e=event"` and `onerror="this.__e=event"` on images and similar elements, so their events aren't lost before hydration. `'unsafe-hashes'` with that text's hash allows exactly it, and no other inline handler. Tern adds it, and the nonce, to a policy of the app's own too.
+- **WebAssembly:** an app with Go components that run in the browser also gets `'wasm-unsafe-eval'`, which lets the browser compile WebAssembly; JavaScript's `eval` stays blocked.
 - **Styles** may be inline, as Svelte's transitions and `style:` directives need. Injected styles can't run code.
 - **Images** may come from any HTTPS origin, for avatars and pictures hosted elsewhere.
 

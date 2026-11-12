@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,7 +18,7 @@ func TestSecureByDefault(t *testing.T) {
 		}
 	}
 	csp := rec.Header().Get("Content-Security-Policy")
-	if !strings.HasPrefix(csp, "default-src 'self'; script-src 'self' 'nonce-") || !strings.Contains(csp, "object-src 'none'") {
+	if !strings.HasPrefix(csp, "default-src 'self'; script-src 'self' 'unsafe-hashes' '"+svelteEventHash+"' 'nonce-") || !strings.Contains(csp, "object-src 'none'") {
 		t.Errorf("Content-Security-Policy = %q", csp)
 	}
 	// Endpoints get the headers too, but no policy: they aren't pages.
@@ -41,14 +43,14 @@ func TestCSPSources(t *testing.T) {
 		WithCSPSources("img-src", "https:"), // already there
 	)
 	csp := do(t, a, "GET", "/", nil).Header().Get("Content-Security-Policy")
-	for _, want := range []string{"script-src 'self' https://plausible.io 'nonce-", "frame-src 'self' https://www.youtube-nocookie.com", "img-src 'self' data: blob: https:;"} {
+	for _, want := range []string{"script-src 'self' 'unsafe-hashes' '" + svelteEventHash + "' https://plausible.io 'nonce-", "frame-src 'self' https://www.youtube-nocookie.com", "img-src 'self' data: blob: https:;"} {
 		if !strings.Contains(csp, want) {
 			t.Errorf("policy %q lacks %q", csp, want)
 		}
 	}
 	// With a policy of the app's own, the sources are added to it.
 	b, _ := newTestApp(t, testManifest(), WithContentSecurityPolicy("default-src 'none'"), WithCSPSources("img-src", "https://cdn.example"))
-	if csp := do(t, b, "GET", "/", nil).Header().Get("Content-Security-Policy"); !strings.HasPrefix(csp, "default-src 'none'; img-src 'none' https://cdn.example; script-src 'none' 'nonce-") {
+	if csp := do(t, b, "GET", "/", nil).Header().Get("Content-Security-Policy"); !strings.HasPrefix(csp, "default-src 'none'; img-src 'none' https://cdn.example; script-src 'none' 'unsafe-hashes' '"+svelteEventHash+"' 'nonce-") {
 		t.Errorf("policy = %q", csp)
 	}
 }
@@ -59,6 +61,7 @@ func TestStampNonce(t *testing.T) {
 		{`<script>a()</script>`, `<script nonce="N">a()</script>`},
 		{`<script nonce="M">a()</script><SCRIPT type="module">b()</SCRIPT>`, `<script nonce="M">a()</script><SCRIPT nonce="N" type="module">b()</SCRIPT>`},
 		{`<scripts>`, `<scripts>`},
+		{`<script type="application/json" id="x">{}</script><script type=module>m()</script>`, `<script type="application/json" id="x">{}</script><script nonce="N" type=module>m()</script>`},
 		{`<script`, `<script`},
 	} {
 		if got := stampNonce(c.in, "N"); got != c.want {
@@ -127,5 +130,19 @@ func TestDefaultRateLimit(t *testing.T) {
 		if code := post(off, "203.0.113.7:1234"); code == http.StatusTooManyRequests {
 			t.Fatal("limited with WithoutRateLimit")
 		}
+	}
+}
+
+func TestCSPAllowsSvelteAndWebAssembly(t *testing.T) {
+	sum := sha256.Sum256([]byte("this.__e=event"))
+	if want := "sha256-" + base64.StdEncoding.EncodeToString(sum[:]); want != svelteEventHash {
+		t.Errorf("svelteEventHash = %s, want %s", svelteEventHash, want)
+	}
+	m := testManifest()
+	m.WebAssembly = true
+	a, _ := newTestApp(t, m)
+	csp := do(t, a, "GET", "/", nil).Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "script-src 'self' 'unsafe-hashes' '"+svelteEventHash+"' 'wasm-unsafe-eval' 'nonce-") {
+		t.Errorf("policy = %q", csp)
 	}
 }

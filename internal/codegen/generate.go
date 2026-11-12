@@ -121,13 +121,15 @@ func Generate(root string) (*Result, error) {
 }
 
 type generator struct {
-	cfg      Config
-	locales  *i18n.Catalog
-	warnings []string
-	root     string
-	m        *routes.Manifest
-	pkgs     map[string]*routePackage
-	files    map[string][]byte
+	// webAssembly is set when a component runs Go in the browser.
+	webAssembly bool
+	cfg         Config
+	locales     *i18n.Catalog
+	warnings    []string
+	root        string
+	m           *routes.Manifest
+	pkgs        map[string]*routePackage
+	files       map[string][]byte
 
 	layoutIndex map[string]int // by dir
 	layouts     []routes.Layout
@@ -225,6 +227,9 @@ func (g *generator) goFile() error {
 	fmt.Fprintf(&b, "\tAppHTML: ternAppHTML,\n\tClientEntry: %q,\n\tOpenAPI: ternOpenAPI,\n", ClientEntry)
 	if len(g.live) > 0 {
 		b.WriteString("\tLive: true,\n")
+	}
+	if g.webAssembly {
+		b.WriteString("\tWebAssembly: true,\n")
 	}
 	if g.cfg.BasePath != "" {
 		fmt.Fprintf(&b, "\tBasePath: %q,\n", g.cfg.BasePath)

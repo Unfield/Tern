@@ -23,13 +23,15 @@ From v1.16, an app made with `kit.New` gets each of these without code, and turn
 **A Content-Security-Policy.** Pages get
 
 ```
-default-src 'self'; script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
-object-src 'none'; base-uri 'self'
+default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-7dQw…' 'nonce-…';
+style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:;
+connect-src 'self'; object-src 'none'; base-uri 'self'
 ```
 
 - **Scripts** are the point: only the app's own files and inline scripts with the request's nonce run, so markup injected into a page can't run code.
 - **Inline scripts in `<svelte:head>`**, such as mode-watcher's theme script, get the nonce: the head is the app's own markup. The body's don't, since that's where `{@html}` puts content that may come from users.
+- **Svelte's inline event handler**, `onload="this.__e=event"` and `onerror="this.__e=event"`, which server rendering puts on elements whose events must survive until hydration, is allowed by its hash with `'unsafe-hashes'`: that text, and no other handler. Tern adds it to any policy, as it adds the nonce.
+- **WebAssembly:** apps with Go components that run in the browser get `'wasm-unsafe-eval'`, which allows compiling WebAssembly and not JavaScript's `eval`.
 - **Styles** allow `'unsafe-inline'`: Svelte's transitions and `style:` directives set inline styles, and injected styles can't run code.
 - **Images** from any HTTPS origin are allowed, as apps show avatars and pictures from elsewhere.
 - **`tern dev`** adds Vite's origin and its WebSocket, so the policy is the same in development, where a page that breaks under it breaks first.

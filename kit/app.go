@@ -136,6 +136,13 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 		a.i18n = cat
 	}
 	a.opts.csp = resolveCSP(&a.opts)
+	if a.opts.csp != "" {
+		// Svelte's inline event handler, in any policy, as the nonce is.
+		a.opts.csp = addSources(a.opts.csp, "script-src", []string{"'unsafe-hashes'", "'" + svelteEventHash + "'"})
+	}
+	if m.WebAssembly && a.opts.csp != "" {
+		a.opts.csp = addSources(a.opts.csp, "script-src", []string{"'wasm-unsafe-eval'"})
+	}
 	if err := checkAccessConfig(m, &a.opts); err != nil {
 		return nil, err
 	}

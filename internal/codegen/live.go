@@ -52,7 +52,11 @@ func (g *generator) liveComponents() ([]liveComponent, error) {
 		}
 		text := string(raw)
 		m := goScriptRe.FindStringSubmatchIndex(text)
-		if m == nil || !liveAttrRe.MatchString(text[m[2]:m[3]]) {
+		if m == nil {
+			return nil
+		}
+		if !liveAttrRe.MatchString(text[m[2]:m[3]]) {
+			g.webAssembly = true // runs in the browser, compiled to WebAssembly
 			return nil
 		}
 		rel, _ := filepath.Rel(g.root, p)

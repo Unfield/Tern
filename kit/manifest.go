@@ -69,6 +69,10 @@ type Manifest struct {
 	Client fs.FS
 	// ClientEntry is the Vite manifest key of the client entry module.
 	ClientEntry string
+	// WebAssembly is set when components run Go in the browser, compiled
+	// to WebAssembly: the Content-Security-Policy allows compiling it
+	// ('wasm-unsafe-eval'), which JavaScript's eval stays outside of.
+	WebAssembly bool
 	// ServerBundle is the server renderer built by `vite build --ssr`, or
 	// "" to render on the client only.
 	ServerBundle string

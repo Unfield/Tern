@@ -622,7 +622,7 @@ func TestContentSecurityPolicy(t *testing.T) {
 	rec := do(t, a, "GET", "/", nil)
 	csp := rec.Header().Get("Content-Security-Policy")
 	m := regexp.MustCompile(`'nonce-([^']+)'`).FindStringSubmatch(csp)
-	if m == nil || !strings.HasPrefix(csp, "default-src 'self'; img-src *; script-src 'self' 'nonce-") {
+	if m == nil || !strings.HasPrefix(csp, "default-src 'self'; img-src *; script-src 'self' 'unsafe-hashes' '"+svelteEventHash+"' 'nonce-") {
 		t.Fatalf("CSP = %q", csp)
 	}
 	if !strings.Contains(rec.Body.String(), `nonce="`+m[1]+`"`) {
@@ -634,7 +634,7 @@ func TestContentSecurityPolicy(t *testing.T) {
 
 	ro, _ := newTestApp(t, testManifest(), WithContentSecurityPolicyReportOnly("script-src 'self' https://cdn.example"))
 	got := do(t, ro, "GET", "/", nil).Header().Get("Content-Security-Policy-Report-Only")
-	if !strings.HasPrefix(got, "script-src 'self' https://cdn.example 'nonce-") {
+	if !strings.HasPrefix(got, "script-src 'self' https://cdn.example 'unsafe-hashes' '"+svelteEventHash+"' 'nonce-") {
 		t.Errorf("report-only CSP = %q", got)
 	}
 }

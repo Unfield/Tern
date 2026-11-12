@@ -17,8 +17,17 @@ import (
 // unless the app sets its own (WithContentSecurityPolicy) or none
 // (WithoutContentSecurityPolicy); see ADR 0027. Only the app's own scripts,
 // and inline scripts with the request's nonce, run.
-const DefaultContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+//
+// The one inline event handler allowed is Svelte's: server rendering puts
+// onload="this.__e=event" and onerror="this.__e=event" on elements whose
+// load and error events must not be lost before hydration. 'unsafe-hashes'
+// with its hash allows that exact text and no other handler.
+const DefaultContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-hashes' '" + svelteEventHash + "'; style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"
+
+// svelteEventHash is the CSP hash of Svelte's inline event handler,
+// "this.__e=event".
+const svelteEventHash = "sha256-7dQwUgLau1NFCCGjfn9FsYptB6ZtWxJin6VohGIu20I="
 
 // securityHeaders are sent with every response unless the app opts out
 // with WithoutSecurityHeaders. plugins/secure changes them.
@@ -121,6 +130,23 @@ func secureHeaders(next http.Handler) http.Handler {
 // scripts in <svelte:head> the request's nonce.
 var scriptTag = regexp.MustCompile(`(?i)<script\b`)
 
+// scriptType reads a <script> tag's type attribute.
+var scriptType = regexp.MustCompile(`\btype\s*=\s*["']?([^"'\s>]+)`)
+
+// executable reports whether a <script> tag's attributes (lowercased) make
+// it code: no type, a JavaScript type or a module. JSON data needs no nonce.
+func executable(attrs string) bool {
+	m := scriptType.FindStringSubmatch(attrs)
+	if m == nil {
+		return true
+	}
+	switch m[1] {
+	case "module", "text/javascript", "application/javascript":
+		return true
+	}
+	return false
+}
+
 // stampNonce puts nonce on the <script> elements in head that have none.
 // Only the head: it's the app's own markup, where the body may hold
 // content from users, put there with {@html}.
@@ -136,8 +162,8 @@ func stampNonce(head, nonce string) string {
 		if end < 0 {
 			break
 		}
-		tag := head[loc[1] : loc[1]+end]
-		if strings.Contains(strings.ToLower(tag), "nonce=") {
+		tag := strings.ToLower(head[loc[1] : loc[1]+end])
+		if strings.Contains(tag, "nonce=") || !executable(tag) {
 			continue
 		}
 		b.WriteString(head[last:loc[1]])

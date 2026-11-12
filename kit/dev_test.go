@@ -2,6 +2,7 @@ package kit
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,5 +35,30 @@ func TestDevStyles(t *testing.T) {
 	vite.Close()
 	if css := d.styles(context.Background(), []string{"x"}); css != "" {
 		t.Errorf("without Vite: %q", css)
+	}
+}
+
+// Under tern dev, payloads tell the dev overlay their request and files.
+func TestDevInfo(t *testing.T) {
+	a, _ := newTestApp(t, testManifest())
+	rec := do(t, a, "GET", "/blog/hello/__data.json", nil)
+	if strings.Contains(rec.Body.String(), `"dev"`) {
+		t.Fatal("dev info outside tern dev")
+	}
+	d, err := newDevServer("http://127.0.0.1:1", t.TempDir(), "entry.js", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.dev = d
+	rec = do(t, a, "GET", "/blog/hello/__data.json", nil)
+	var p struct {
+		Dev devInfo `json:"dev"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Dev.RequestID == "" || p.Dev.RequestID != rec.Header().Get(RequestIDHeader) ||
+		strings.Join(p.Dev.Components, ",") != "src/routes/+layout.svelte,src/routes/blog/+layout.svelte,src/routes/blog/slug.param/+page.svelte" {
+		t.Errorf("dev = %+v", p.Dev)
 	}
 }

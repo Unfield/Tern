@@ -267,7 +267,7 @@ func (l *devLogs) stream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-	var seq int64
+	seq := afterSeq(r.URL.Query())
 	if v := r.Header.Get("Last-Event-ID"); v != "" {
 		seq, _ = strconv.ParseInt(v, 10, 64)
 	}

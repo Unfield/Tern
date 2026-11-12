@@ -118,3 +118,28 @@ func (d *devServer) scripts(base string) []string {
 	// after the Go server restarts.
 	return []string{base + "/@vite/client", "/__tern/dev/client.js", base + "/" + d.entry}
 }
+
+// devInfo is what tern dev's overlay shows about a response: the request,
+// to find its logs, spans and errors, and the files of the route.
+type devInfo struct {
+	RequestID string `json:"requestId"`
+	// Components are the route's layouts, outermost first, then its page.
+	Components []string `json:"components"`
+}
+
+// devInfo returns the response's devInfo under tern dev, nil otherwise.
+// def is the route, or nil to find it by the request's route ID.
+func (a *App) devInfo(c *Ctx, def *RouteDef) *devInfo {
+	if a.dev == nil {
+		return nil
+	}
+	if def == nil && c.routeID != "" {
+		for i := range a.m.Routes {
+			if a.m.Routes[i].ID == c.routeID {
+				def = &a.m.Routes[i]
+				break
+			}
+		}
+	}
+	return &devInfo{RequestID: c.writer.Header().Get(RequestIDHeader), Components: a.components(def)}
+}

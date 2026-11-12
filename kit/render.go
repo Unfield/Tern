@@ -44,6 +44,8 @@ type payload struct {
 	// Errors asks the client to send its uncaught errors to
 	// BrowserErrorsPath, when the App has a reporter.
 	Errors bool `json:"errors,omitempty"`
+	// Dev is what tern dev's overlay shows about the response.
+	Dev *devInfo `json:"dev,omitempty"`
 	// values are the loads' results that Nodes encodes, when there's one
 	// for each node: native rendering reads them instead of the JSON.
 	values []any
@@ -70,6 +72,7 @@ type errorBody struct {
 }
 
 func (a *App) writeDataJSON(c *Ctx, status int, p payload) {
+	p.Dev = a.devInfo(c, nil)
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
 	b, err := jsonenc.Marshal(p)
@@ -210,6 +213,7 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	if len(a.publicEnv) > 0 {
 		p.Env = a.publicEnv // full page loads only; the client keeps it
 	}
+	p.Dev = a.devInfo(c, def)
 	p.Locale = c.rootCtx().locale
 	p.Deferred = len(c.pendingDeferreds()) > 0
 	p.Errors = a.reporter() != nil

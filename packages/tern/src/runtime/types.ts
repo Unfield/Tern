@@ -60,6 +60,8 @@ export interface Payload {
 	env?: Record<string, string>;
 	/** The request's locale, when the app has src/locales. */
 	locale?: string;
+	/** Under tern dev: the request's ID and the route's files, for the dev overlay. */
+	dev?: { requestId: string; components: string[] };
 }
 
 export interface NodeUses {

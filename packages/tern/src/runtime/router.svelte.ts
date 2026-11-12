@@ -1,4 +1,5 @@
 import { hydrate, mount, tick, type Component } from 'svelte';
+import { devPage } from './dev.js';
 import DefaultError from './DefaultError.svelte';
 import Passthrough from './Passthrough.svelte';
 import Root from './Root.svelte';
@@ -463,6 +464,7 @@ async function render(p: Payload, url: URL, state: Record<string, unknown>, id: 
 	}
 
 	applyPayloadToPage(p, url, state, what.data);
+	if (import.meta.env?.DEV) devPage(p, url);
 	props.components = components;
 	props.data = what.data;
 	props.form = page.form;

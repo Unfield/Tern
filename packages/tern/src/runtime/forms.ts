@@ -1,5 +1,6 @@
 import type { ActionReturn } from 'svelte/action';
 import { applyAction, invalidateAll } from './router.svelte.js';
+import { devAction } from './dev.js';
 import type { ActionResult } from './types.js';
 
 export interface SubmitInput {
@@ -110,6 +111,7 @@ export function enhance<Success = Record<string, unknown>, Failure = Record<stri
 			} else {
 				result = { type: 'error', status: res.status, error: { message: res.statusText || 'Request failed' } };
 			}
+			if (import.meta.env?.DEV) devAction(action, result as { type: string; status?: number; data?: unknown }, res.headers.get('x-request-id') ?? '');
 		} catch (err) {
 			if (controller.signal.aborted) return;
 			result = { type: 'error', status: 500, error: { message: err instanceof Error ? err.message : String(err) } };

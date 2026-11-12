@@ -61,7 +61,7 @@ return report.Errorf("charging order %d: %w", id, err)
 
 ## Errors in tern dev
 
-Under `tern dev`, every app has a reporter. The log view's **Errors** button opens the groups, with counts, the route and when each last happened; click one for its stack, with the app's own frames in bold. The request ID and trace lead to the request in the log, and to its waterfall.
+Under `tern dev`, every app has a reporter, and errors open over the page with their stacks and source ([Dev tools](dev-tools.md)). The log view's **Errors** button opens the groups, with counts, the route and when each last happened; click one for its stack, with the app's own frames in bold. The request ID and trace lead to the request in the log, and to its waterfall.
 
 ## Sinks of your own
 

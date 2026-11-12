@@ -229,6 +229,10 @@ func (d *devRunner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.logs.serve(w, r)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, "/__tern/dev/api/") {
+		d.serveAPI(w, r)
+		return
+	}
 	switch r.URL.Path {
 	case "/__tern/dev/events":
 		d.events(w, r)
@@ -237,6 +241,7 @@ func (d *devRunner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = io.WriteString(w, devClientJS)
+		_, _ = io.WriteString(w, devOverlayJS)
 		return
 	}
 
@@ -284,7 +289,7 @@ h1 { color: #fca5a5; font-size: 1.25rem; }
 pre { background: #0c0a09; padding: 1rem 1.25rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; font: 13px/1.6 ui-monospace, monospace; }
 p { color: #a8a29e; }
 </style></head>
-<body><main>
+<body data-tern-problem><main>
 <h1>The app could not be built or started</h1>
 <pre>%s</pre>
 <p>Fix the problem and save. This page reloads by itself.</p>

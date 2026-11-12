@@ -156,13 +156,15 @@ The client API mirrors SvelteKit's names and semantics where possible, so existi
 browser ──▶ tern dev (5173) ──▶ Go app (internal port) ──▶ Vite (internal port)
              │                     handles pages, data,       modules, assets,
              │                     actions, endpoints          HMR websocket
-             └─ /__tern/dev/*: reload events and the error page
+             └─ /__tern/dev/*: reload events, the error page, the log view,
+                and the dev tools overlay and its API
 ```
 
 - The Go app is rebuilt and restarted when `.go`, `go.mod` or `go.sum` files change. Requests made during a restart wait for the new process instead of failing, and open pages reload once it is up.
 - Adding or removing route files reruns codegen; the server restarts only if the generated Go code changed.
 - Svelte, CSS and TypeScript changes go straight to Vite's hot module replacement.
 - If code generation or the Go build fails, every page shows the error until it is fixed, then reloads by itself.
+- Every page gets the dev tools overlay ([Dev tools](dev-tools.md)): payloads carry their request ID and route files under `tern dev`, the router and forms announce each page and action with a `tern:dev` event, and the overlay reads the request's logs, spans and error reports from `tern dev`.
 
 ### 8. Build (`internal/build`)
 

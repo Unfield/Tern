@@ -253,6 +253,7 @@ Planned, in no fixed order yet. Tell us in the issues which you need first.
 - [ ] `fn.toString()` with the bundle's text, so verify mode finds no difference at all
 - [ ] Full-text search for content collections and app data, on SQLite or PostgreSQL, with a search box in Tern UI
 - [ ] Feature flags and gradual rollouts, decided on the server, per user or team
+- [x] Dev tools in `tern dev`: a panel with each page's route, files, data, spans and logs, and errors over the page with their source ([docs/dev-tools.md](dev-tools.md))
 - [x] Admin screens generated from Go structs: lists, filters and forms for an app's own data ([docs/admin.md](admin.md))
 - [ ] Presence and shared state for live components, for collaborative screens
 

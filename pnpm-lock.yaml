@@ -263,6 +263,27 @@ importers:
         specifier: ^8.3.7
         version: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)
 
+  mobile/shelf:
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.65.0
+        version: 1.65.0
+      '@ternkit/tern':
+        specifier: workspace:*
+        version: link:../../packages/tern
+      svelte:
+        specifier: ^5.57.3
+        version: 5.57.3
+      svelte-check:
+        specifier: ^4.7.8
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vite:
+        specifier: ^8.3.7
+        version: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)
+
   packages/create-tern: {}
 
   packages/tern:

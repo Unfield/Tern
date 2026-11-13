@@ -398,6 +398,11 @@ func (g *generator) localesInit() string {
 
 // rootPackageName returns the package name used by the project root's Go
 // files, defaulting to main.
+// RootPackageName is the name of the app's root Go package, where the
+// generated code goes: main for an app that is a program, or another name
+// for one used as a library, such as by a phone app.
+func RootPackageName(root string) (string, error) { return rootPackageName(root) }
+
 func rootPackageName(root string) (string, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {

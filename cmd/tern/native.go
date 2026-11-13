@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Unfield/Tern/internal/codegen"
 	"github.com/Unfield/Tern/internal/native"
 )
 
@@ -35,7 +36,11 @@ func compileNative(log io.Writer) (string, error) {
 	if err != nil {
 		return "skipped: " + err.Error(), nil //nolint:nilerr // the engine renders instead
 	}
-	res, err := native.Compile(ir, native.Options{Package: "main", Prefix: "tern", Register: "ternManifest.Native", EmbedSources: nativeSources})
+	pkg, err := codegen.RootPackageName(".")
+	if err != nil {
+		return "", err
+	}
+	res, err := native.Compile(ir, native.Options{Package: pkg, Prefix: "tern", Register: "ternManifest.Native", EmbedSources: nativeSources})
 	if err != nil {
 		fmt.Fprintln(log, err)
 		return "skipped: the compiler failed, see " + nativeReport, writeReport(res, err)

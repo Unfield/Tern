@@ -1,7 +1,7 @@
 #!/bin/bash
 # build.sh builds Shelf for the iOS Simulator: the Go server with gomobile,
 # the Xcode project with XcodeGen, then the app. Needs Xcode, and:
-#   go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init
+#   go install golang.org/x/mobile/cmd/gomobile@latest (gobind is a tool of mobile/shelf's go.mod)
 #   brew install xcodegen
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"

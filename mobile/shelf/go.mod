@@ -22,6 +22,7 @@ require (
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/mobile v0.0.0-20261011034528-197770444867 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
@@ -40,4 +41,7 @@ require (
 
 replace github.com/Unfield/Tern => ../..
 
-tool github.com/Unfield/Tern/cmd/tern
+tool (
+	github.com/Unfield/Tern/cmd/tern
+	golang.org/x/mobile/cmd/gobind
+)

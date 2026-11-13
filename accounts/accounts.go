@@ -428,7 +428,7 @@ func (a *Accounts) SignIn(c *kit.Ctx, email, password string, remember bool) (*U
 	}
 	u, hash, err := scanUser(a.queryRow(ctx, `SELECT `+userColumns+` FROM tern_users u WHERE u.email = ?`, normalizeEmail(email)))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && hash == "") {
-		CheckPassword(dummyHash, password) // as slow as a real check
+		CheckPassword(dummyHash(), password) // as slow as a real check
 		return nil, ErrInvalidCredentials
 	}
 	if err != nil {

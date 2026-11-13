@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"sync"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/bcrypt"
@@ -64,6 +65,11 @@ func CheckPassword(hash, password string) (ok, rehash bool) {
 	return false, false
 }
 
-// errNoPassword is a dummy hash's error: it keeps a sign-in for an unknown
-// email as slow as for a known one, so timing doesn't reveal accounts.
-var dummyHash, _ = HashPassword("tern: a password nobody has")
+// dummyHash keeps a sign-in for an unknown email as slow as for a known
+// one, so timing doesn't reveal accounts. It's made on first use: hashing
+// takes tens of milliseconds and 64 MB, which every start of the app (and
+// of a phone app) would otherwise pay.
+var dummyHash = sync.OnceValue(func() string {
+	h, _ := HashPassword("tern: a password nobody has")
+	return h
+})

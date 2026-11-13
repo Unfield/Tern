@@ -40,4 +40,13 @@ Shelf, the tutorial's app, as an iOS app (Android second):
 - **The shell is small:** `mobile/ios/Shelf` is three Swift files: the app starts the server off the main thread and shows a WKWebView; the bridge answers `postMessage` calls with promises (haptics, Keychain). `src/lib/native.ts` is the typed side, and does nothing in a browser.
 - **Security defaults hold on the phone:** the server is on loopback only, so other devices on the network can't reach it; the rate limit leaves loopback alone; the Content-Security-Policy doesn't apply to the native bridge.
 - **Open question, other apps on the same phone:** while Shelf runs, another app could connect to its loopback port. `tern mobile` should close that: serve the pages through a `WKURLSchemeHandler` (an `app://` scheme, no port at all), or require a secret made at each launch that the shell sets as a cookie.
-- Still to measure, with Xcode: start time, feel, size, offline.
+
+### In the iOS Simulator (Xcode 27.2, iPhone 18 Pro, iOS 27.2)
+
+- **It works.** Shelf runs with its Go server inside the app: sign-up (argon2 hashing, sessions, the `kit.SignedIn` guard, a redirect after the form post), client-side navigation and server rendering in Go, with no network at all: everything the app needs is on the device, so it works offline as it is.
+- **Build:** `gomobile bind` takes 40 s; `build.sh` does Tern, gomobile, XcodeGen and Xcode in one go. The Swift side built on the first try.
+- **Size:** the Release app for devices is 28 MB installed and 10.6 MB zipped, about what the App Store downloads: the Go server, SQLite, accounts, search and the compiled renderer included. A small Expo app is in the same range.
+- **Start time:** 0.5 to 3.2 s at first, measured from the Swift side. Most of it was `accounts` hashing a dummy password with argon2 (64 MB, ~70 ms on a Mac, far more on the Simulator) when the package loads, and gomobile runs package initialisation on the first call. Made lazy, the server starts in **40 to 165 ms**: the loading spinner barely shows. The fix helps every Tern app with accounts, and belongs on main.
+- **The port changes each launch,** which makes the page a new origin every time: browser storage (localStorage, IndexedDB) starts empty, and session cookies end when the app closes, so Sam was signed out after a relaunch. With the loopback-port question above, this settles it: `tern mobile` should serve the app through a `WKURLSchemeHandler` on a fixed origin, such as `app://shelf`, and keep users signed in.
+- **Focusing a field zooms the page,** as iOS does for inputs under 16 px. The shell should set the viewport's `maximum-scale=1` (or Tern UI inputs use 16 px on phones).
+- Not tried yet: haptics on a real device (the Simulator can't), scrolling and gestures on a long list, the keyboard covering fields, Android.

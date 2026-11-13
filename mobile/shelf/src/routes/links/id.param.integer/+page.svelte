@@ -2,6 +2,7 @@
 	import { enhance } from '@ternkit/tern';
 	import { Badge, Button } from '@ternkit/tern/ui';
 	import type { PageProps } from './$types';
+	import { haptic } from '$lib/native';
 
 	let { data }: PageProps = $props();
 	const link = $derived(data.link);
@@ -21,7 +22,15 @@
 
 <div class="actions">
 	<Button href={link.url} target="_blank" rel="noopener noreferrer">Open</Button>
-	<form method="POST" action="?/read" use:enhance>
+	<form
+		method="POST"
+		action="?/read"
+		use:enhance={() =>
+			async ({ result, update }) => {
+				if (result.type === 'success') void haptic('success');
+				await update();
+			}}
+	>
 		<input type="hidden" name="read" value={link.read ? '' : 'on'} />
 		<Button type="submit" variant="secondary">{link.read ? 'Mark as unread' : 'Mark as read'}</Button>
 	</form>

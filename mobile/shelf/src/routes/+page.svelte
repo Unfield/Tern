@@ -4,6 +4,7 @@
 	import { Button, Field, Form, Input, SearchBox } from '@ternkit/tern/ui';
 	import type { PageProps } from './$types';
 	import { forms } from './$forms';
+	import { haptic } from '$lib/native';
 
 	let { data, form }: PageProps = $props();
 	let saving = $state(false);
@@ -26,7 +27,7 @@
 	{/if}
 </header>
 
-<Form action="?/add" rules={forms.add} {form} bind:submitting={saving} class="add">
+<Form action="?/add" rules={forms.add} {form} bind:submitting={saving} onsuccess={() => haptic('success')} class="add">
 	<Field label="Address" name="url"><Input type="url" placeholder="https://" /></Field>
 	<Field label="Title" name="title"><Input placeholder="Optional" /></Field>
 	<Button type="submit" loading={saving}>Save</Button>

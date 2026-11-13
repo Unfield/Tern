@@ -36,4 +36,7 @@ Shelf, the tutorial's app, as an iOS app (Android second):
 
 ## Findings
 
-To fill in as the spike runs.
+- **A Tern app works as a library.** Code generation already put `tern.gen.go` in the root package by its name; the native renderer assumed `main`, now it doesn't. `mobile/shelf` is Shelf with its root package as `shelfapp`: `Start(dataDir)` serves it on a loopback port (127.0.0.1:0), with its database in the app's data directory, which is the shape gomobile binds (strings and an error). Its test passes on macOS: signed out, `/` redirects to sign in, and `/login` is rendered in Go.
+- **The shell is small:** `mobile/ios/Shelf` is three Swift files: the app starts the server off the main thread and shows a WKWebView; the bridge answers `postMessage` calls with promises (haptics, Keychain). `src/lib/native.ts` is the typed side, and does nothing in a browser.
+- **Security defaults hold on the phone:** the server is on loopback only, so other devices on the network can't reach it; the rate limit leaves loopback alone; the Content-Security-Policy doesn't apply to the native bridge.
+- Still to measure, with Xcode: start time, feel, size, offline.

@@ -1,0 +1,27 @@
+# XcodeGen project: build.sh turns it into Shelf.xcodeproj.
+name: Shelf
+options:
+  bundleIdPrefix: land.tern.spike
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  Shelf:
+    type: application
+    platform: iOS
+    sources: [Shelf]
+    dependencies:
+      - framework: build/Shelfapp.xcframework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: land.tern.spike.shelf
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: NO
+    info:
+      path: build/Info.plist
+      properties:
+        CFBundleDisplayName: Shelf
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # The server is on the device's loopback interface, over plain HTTP.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true

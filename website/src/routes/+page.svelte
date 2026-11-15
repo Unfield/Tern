@@ -78,9 +78,9 @@
 	<div class="backdrop" aria-hidden="true"></div>
 	<div class="container hero-inner">
 		<a class="announce" href="/docs/changelog">
-			<span class="pill">New in 1.16</span>
-			<span class="long">Secure by default, and typed SQL</span>
-			<span class="short">Secure by default</span>
+			<span class="pill">New in 1.17</span>
+			<span class="long">Email attachments, and Tern UI that fits phones</span>
+			<span class="short">Email attachments</span>
 			<Icon name="arrow-right" size={14} />
 		</a>
 		<h1>Svelte on the client.<br /><span class="grad">Go on the server.</span></h1>

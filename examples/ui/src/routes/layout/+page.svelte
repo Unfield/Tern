@@ -67,9 +67,8 @@
 <section aria-labelledby="shell">
 	<h2 id="shell">App shell</h2>
 	<div class="shell">
-		<Sidebar {groups} bind:collapsed label="App">
+		<Sidebar {groups} bind:collapsed label="App" user={{ name: 'Ada Lovelace', email: 'ada@example.com' }}>
 			{#snippet header()}Acme{/snippet}
-			{#snippet footer()}<Item title="Ada Lovelace" description="ada@example.com">{#snippet media()}<Avatar name="Ada Lovelace" size="1.75rem" />{/snippet}</Item>{/snippet}
 			<div class="content"><p>The page's content sits here, next to the sidebar. On a phone, the sidebar moves into a sheet.</p></div>
 		</Sidebar>
 	</div>

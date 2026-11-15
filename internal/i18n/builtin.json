@@ -204,6 +204,7 @@
 	"tern.ui.selectMenu.placeholder": "Choose…",
 	"tern.ui.sidebar.label": "Main",
 	"tern.ui.sidebar.open": "Open navigation",
+	"tern.ui.sidebar.signOut": "Sign out",
 	"tern.ui.sidebar.title": "Navigation",
 	"tern.ui.signIn.cancelled": "You cancelled the sign-in. Try again when you’re ready.",
 	"tern.ui.signIn.continueWith": "Continue with {provider}",

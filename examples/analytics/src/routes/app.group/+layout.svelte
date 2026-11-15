@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Avatar, Button, Item, Sidebar, type SidebarGroup } from '@ternkit/tern/ui';
+	import { Sidebar, type SidebarGroup } from '@ternkit/tern/ui';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -12,14 +12,8 @@
 {#snippet sitesIcon()}<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12" /></svg>{/snippet}
 {#snippet dot()}<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="3" fill="currentColor" /></svg>{/snippet}
 
-<Sidebar {groups} label="Analytics">
+<Sidebar {groups} label="Analytics" user={data.user}>
 	{#snippet header()}<a class="brand" href="/sites">Analytics</a>{/snippet}
-	{#snippet footer()}
-		<Item title={data.user.name} description={data.user.email}>
-			{#snippet media()}<Avatar name={data.user.name} size="1.75rem" />{/snippet}
-		</Item>
-		<form method="POST" action="/logout"><Button type="submit" variant="ghost" size="sm">Sign out</Button></form>
-	{/snippet}
 	<main class="main">{@render children()}</main>
 </Sidebar>
 

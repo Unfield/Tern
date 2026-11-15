@@ -167,7 +167,10 @@
 	<div class="stack">
 		<Alert tone="info" title="Maintenance on Sunday">Checks pause for about ten minutes at 02:00 UTC.</Alert>
 		<Alert tone="success">All monitors are up.</Alert>
-		<Alert tone="warning" title="Certificate expires soon">api.example.com's certificate expires in 6 days.</Alert>
+		<Alert tone="warning" title="Certificate expires soon">
+			api.example.com's certificate expires in 6 days.
+			{#snippet action()}<Button size="sm" variant="secondary">Renew now</Button>{/snippet}
+		</Alert>
 		<Alert tone="danger" title="Checkout is down">Since 14:02 UTC. We're notifying the on-call team.</Alert>
 		<div class="row">
 			<Badge>Draft</Badge>

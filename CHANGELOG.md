@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `Alert` takes an `action` snippet: a button at the end of the alert, centered on its text, or under the text when the alert is narrow.
+- `Sidebar` takes a `user` (name, email, image) and shows it at the bottom with an avatar and a sign-out button, which posts to `signOut` (`/logout` unless set; `false` leaves it out). Collapsed, it shows the avatar. The button's label is `tern.ui.sidebar.signOut`.
+
 ## [1.16.1] - 2026-11-15
 
 ### Fixed

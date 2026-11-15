@@ -58,10 +58,10 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Tooltip` | `role="tooltip"`, linked to its trigger with `aria-describedby`. It shows on hover and focus, Escape hides it, and it can sit on any `side` |
 | `Accordion` | buttons with `aria-expanded` inside headings of the level you choose, and labelled regions |
 | `Toaster` and `toast()` | a labelled notifications region. Errors are announced at once, the rest politely. Timers pause on hover and focus |
-| `Alert` | with `live`, `role="alert"` (danger, warning) or `role="status"` |
+| `Alert` | with `live`, `role="alert"` (danger, warning) or `role="status"`. An `action` snippet puts a button at the end, or under the text in a narrow alert |
 | `Progress` | `role="progressbar"` with values; with no value, it is indeterminate |
 | `Spinner` | `role="status"` with a hidden label |
-| `Sidebar` | an app shell: a labelled navigation with groups, badges and sub-links, current page marked, that collapses to icons and becomes a sheet on phones |
+| `Sidebar` | an app shell: a labelled navigation with groups, badges and sub-links, current page marked, that collapses to icons and becomes a sheet on phones. `user` shows the signed-in user at the bottom, with a sign-out button that posts to `signOut` (`/logout`) |
 | `NavigationMenu` | site navigation with dropdown panels of links, built on the disclosure pattern (links don't belong in an ARIA menu). ArrowDown enters a panel, Escape returns |
 | `Breadcrumb`, `Pagination` | labelled `nav`s with `aria-current="page"`. Long breadcrumbs fold their middle into a menu; pagination can render links (`href`) so it works without JavaScript |
 | `DataTable`, `Table` | semantic tables with captions. `DataTable` sorts (`aria-sort`), searches, selects with checkboxes and pages, on the client or through `onquery` on the server, and announces what it shows |

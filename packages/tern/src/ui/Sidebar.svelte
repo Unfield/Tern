@@ -2,6 +2,7 @@
 	import { tb } from '../runtime/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import { page } from '../runtime/state.svelte.js';
+	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
 
 	export type SidebarLink = {
@@ -20,8 +21,12 @@
 		groups: SidebarGroup[];
 		/** The app's name or logo, at the top. */
 		header?: Snippet;
-		/** Things at the bottom, such as the signed-in user. */
+		/** Things at the bottom, above the signed-in user. */
 		footer?: Snippet;
+		/** The signed-in user, at the bottom: avatar, name, email and a sign-out button. */
+		user?: { name?: string | null; email: string; image?: string | null } | null;
+		/** Where the sign-out button posts; false leaves it out. */
+		signOut?: string | false;
 		/** Show icons only on wide screens; bind it. */
 		collapsed?: boolean;
 		/** Names the navigation. */
@@ -30,7 +35,7 @@
 		children: Snippet;
 		class?: string;
 	};
-	let { groups, header, footer, collapsed = $bindable(false), label: labelProp, children, class: klass = '' }: Props = $props();
+	let { groups, header, footer, user = null, signOut = '/logout', collapsed = $bindable(false), label: labelProp, children, class: klass = '' }: Props = $props();
 	const label = $derived(labelProp ?? tb('tern.ui.sidebar.label'));
 
 	let mobileOpen = $state(false);
@@ -75,6 +80,28 @@
 	</nav>
 {/snippet}
 
+{#snippet account(compact: boolean)}
+	{#if user}
+		{@const name = user.name || user.email}
+		<div class="account" class:compact title={compact ? name : undefined}>
+			<Avatar {name} src={user.image} size="2rem" />
+			{#if !compact}
+				<div class="who">
+					<span class="name">{name}</span>
+					{#if user.name}<span class="email">{user.email}</span>{/if}
+				</div>
+				{#if signOut !== false}
+					<form method="POST" action={signOut}>
+						<button type="submit" class="signout" aria-label={tb('tern.ui.sidebar.signOut')} title={tb('tern.ui.sidebar.signOut')}>
+							<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5H4a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 4 13.5h2M10.5 11 13.5 8l-3-3M13.5 8H6" /></svg>
+						</button>
+					</form>
+				{/if}
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
 <div class="tern-sidebar-layout {klass}" class:collapsed>
 	<aside class="sidebar">
 		<div class="top">
@@ -84,7 +111,12 @@
 			</button>
 		</div>
 		{@render nav(collapsed)}
-		{#if footer && !collapsed}<div class="footer">{@render footer()}</div>{/if}
+		{#if (footer && !collapsed) || user}
+			<div class="footer">
+				{#if footer && !collapsed}{@render footer()}{/if}
+				{@render account(collapsed)}
+			</div>
+		{/if}
 	</aside>
 	<div class="mobilebar">
 		<button type="button" class="collapse" aria-label={tb('tern.ui.sidebar.open')} aria-expanded={mobileOpen} onclick={() => (mobileOpen = true)}>
@@ -97,7 +129,12 @@
 
 <Dialog bind:open={mobileOpen} title={tb('tern.ui.sidebar.title')} side="left" class="tern-sidebar-sheet">
 	{@render nav(false)}
-	{#if footer}<div class="footer">{@render footer()}</div>{/if}
+	{#if footer || user}
+		<div class="footer">
+			{#if footer}{@render footer()}{/if}
+			{@render account(false)}
+		</div>
+	{/if}
 </Dialog>
 
 <style>
@@ -230,8 +267,67 @@
 		min-height: 1.875rem;
 	}
 	.footer {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 		padding-top: 0.75rem;
 		border-top: 1px solid var(--tern-border);
+	}
+	.account {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		min-width: 0;
+		padding: 0.25rem 0.25rem 0.25rem 0.375rem;
+	}
+	.account.compact {
+		justify-content: center;
+		padding: 0.25rem 0;
+	}
+	.who {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-width: 0;
+		line-height: 1.25rem;
+	}
+	.who .name,
+	.who .email {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.who .name {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--tern-fg);
+	}
+	.who .email {
+		font-size: 0.8125rem;
+		color: var(--tern-muted);
+	}
+	.account form {
+		display: contents;
+	}
+	.signout {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border: 0;
+		border-radius: var(--tern-radius-sm);
+		background: transparent;
+		color: var(--tern-muted);
+		cursor: pointer;
+	}
+	.signout:hover {
+		background: var(--tern-surface-2);
+		color: var(--tern-fg);
+	}
+	.signout:focus-visible {
+		outline: 2px solid var(--tern-ring);
+		outline-offset: -2px;
 	}
 	.main {
 		min-width: 0;

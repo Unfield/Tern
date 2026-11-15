@@ -142,6 +142,7 @@
 		display: grid;
 		grid-template-columns: 15rem 1fr;
 		min-height: 100vh;
+		min-height: 100dvh; /* phones: without the browser's toolbars */
 	}
 	.collapsed {
 		grid-template-columns: 3.75rem 1fr;
@@ -153,6 +154,7 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		height: 100vh;
+		height: 100dvh;
 		box-sizing: border-box;
 		padding: 0.75rem;
 		overflow-y: auto;
@@ -339,6 +341,9 @@
 		.tern-sidebar-layout,
 		.collapsed {
 			grid-template-columns: 1fr;
+			/* The bar keeps its height, and the page takes the rest of the
+			   screen; otherwise a short page stretches both. */
+			grid-template-rows: auto 1fr;
 		}
 		.sidebar {
 			display: none;
@@ -356,6 +361,15 @@
 		}
 	}
 	:global(.tern-sidebar-sheet.left) {
-		width: min(18rem, 100vw - 3rem);
+		width: min(18rem, 100% - 3rem);
+	}
+	/* In the sheet, as in the sidebar, the user sits at the bottom. */
+	:global(.tern-sidebar-sheet .body) {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+	}
+	:global(.tern-sidebar-sheet .body) > .footer {
+		margin-top: auto;
 	}
 </style>

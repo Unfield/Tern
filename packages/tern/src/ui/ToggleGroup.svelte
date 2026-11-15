@@ -26,7 +26,7 @@
 	const name = $derived(nameProp ?? field?.name);
 
 	field?.custom();
-	const buttons: HTMLButtonElement[] = [];
+	const buttons: HTMLButtonElement[] = $state([]);
 	const chosen = (v: string) => (Array.isArray(value) ? value.includes(v) : value === v);
 	const enabled = $derived(options.map((o, i) => ({ o, i })).filter(({ o }) => !o.disabled && !disabled));
 	// Roving tabindex: the chosen item, else the first enabled one.

@@ -82,13 +82,13 @@
 	}
 	.stats {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
 		gap: 1rem;
 		margin: 1.5rem 0;
 	}
 	.charts {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
 		gap: 2rem 1.5rem;
 		margin-bottom: 2.5rem;
 	}

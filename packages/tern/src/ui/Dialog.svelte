@@ -139,6 +139,7 @@
 	.panel {
 		display: grid;
 		gap: 1rem;
+		box-sizing: border-box;
 		padding: 1.25rem 1.5rem 1.5rem;
 		background: var(--tern-surface);
 		border: 1px solid var(--tern-border);
@@ -188,16 +189,29 @@
 		gap: 0.5rem;
 		margin-top: 0.25rem;
 	}
+	/* A centered dialog taller than the screen, as on a phone, scrolls
+	   inside, so its buttons stay reachable. */
+	.tern-dialog.center .panel {
+		max-height: calc(100vh - 2rem);
+		max-height: calc(100dvh - 2rem);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
 	/* Sheets: full height or width, against an edge. */
+	/* Sizes from the dialog's box, which is the window without its
+	   scrollbar, and dvh on phones, where 100vh reaches under the
+	   browser's toolbar and hides a sheet's bottom. */
 	.tern-dialog:not(.center) {
 		margin: 0;
-		max-width: 100vw;
+		max-width: 100%;
 		max-height: 100vh;
+		max-height: 100dvh;
 	}
 	.tern-dialog.left,
 	.tern-dialog.right {
 		height: 100vh;
-		width: min(24rem, 100vw - 3rem);
+		height: 100dvh;
+		width: min(24rem, 100% - 3rem);
 	}
 	.tern-dialog.left {
 		margin-right: auto;
@@ -207,7 +221,7 @@
 	}
 	.tern-dialog.top,
 	.tern-dialog.bottom {
-		width: 100vw;
+		width: 100%;
 	}
 	.tern-dialog.top {
 		margin-bottom: auto;

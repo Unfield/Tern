@@ -137,7 +137,7 @@
 	}
 	.stats {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
 		gap: 1rem;
 		margin-bottom: 1rem;
 	}
@@ -150,7 +150,7 @@
 	}
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
 		gap: 1rem;
 		margin: 1rem 0;
 	}

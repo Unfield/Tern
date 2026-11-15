@@ -73,6 +73,7 @@
 	.tern-otp {
 		position: relative;
 		width: fit-content;
+		max-width: 100%;
 	}
 	input {
 		position: absolute;
@@ -88,6 +89,8 @@
 		cursor: text;
 		z-index: 1;
 	}
+	/* Boxes are 2.5rem wide, and narrower when the line is, as on a
+	   phone in an indented list. */
 	.boxes {
 		display: flex;
 		gap: 0.5rem;
@@ -97,6 +100,9 @@
 		display: grid;
 		place-items: center;
 		width: 2.5rem;
+		flex: 0 1 auto;
+		min-width: 1.75rem;
+		box-sizing: border-box;
 		height: 2.875rem;
 		font-family: var(--tern-font-mono);
 		font-size: 1.25rem;

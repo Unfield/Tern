@@ -6,7 +6,7 @@ import path from 'node:path';
 import { nativePlugin } from './native.js';
 import { searchForWorkspaceRoot, type Plugin, type UserConfig, type ViteDevServer } from 'vite';
 import { backdropFilterPlugin } from './cssfix.js';
-import { goScriptPlugin, goScriptPreprocessor } from './goscript.js';
+import { goScanPlugin, goScriptPlugin, goScriptPreprocessor } from './goscript.js';
 import { imagePlugin } from './image.js';
 
 export interface TernOptions {
@@ -152,7 +152,8 @@ export function tern(options: TernOptions = {}): Plugin[] {
 				},
 				optimizeDeps: {
 					entries: [CLIENT_ENTRY, 'src/**/*.svelte'],
-					exclude: ['@ternkit/tern']
+					exclude: ['@ternkit/tern'],
+					rolldownOptions: { plugins: [goScanPlugin()] }
 				}
 			};
 		},

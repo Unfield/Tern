@@ -104,7 +104,7 @@
 <style>
 	.codes {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(8rem, 100%), 1fr));
 		gap: 0.5rem;
 		margin: 0;
 		padding: 1rem 1rem 1rem 2.25rem;
@@ -133,6 +133,9 @@
 	}
 	.steps li {
 		display: grid;
+		/* One column no wider than the list, so the code boxes shrink to fit
+		   it on a phone instead of widening the page. */
+		grid-template-columns: minmax(0, 1fr);
 		gap: 0.75rem;
 		justify-items: start;
 	}

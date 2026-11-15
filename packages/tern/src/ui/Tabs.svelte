@@ -15,7 +15,7 @@
 	let { tabs, value = $bindable(), label, class: klass = '', panel }: Props = $props();
 	const uid = $props.id();
 	const selected = $derived(value ?? tabs.find((t) => !t.disabled)?.id);
-	const buttons: HTMLButtonElement[] = [];
+	const buttons: HTMLButtonElement[] = $state([]);
 
 	// The ARIA tabs pattern: arrow keys move and select, Home and End jump.
 	function onkeydown(e: KeyboardEvent, i: number) {
@@ -58,15 +58,26 @@
 </div>
 
 <style>
+	/* More tabs than fit, as on a phone: the row scrolls sideways instead
+	   of pushing the page wider. */
 	.list {
 		display: flex;
 		gap: 0.25rem;
-		border-bottom: 1px solid var(--tern-border);
+		/* The line under the tabs, drawn inside the box so a scrolling row
+		   doesn't clip the selected tab's mark that sits on it. */
+		box-shadow: inset 0 -1px var(--tern-border);
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		scrollbar-width: none;
+	}
+	.list::-webkit-scrollbar {
+		display: none;
 	}
 	[role='tab'] {
 		position: relative;
+		flex: none;
+		white-space: nowrap;
 		padding: 0.55rem 0.8rem;
-		margin-bottom: -1px;
 		border: 0;
 		background: transparent;
 		font: inherit;
@@ -100,6 +111,9 @@
 	[role='tab']:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
+	}
+	.tern-tabs {
+		min-width: 0;
 	}
 	.panel {
 		padding-top: 1rem;

@@ -15,7 +15,7 @@
 
 	const uid = $props.id();
 	let open = $state<number | null>(null);
-	const buttons: HTMLButtonElement[] = [];
+	const buttons: HTMLButtonElement[] = $state([]);
 	let panel = $state<HTMLDivElement>();
 	let hoverTimer: ReturnType<typeof setTimeout> | undefined;
 

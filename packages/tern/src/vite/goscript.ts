@@ -259,3 +259,25 @@ export function goScriptPlugin(getRoot: () => string): Plugin {
 		}
 	};
 }
+
+/**
+ * goScriptScanPlugin keeps Vite's dependency scan from reading Go as
+ * JavaScript. The scan takes each <script> in a .svelte file as JavaScript
+ * unless its type says otherwise, and lang="go" doesn't; the Go fails to
+ * parse, and the whole scan is skipped. For files with a Go script, this
+ * gives the scan their other scripts only.
+ */
+export function goScanPlugin(): { name: string; load: { filter: { id: RegExp }; handler(id: string): Promise<{ code: string; moduleType: 'ts' } | null> } } {
+	return {
+		name: 'tern:goscript-scan',
+		load: {
+			filter: { id: /\.svelte$/ },
+			async handler(id: string) {
+				const raw = await fs.promises.readFile(id, 'utf-8');
+				if (!GO_SCRIPT.test(raw)) return null;
+				const scripts = [...raw.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter((m) => !/\blang=["']go["']/.test(m[1] ?? '')).map((m) => m[2] ?? '');
+				return { code: scripts.join('\n'), moduleType: 'ts' };
+			}
+		}
+	};
+}

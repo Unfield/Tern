@@ -119,6 +119,12 @@ func (d *devRunner) run(ctx context.Context) error {
 	}
 	defer stopLogs()
 
+	// Vite follows the app's imports when it starts, and pages import
+	// files under .tern ($forms, $types): generate them first, or a new
+	// app's first run fails Vite's dependency scan. Errors are reported
+	// by the rebuild below.
+	_, _ = codegen.Generate(d.root)
+
 	vite, err := d.startVite()
 	if err != nil {
 		return err

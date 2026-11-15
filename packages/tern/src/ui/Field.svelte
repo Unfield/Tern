@@ -66,10 +66,15 @@
 </div>
 
 <style>
+	/* Never wider than where it sits: a wide control inside shrinks or
+	   scrolls instead of pushing the page wider. */
 	.tern-field {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		align-content: start;
 		gap: 0.375rem;
+		max-width: 100%;
+		min-width: 0;
 	}
 	label {
 		font-size: 0.875rem;

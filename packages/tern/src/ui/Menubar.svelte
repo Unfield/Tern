@@ -15,7 +15,7 @@
 	let active = $state(0); // the top item in the tab order
 	let open = $state<number | null>(null);
 	let focus = $state<'first' | 'last'>('first');
-	const buttons: HTMLButtonElement[] = [];
+	const buttons: HTMLButtonElement[] = $state([]);
 
 	function show(i: number, where: 'first' | 'last' = 'first') {
 		active = i;

@@ -33,8 +33,12 @@
 </svelte:element>
 
 <style>
+	/* min-width 0 and a minmax column: a card in a grid or flex row is
+	   never wider than its column, whatever is inside. */
 	.tern-card {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		min-width: 0;
 		gap: 1rem;
 		padding: 1.25rem;
 		background: var(--tern-surface);

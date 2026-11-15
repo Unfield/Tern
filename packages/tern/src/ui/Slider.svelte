@@ -25,7 +25,7 @@
 	const uid = $props.id();
 	field?.custom();
 	let track = $state<HTMLDivElement>();
-	const thumbs: HTMLElement[] = [];
+	const thumbs: HTMLElement[] = $state([]);
 	let dragging = $state<number | null>(null);
 
 	const values = $derived<number[]>(Array.isArray(value) ? value : [value]);

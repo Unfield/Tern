@@ -6,15 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
+## [1.17.0] - 2026-11-15
 
-- Account lists (devices, passkeys, members, invitations, linked accounts) no longer squeeze names one letter per line on phones. When the text would get narrower than 12rem, the buttons move to a line of their own, and a badge goes under the name instead of breaking it. In a `Card`, the list drops its own border, and cards have 1rem of padding on phones.
+Email attachments, and Tern UI that fits phones better. No upgrade steps.
 
 ### Added
 
 - Email attachments: `Message.Attach` adds a file, and `Message.Inline` adds an image the HTML shows with `cid:`. Names keep their accents and lose directories and line breaks. Content types are guessed when not set, and messages over 25 MB (`mail.MaxSize`) are refused with an error.
 - `Alert` takes an `action` snippet: a button at the end of the alert, centered on its text, or under the text when the alert is narrow.
 - `Sidebar` takes a `user` (name, email, image) and shows it at the bottom with an avatar and a sign-out button, which posts to `signOut` (`/logout` unless set; `false` leaves it out). Collapsed, it shows the avatar. The button's label is `tern.ui.sidebar.signOut`.
+
+### Fixed
+
+- `Sidebar`: on phones, the bar with the menu button keeps its height on short pages instead of stretching, and the page takes the rest of the screen. The account row sits at the bottom of the navigation sheet, as in the sidebar.
+- Dialogs taller than the screen, as on a phone, scroll inside, so their buttons stay reachable. Sheets, menus and the sidebar use the visible height on phones (`dvh`), so the browser's toolbar no longer hides their bottom, and sheets no longer reach under the scrollbar.
+- `Tabs` with more tabs than fit scroll sideways instead of widening the page.
+- Two-step setup fits a 320 px screen: the code boxes of `InputOTP` shrink when the line is narrow, and a `Field` or `Card` is never wider than where it sits.
+- `tern dev` generates code before starting Vite, so a new app's first run no longer fails Vite's dependency scan on `./$forms`; components with `<script lang="go">` no longer fail it either.
+- `Tabs`, `Menubar`, `MenuList`, `NavigationMenu`, `Slider` and `ToggleGroup` no longer log Svelte's `binding_property_non_reactive` warning.
+- Grids in the SaaS template and the examples no longer force columns wider than a phone screen.
+- Account lists (devices, passkeys, members, invitations, linked accounts) no longer squeeze names one letter per line on phones. When the text would get narrower than 12rem, the buttons move to a line of their own, and a badge goes under the name instead of breaking it. In a `Card`, the list drops its own border, and cards have 1rem of padding on phones.
 
 ## [1.16.1] - 2026-11-15
 
@@ -511,7 +522,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.16.1...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/Unfield/Tern/releases/tag/v1.17.0
 [1.16.1]: https://github.com/Unfield/Tern/releases/tag/v1.16.1
 [1.16.0]: https://github.com/Unfield/Tern/releases/tag/v1.16.0
 [1.15.0]: https://github.com/Unfield/Tern/releases/tag/v1.15.0

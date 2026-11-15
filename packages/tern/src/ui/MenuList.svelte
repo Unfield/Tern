@@ -28,7 +28,7 @@
 	let menu = $state<HTMLDivElement>();
 	let openSub = $state<number | null>(null);
 	let subFocus = $state<'first' | 'none'>('first');
-	const itemEls: HTMLElement[] = [];
+	const itemEls: HTMLElement[] = $state([]);
 	let typed = '';
 	let typedTimer: ReturnType<typeof setTimeout> | undefined;
 	let hoverTimer: ReturnType<typeof setTimeout> | undefined;
@@ -236,6 +236,7 @@
 	.tern-menu-list {
 		min-width: 12rem;
 		max-height: calc(100vh - 1rem);
+		max-height: calc(100dvh - 1rem);
 		overflow: auto;
 		padding: 0.3rem;
 		color: var(--tern-fg);

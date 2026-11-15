@@ -71,7 +71,7 @@
 	}
 	.cards {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
 		gap: 1rem;
 		margin: 0;
 		padding: 0;

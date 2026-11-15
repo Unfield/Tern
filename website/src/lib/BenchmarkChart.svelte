@@ -128,7 +128,7 @@
 	}
 	.panels {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
 		gap: var(--s-6);
 	}
 	.panel {

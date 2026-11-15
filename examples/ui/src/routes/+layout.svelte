@@ -42,22 +42,41 @@
 	}
 	header {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 1.5rem;
+		gap: 0.5rem 1.5rem;
 		padding: 0.75rem 1.5rem;
 		border-bottom: 1px solid var(--tern-border);
 		background: var(--tern-surface);
 	}
 	.brand {
+		white-space: nowrap;
 		font-weight: 700;
 		letter-spacing: -0.02em;
 		color: var(--tern-fg);
 		text-decoration: none;
 	}
+	/* On a phone the links scroll sideways on a row of their own. */
 	nav {
 		display: flex;
 		gap: 1rem;
-		flex: 1;
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	nav a {
+		flex: none;
+		white-space: nowrap;
+	}
+	@media (max-width: 40rem) {
+		header {
+			padding-inline: 1rem;
+		}
+		nav {
+			order: 3;
+			flex-basis: 100%;
+		}
 	}
 	nav a {
 		color: var(--tern-muted);
@@ -94,5 +113,11 @@
 	}
 	.skip:focus {
 		top: 0.5rem;
+	}
+	@media (max-width: 40rem) {
+		main {
+			margin-top: 1.25rem;
+			padding-inline: 1rem;
+		}
 	}
 </style>

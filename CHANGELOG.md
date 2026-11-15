@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Release builds keep `backdrop-filter` when a rule also sets `-webkit-backdrop-filter`. Vite's CSS minifier dropped the standard property, so blurred headers lost their blur in Chrome and Firefox, and looked different from `tern dev`.
+
 ## [1.16.0] - 2026-11-12
 
 Secure by default, and typed SQL. This release turns on protections that apps had to remember before, so upgrading takes a few steps:

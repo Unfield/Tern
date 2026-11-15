@@ -107,5 +107,21 @@ cd "${RUNNER_DIR}"
 ./svc.sh install "${RUNNER_USER}"
 ./svc.sh start
 
+log "Installing the weekly cleanup"
+# Go keeps build results for five days after their last use, and CI builds
+# many versions of everything, so the build cache fills the disk within
+# weeks. Once a week: the cache once it's over 8 GB, Go's leftover
+# temporary directories, and the runner's own logs after a week.
+cat > /etc/cron.weekly/tern-ci-cleanup <<CLEAN
+#!/bin/sh
+cache="/home/${RUNNER_USER}/.cache/go-build"
+if [ -d "\$cache" ] && [ "\$(du -sm "\$cache" | cut -f1)" -gt 8192 ]; then
+  rm -rf "\$cache"
+fi
+find /tmp -maxdepth 1 -name 'go-build*' -mtime +1 -exec rm -rf {} +
+find "${RUNNER_DIR}/_diag" -type f -mtime +7 -delete
+CLEAN
+chmod 755 /etc/cron.weekly/tern-ci-cleanup
+
 log "Done. Runner ${version} '${RUNNER_NAME}' is running."
 echo "Check it at ${REPO_URL}/settings/actions/runners"

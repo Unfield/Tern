@@ -1173,6 +1173,19 @@ err = mailer.Send(ctx, msg)
 
 **The message:** it carries the HTML and a plain-text version made from it (links appear as `text (url)`). `app.RenderEmail` returns these parts without sending.
 
+**Attachments:** `msg.Attach` adds a file, and `msg.Inline` adds an image the HTML shows by its content ID:
+
+```go
+msg.Attach("invoice-1042.pdf", pdf)
+cid := msg.Inline("chart.png", png)
+msg.HTML += `<img src="cid:` + cid + `" alt="Visits this month">`
+```
+
+- The content type comes from the file's name, or its contents when the name doesn't tell. Set `Attachment.ContentType` to choose it.
+- Names keep their accents. Directories and line breaks are removed from them.
+- A message can be at most 25 MB (`mail.MaxSize`), which most providers accept. Files grow by a third when encoded, so that's about 18 MB of attachments. For larger files, send a link: a signed `storage` URL, for example.
+- Messages queued with `mail.Job` carry their attachments. For large files, it can be better to queue the file's key and attach it in the job.
+
 **SMTP:**
 - Port 465 uses TLS from the start. Other ports require STARTTLS unless `Insecure` is set, for local servers such as Mailpit.
 - Addresses are validated, `Bcc` recipients never appear in the headers, and line breaks can't inject headers.

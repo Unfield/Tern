@@ -11,6 +11,11 @@
 //
 //	sendMail := mail.Job(q, mailer)
 //	_, err = sendMail.Enqueue(ctx, *msg)
+//
+// Attach files with Attach, or show an image in the HTML with Inline:
+//
+//	msg.Attach("invoice-1042.pdf", pdf)
+//	cid := msg.Inline("chart.png", png) // <img src="cid:...">
 package mail
 
 import (
@@ -18,6 +23,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,8 +31,10 @@ import (
 	"mime"
 	"mime/quotedprintable"
 	"net"
+	"net/http"
 	"net/mail"
 	"net/smtp"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,6 +55,39 @@ type Message struct {
 	Text    string   `json:"text,omitempty"`
 	// Headers are extra headers, such as List-Unsubscribe.
 	Headers map[string]string `json:"headers,omitempty"`
+	// Attachments are files sent with the message: see Attach and Inline.
+	Attachments []Attachment `json:"attachments,omitempty"`
+}
+
+// Attachment is a file sent with a message.
+type Attachment struct {
+	// Filename is the name the recipient sees; any directories are dropped.
+	Filename string `json:"filename"`
+	// ContentType, such as application/pdf, is guessed from the name and
+	// the contents when empty.
+	ContentType string `json:"contentType,omitempty"`
+	Data        []byte `json:"data"`
+	// ContentID makes it an inline part, for an image the HTML shows with
+	// <img src="cid:ContentID">, instead of a file in the attachment list.
+	ContentID string `json:"contentId,omitempty"`
+}
+
+// MaxSize is the largest message Encode builds, attachments included:
+// 25 MB, which most mail providers accept. Files are a third larger once
+// encoded, so the attachments of a message can total about 18 MB.
+const MaxSize = 25 << 20
+
+// Attach adds a file to the message.
+func (m *Message) Attach(filename string, data []byte) {
+	m.Attachments = append(m.Attachments, Attachment{Filename: filename, Data: data})
+}
+
+// Inline adds an image for the HTML to show, and returns the content ID
+// to use in it: <img src="cid:{{id}}">.
+func (m *Message) Inline(filename string, data []byte) string {
+	id := randomID() + "@tern"
+	m.Attachments = append(m.Attachments, Attachment{Filename: filename, Data: data, ContentID: id})
+	return id
 }
 
 // Transport delivers messages: SMTP, Log, or your own for an email API.
@@ -151,29 +192,138 @@ func Encode(msg *Message) ([]byte, []string, error) {
 	for k, v := range msg.Headers {
 		header(k, v)
 	}
-	part := func(contentType, body string) {
-		fmt.Fprintf(&b, "Content-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", contentType)
-		w := quotedprintable.NewWriter(&b)
-		_, _ = w.Write([]byte(body))
-		_ = w.Close()
-		b.WriteString("\r\n")
+	var inline, files []Attachment
+	for i := range msg.Attachments {
+		at, err := checkAttachment(msg.Attachments[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		if at.ContentID != "" {
+			inline = append(inline, at)
+		} else {
+			files = append(files, at)
+		}
 	}
-	switch {
-	case msg.HTML != "" && msg.Text != "":
+
+	// The body, nested as mail clients expect:
+	// mixed(related(alternative(text, html), inline images), files).
+	text := func(w *bytes.Buffer, contentType, body string) {
+		fmt.Fprintf(w, "Content-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", contentType)
+		q := quotedprintable.NewWriter(w)
+		_, _ = q.Write([]byte(body))
+		_ = q.Close()
+		w.WriteString("\r\n")
+	}
+	multipart := func(w *bytes.Buffer, kind string, parts ...func(*bytes.Buffer)) {
 		boundary := "tern-" + randomID()
-		header("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
-		b.WriteString("\r\n")
-		fmt.Fprintf(&b, "--%s\r\n", boundary)
-		part("text/plain", msg.Text)
-		fmt.Fprintf(&b, "--%s\r\n", boundary)
-		part("text/html", msg.HTML)
-		fmt.Fprintf(&b, "--%s--\r\n", boundary)
-	case msg.HTML != "":
-		part("text/html", msg.HTML)
-	default:
-		part("text/plain", msg.Text)
+		fmt.Fprintf(w, "Content-Type: multipart/%s; boundary=\"%s\"\r\n\r\n", kind, boundary)
+		for _, p := range parts {
+			fmt.Fprintf(w, "--%s\r\n", boundary)
+			p(w)
+		}
+		fmt.Fprintf(w, "--%s--\r\n", boundary)
+	}
+	alternative := func(w *bytes.Buffer) {
+		switch {
+		case msg.HTML != "" && msg.Text != "":
+			multipart(w, "alternative",
+				func(w *bytes.Buffer) { text(w, "text/plain", msg.Text) },
+				func(w *bytes.Buffer) { text(w, "text/html", msg.HTML) })
+		case msg.HTML != "":
+			text(w, "text/html", msg.HTML)
+		default:
+			text(w, "text/plain", msg.Text)
+		}
+	}
+	related := alternative
+	if len(inline) > 0 {
+		parts := []func(*bytes.Buffer){alternative}
+		for _, at := range inline {
+			parts = append(parts, func(w *bytes.Buffer) { attachment(w, at) })
+		}
+		related = func(w *bytes.Buffer) { multipart(w, "related", parts...) }
+	}
+	if len(files) > 0 {
+		parts := []func(*bytes.Buffer){related}
+		for _, at := range files {
+			parts = append(parts, func(w *bytes.Buffer) { attachment(w, at) })
+		}
+		multipart(&b, "mixed", parts...)
+	} else {
+		related(&b)
+	}
+	if b.Len() > MaxSize {
+		return nil, nil, fmt.Errorf("mail: the message is %d MB, over the %d MB most providers accept; link to large files instead of attaching them", b.Len()>>20, MaxSize>>20)
 	}
 	return b.Bytes(), rcpts, nil
+}
+
+// checkAttachment cleans an attachment's name and checks its type.
+func checkAttachment(at Attachment) (Attachment, error) {
+	name := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1 // no header injection
+		}
+		return r
+	}, at.Filename)
+	name = path.Base(strings.ReplaceAll(name, "\\", "/"))
+	if name == "." || name == "/" || name == "" {
+		return at, fmt.Errorf("mail: an attachment has no filename")
+	}
+	at.Filename = name
+	if at.ContentType == "" {
+		at.ContentType = mime.TypeByExtension(path.Ext(name))
+		if at.ContentType == "" {
+			at.ContentType = http.DetectContentType(at.Data)
+		}
+	}
+	mt, params, err := mime.ParseMediaType(at.ContentType)
+	if err != nil {
+		return at, fmt.Errorf("mail: attachment %s: content type %q: %w", name, at.ContentType, err)
+	}
+	at.ContentType = mime.FormatMediaType(mt, params)
+	if strings.ContainsAny(at.ContentID, "<>\r\n \t") {
+		return at, fmt.Errorf("mail: attachment %s: content ID %q has characters it can't have", name, at.ContentID)
+	}
+	return at, nil
+}
+
+// attachment writes a base64-encoded part, in lines of 76 characters.
+func attachment(w *bytes.Buffer, at Attachment) {
+	disposition := "attachment"
+	if at.ContentID != "" {
+		disposition = "inline"
+	}
+	fmt.Fprintf(w, "Content-Type: %s\r\n", mime.FormatMediaType(mediaType(at.ContentType), mergeParams(at.ContentType, map[string]string{"name": at.Filename})))
+	fmt.Fprintf(w, "Content-Disposition: %s\r\n", mime.FormatMediaType(disposition, map[string]string{"filename": at.Filename}))
+	if at.ContentID != "" {
+		fmt.Fprintf(w, "Content-ID: <%s>\r\n", at.ContentID)
+	}
+	w.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
+	enc := base64.StdEncoding.EncodeToString(at.Data)
+	for len(enc) > 76 {
+		w.WriteString(enc[:76] + "\r\n")
+		enc = enc[76:]
+	}
+	if enc != "" {
+		w.WriteString(enc + "\r\n")
+	}
+}
+
+func mediaType(contentType string) string {
+	mt, _, _ := mime.ParseMediaType(contentType)
+	return mt
+}
+
+func mergeParams(contentType string, extra map[string]string) map[string]string {
+	_, params, _ := mime.ParseMediaType(contentType)
+	if params == nil {
+		params = map[string]string{}
+	}
+	for k, v := range extra {
+		params[k] = v
+	}
+	return params
 }
 
 func randomID() string {

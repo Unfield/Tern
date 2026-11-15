@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Email attachments: `Message.Attach` adds a file, and `Message.Inline` adds an image the HTML shows with `cid:`. Names keep their accents and lose directories and line breaks. Content types are guessed when not set, and messages over 25 MB (`mail.MaxSize`) are refused with an error.
 - `Alert` takes an `action` snippet: a button at the end of the alert, centered on its text, or under the text when the alert is narrow.
 - `Sidebar` takes a `user` (name, email, image) and shows it at the bottom with an avatar and a sign-out button, which posts to `signOut` (`/logout` unless set; `false` leaves it out). Collapsed, it shows the avatar. The button's label is `tern.ui.sidebar.signOut`.
 

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Account lists (devices, passkeys, members, invitations, linked accounts) no longer squeeze names one letter per line on phones. When the text would get narrower than 12rem, the buttons move to a line of their own, and a badge goes under the name instead of breaking it. In a `Card`, the list drops its own border, and cards have 1rem of padding on phones.
+
 ### Added
 
 - Email attachments: `Message.Attach` adds a file, and `Message.Inline` adds an image the HTML shows with `cid:`. Names keep their accents and lose directories and line breaks. Content types are guessed when not set, and messages over 25 MB (`mail.MaxSize`) are refused with an error.

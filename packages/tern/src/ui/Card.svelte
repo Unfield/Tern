@@ -43,6 +43,11 @@
 		border-radius: calc(var(--tern-radius) + 2px);
 		box-shadow: var(--tern-shadow);
 	}
+	@media (max-width: 40rem) {
+		.tern-card {
+			padding: 1rem;
+		}
+	}
 	header {
 		display: flex;
 		align-items: flex-start;

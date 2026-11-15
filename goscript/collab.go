@@ -292,11 +292,11 @@ func (r *RoomSet[M]) connect(ctx context.Context, b Broker) {
 				}
 			}
 			r.mu.Unlock()
-			go func() {
+			sendCount(func() {
 				for _, m := range msgs {
 					_ = r.send(ctx, b, m)
 				}
-			}()
+			})
 			return
 		}
 		var msg roomMessage[M]

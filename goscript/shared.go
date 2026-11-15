@@ -31,6 +31,9 @@ var (
 	broker    Broker
 	brokerCtx context.Context
 	stopAll   context.CancelFunc
+	// counts tracks heartbeats and count messages on their way, so a
+	// process leaving can wait for them before it says goodbye.
+	counts    = &sending{}
 	replicaID = newReplicaID()
 	shareds   []interface {
 		connect(ctx context.Context, b Broker)
@@ -50,26 +53,36 @@ func newReplicaID() string {
 // the app starts; nil disconnects.
 func SetBroker(b Broker) {
 	brokerMu.Lock()
-	defer brokerMu.Unlock()
-	if broker != nil {
+	old, stop, sends := broker, stopAll, counts
+	broker, brokerCtx, stopAll = nil, nil, nil
+	ps := append([]*PresenceCounter(nil), presences...)
+	cs := append([]collab(nil), collabs...)
+	brokerMu.Unlock()
+
+	if stop != nil {
+		stop()
+	}
+	if old != nil {
 		// This process is leaving: tell the others its visitors are gone,
-		// rather than leave them counted until the heartbeat expires.
+		// rather than leave them counted until the heartbeat expires. First
+		// stop the heartbeat and wait for counts already on their way: one
+		// that arrived after the goodbye would count the visitors again.
+		sends.drain()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		for _, p := range presences {
-			_ = publishEnvelope(ctx, broker, p.topic(), envelope{Count: 0})
+		for _, p := range ps {
+			_ = publishEnvelope(ctx, old, p.topic(), envelope{Count: 0})
 		}
-		for _, x := range collabs {
-			x.leaving(ctx, broker)
+		for _, x := range cs {
+			x.leaving(ctx, old)
 		}
 		cancel()
 	}
-	if stopAll != nil {
-		stopAll()
-		stopAll = nil
-	}
+
+	brokerMu.Lock()
+	defer brokerMu.Unlock()
 	broker = b
+	counts = &sending{}
 	if b == nil {
-		brokerCtx = nil
 		for _, t := range topics {
 			t.remote = nil
 		}
@@ -88,7 +101,61 @@ func SetBroker(b Broker) {
 	for name, t := range topics {
 		t.remote = subscribeRemote(brokerCtx, b, name)
 	}
-	go presenceHeartbeat(brokerCtx, b)
+	ctx := brokerCtx
+	counts.goSend(func() { presenceHeartbeat(ctx, b) })
+}
+
+// sending tracks goroutines that send counts. Once drained it starts no
+// more, unlike a WaitGroup, which mustn't gain work while waited on.
+type sending struct {
+	mu     sync.Mutex
+	n      int
+	closed bool
+	idle   *sync.Cond
+}
+
+// goSend runs f in a goroutine, unless the process is leaving.
+func (s *sending) goSend(f func()) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	s.n++
+	s.mu.Unlock()
+	go func() {
+		defer func() {
+			s.mu.Lock()
+			s.n--
+			if s.n == 0 && s.idle != nil {
+				s.idle.Broadcast()
+			}
+			s.mu.Unlock()
+		}()
+		f()
+	}()
+}
+
+// drain refuses new sends and waits for those running.
+func (s *sending) drain() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+	if s.idle == nil {
+		s.idle = sync.NewCond(&s.mu)
+	}
+	for s.n > 0 {
+		s.idle.Wait()
+	}
+}
+
+// sendCount runs f, a count message, tracked by the current broker's
+// sending; see SetBroker.
+func sendCount(f func()) {
+	brokerMu.Lock()
+	sends := counts
+	brokerMu.Unlock()
+	sends.goSend(f)
 }
 
 func currentBroker() (Broker, context.Context) {
@@ -360,7 +427,7 @@ func (p *PresenceCounter) connect(ctx context.Context, b Broker) {
 			n := p.local
 			p.mu.Unlock()
 			if n > 0 {
-				go func() { _ = publishEnvelope(ctx, b, p.topic(), envelope{Count: n}) }()
+				sendCount(func() { _ = publishEnvelope(ctx, b, p.topic(), envelope{Count: n}) })
 			}
 			return
 		}
@@ -386,12 +453,16 @@ func (p *PresenceCounter) recount() {
 }
 
 func (p *PresenceCounter) report() {
-	if b, ctx := currentBroker(); b != nil {
-		p.mu.Lock()
-		n := p.local
-		p.mu.Unlock()
-		go func() { _ = publishEnvelope(ctx, b, p.topic(), envelope{Count: n}) }()
+	brokerMu.Lock()
+	b, ctx, sends := broker, brokerCtx, counts
+	brokerMu.Unlock()
+	if b == nil {
+		return
 	}
+	p.mu.Lock()
+	n := p.local
+	p.mu.Unlock()
+	sends.goSend(func() { _ = publishEnvelope(ctx, b, p.topic(), envelope{Count: n}) })
 }
 
 // Join counts c until it is destroyed. It does nothing while rendering.

@@ -18,6 +18,7 @@ Email attachments, and Tern UI that fits phones better. No upgrade steps.
 
 ### Fixed
 
+- Live components across several processes: a process shutting down, as during a deploy, could leave its visitors counted by the others for 30 seconds. A heartbeat sent just before the goodbye could arrive after it; the process now stops its heartbeat and waits for counts already on their way before saying goodbye.
 - `Sidebar`: on phones, the bar with the menu button keeps its height on short pages instead of stretching, and the page takes the rest of the screen. The account row sits at the bottom of the navigation sheet, as in the sidebar.
 - Dialogs taller than the screen, as on a phone, scroll inside, so their buttons stay reachable. Sheets, menus and the sidebar use the visible height on phones (`dvh`), so the browser's toolbar no longer hides their bottom, and sheets no longer reach under the scrollbar.
 - `Tabs` with more tabs than fit scroll sideways instead of widening the page.

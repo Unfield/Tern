@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `tern dev` no longer restarts when a file's permissions or timestamps change without its contents. Git clients, editors and sync apps touch files like that, and each event restarted the server and reloaded the page, up to a loop of restarts.
 - `go vet` no longer reports hundreds of "unreachable code" findings in `tern_native.gen.go`. The compiler drops the statements it used to write after a return, a throw or a `break`: the closing `return` of each function and the `fallthrough` between switch cases.
 
 ## [1.17.0] - 2026-11-15

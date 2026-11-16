@@ -518,6 +518,9 @@ func (d *devRunner) watch(ctx context.Context) error {
 		case err := <-w.Errors:
 			d.ui.Event(d.ui.Yellow("!"), "file watcher: %v", err)
 		case ev := <-w.Events:
+			if ev.Op&^fsnotify.Chmod == 0 {
+				continue // only permissions or times changed, see classify
+			}
 			rel, err := filepath.Rel(d.root, ev.Name)
 			if err != nil || ignored(rel) {
 				continue
@@ -636,6 +639,12 @@ const (
 // classify decides what a file change requires. Svelte, CSS and other
 // client files are handled by Vite's hot module replacement.
 func classify(rel string, op fsnotify.Op) change {
+	// A permission or timestamp change alone isn't an edit. Tools that touch
+	// files (editors, git clients, backup and sync apps) send these, and each
+	// used to restart the server and reload the page.
+	if op&^fsnotify.Chmod == 0 {
+		return changeNone
+	}
 	base := filepath.Base(rel)
 	switch {
 	case base == codegen.GoFile, rel == sqlgen.Dir+"/"+sqlgen.File:

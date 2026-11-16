@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-11-16
+
 ### Fixed
 
 - `go vet` no longer reports hundreds of "unreachable code" findings in `tern_native.gen.go`. The compiler drops the statements it used to write after a return, a throw or a `break`: the closing `return` of each function and the `fallthrough` between switch cases.
@@ -527,7 +529,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/Unfield/Tern/releases/tag/v1.17.1
 [1.17.0]: https://github.com/Unfield/Tern/releases/tag/v1.17.0
 [1.16.1]: https://github.com/Unfield/Tern/releases/tag/v1.16.1
 [1.16.0]: https://github.com/Unfield/Tern/releases/tag/v1.16.0

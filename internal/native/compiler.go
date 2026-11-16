@@ -189,6 +189,9 @@ func Compile(ir *IR, opts Options) (*Result, error) {
 	if err != nil {
 		return &Result{Source: src, Problems: c.problems, Modules: len(c.order)}, fmt.Errorf("native: generated Go doesn't parse: %w", err)
 	}
+	if formatted, err = prune(formatted); err != nil {
+		return &Result{Source: src, Problems: c.problems, Modules: len(c.order)}, fmt.Errorf("native: pruning generated Go: %w", err)
+	}
 	sort.SliceStable(c.problems, func(i, j int) bool { return c.mods[c.problems[i].Module].index < c.mods[c.problems[j].Module].index })
 	return &Result{Source: formatted, Problems: c.problems, Modules: len(c.order), Mismatches: c.mismatches, Sources: sources}, nil
 }

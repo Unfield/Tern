@@ -59,4 +59,10 @@
 		cursor: not-allowed;
 		background: var(--tern-surface-2);
 	}
+	/* iOS zooms into a field under 16px on focus, and stays zoomed. */
+	@media (pointer: coarse) {
+		.tern-input {
+			font-size: max(16px, 1rem);
+		}
+	}
 </style>

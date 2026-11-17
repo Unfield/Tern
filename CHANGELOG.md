@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Tern UI text fields no longer make iOS Safari zoom in when they get focus. On touch screens `Input`, `Textarea`, `Select`, `Combobox`, `PasswordInput`, `SearchBox` and `Command` use 16px text, the size under which Safari zooms in and stays zoomed after the keyboard closes. Desktop keeps 14px.
+
 ## [1.17.1] - 2026-11-16
 
 ### Fixed

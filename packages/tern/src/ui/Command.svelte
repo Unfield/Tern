@@ -269,4 +269,10 @@
 		background: oklch(0.2 0.02 240 / 0.45);
 		backdrop-filter: blur(2px);
 	}
+	/* iOS zooms into a field under 16px on focus, and stays zoomed. */
+	@media (pointer: coarse) {
+		input {
+			font-size: max(16px, 1rem);
+		}
+	}
 </style>

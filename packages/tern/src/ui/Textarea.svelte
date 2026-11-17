@@ -49,4 +49,10 @@
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
+	/* iOS zooms into a field under 16px on focus, and stays zoomed. */
+	@media (pointer: coarse) {
+		.tern-textarea {
+			font-size: max(16px, 1rem);
+		}
+	}
 </style>

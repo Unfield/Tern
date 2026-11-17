@@ -132,4 +132,10 @@
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
+	/* iOS zooms into a field under 16px on focus, and stays zoomed. */
+	@media (pointer: coarse) {
+		.input {
+			font-size: max(16px, 1rem);
+		}
+	}
 </style>

@@ -341,4 +341,10 @@
 		color: var(--tern-muted);
 		font-size: 0.875rem;
 	}
+	/* iOS zooms into a field under 16px on focus, and stays zoomed. */
+	@media (pointer: coarse) {
+		input {
+			font-size: max(16px, 1rem);
+		}
+	}
 </style>

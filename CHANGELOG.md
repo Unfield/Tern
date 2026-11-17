@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-11-17
+
 ### Fixed
 
 - Tern UI text fields no longer make iOS Safari zoom in when they get focus. On touch screens `Input`, `Textarea`, `Select`, `Combobox`, `PasswordInput`, `SearchBox` and `Command` use 16px text, the size under which Safari zooms in and stays zoomed after the keyboard closes. Desktop keeps 14px.
@@ -534,7 +536,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.17.2...HEAD
+[1.17.2]: https://github.com/Unfield/Tern/releases/tag/v1.17.2
 [1.17.1]: https://github.com/Unfield/Tern/releases/tag/v1.17.1
 [1.17.0]: https://github.com/Unfield/Tern/releases/tag/v1.17.0
 [1.16.1]: https://github.com/Unfield/Tern/releases/tag/v1.16.1

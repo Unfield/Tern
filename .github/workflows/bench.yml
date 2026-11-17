@@ -84,7 +84,7 @@ jobs:
       - name: Its results
         if: steps.previous.outputs.id != ''
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: vs-sveltekit-results
           path: previous

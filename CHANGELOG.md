@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `Header` in Tern UI: a bar across the top with the app's name, its links and actions, that stays at the top while the page scrolls. Every size in it is a whole pixel, so it doesn't twitch. `translucent` blurs the page behind it.
+- `tern dev` warns about sticky and fixed bars that sit between pixels, which twitch while the page scrolls. After a page loads, it measures each header or sidebar with `position: sticky` or `fixed` and everything inside it, and says which element is off and where it's written: in the browser's console, the terminal and `/__tern/dev/logs`.
+- `tern check` warns about sizes off the pixel grid in sticky and fixed rules, such as `padding: 0.6rem` (9.6px) or a unitless line height that comes out fractional. `--fail-on-warnings` fails on them.
+- The instructions `tern mcp` gives AI coding tools say to build sticky and fixed bars on whole pixels, and to prefer `Header` and `Sidebar`. [docs/ui.md](docs/ui.md) explains why, under "Sticky and fixed bars".
+
 ## [1.17.2] - 2026-11-17
 
 ### Fixed

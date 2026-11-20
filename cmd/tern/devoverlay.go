@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The dev overlay: a button on every page in tern dev that opens a panel
@@ -23,6 +24,9 @@ import (
 
 //go:embed devoverlay.js
 var devOverlayJS string
+
+//go:embed devbars.js
+var devBarsJS string
 
 // forRequest returns the items of request id, with all the spans of its
 // traces, and the newest item's seq, to stream from.
@@ -67,6 +71,23 @@ func (d *devRunner) serveAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, src)
+	case "warn":
+		// A problem the page found in itself, such as a bar off the pixel
+		// grid (devbars.js). Each is said once.
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Message string `json:"message"`
+			URL     string `json:"url"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Message == "" {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		d.warnOnce(req.Message, req.URL)
+		w.WriteHeader(http.StatusNoContent)
 	case "open":
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -248,4 +269,26 @@ func openInEditor(file string, line int) error {
 func afterSeq(q url.Values) int64 {
 	n, _ := strconv.ParseInt(q.Get("after"), 10, 64)
 	return n
+}
+
+// warnOnce shows a warning from the browser in the terminal and the log
+// view, the first time it comes.
+func (d *devRunner) warnOnce(msg, url string) {
+	d.mu.Lock()
+	if d.warned == nil {
+		d.warned = map[string]bool{}
+	}
+	seen := d.warned[msg]
+	d.warned[msg] = true
+	d.mu.Unlock()
+	if seen {
+		return
+	}
+	if url != "" {
+		msg += " Page: " + url
+	}
+	d.ui.Event(d.ui.Yellow("!"), "%s", msg)
+	if d.logs != nil {
+		d.logs.add(devLogItem{Kind: "log", Time: time.Now(), Level: "WARN", Msg: msg})
+	}
 }

@@ -91,6 +91,8 @@ type devRunner struct {
 	building sync.Mutex
 	// logs is the log view at /__tern/dev/logs.
 	logs *devLogs
+	// warned is what the browser has warned about, said once each.
+	warned map[string]bool
 }
 
 func (d *devRunner) run(ctx context.Context) error {
@@ -249,6 +251,7 @@ func (d *devRunner) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = io.WriteString(w, devClientJS)
 		_, _ = io.WriteString(w, devOverlayJS)
+		_, _ = io.WriteString(w, devBarsJS)
 		return
 	}
 

@@ -37,6 +37,7 @@ export { default as Input } from './Input.svelte';
 export { default as InputGroup } from './InputGroup.svelte';
 export { default as InputOTP } from './InputOTP.svelte';
 export { default as Item } from './Item.svelte';
+export { default as Header } from './Header.svelte';
 export { default as Kbd } from './Kbd.svelte';
 export { default as Label } from './Label.svelte';
 export { default as LineChart } from './LineChart.svelte';

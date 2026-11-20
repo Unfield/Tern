@@ -8,6 +8,7 @@
 		Carousel,
 		Collapsible,
 		Empty,
+		Header,
 		Item,
 		NavigationMenu,
 		Pagination,
@@ -61,6 +62,19 @@
 		<Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Projects', href: '/layout#p' }, { label: 'Acme', href: '/layout#a' }, { label: 'Settings', href: '/layout#s' }, { label: 'Domains' }]} />
 		<Pagination bind:page pages={20} />
 		<p data-testid="page">Page {page}</p>
+	</div>
+</section>
+
+<section aria-labelledby="header">
+	<h2 id="header">Header</h2>
+	<div class="header-demo">
+		<Header>
+			{#snippet brand()}<a href="/">Acme</a>{/snippet}
+			<a href="/layout" aria-current="page">Overview</a>
+			<a href="/data">Projects</a>
+			<a href="/form">Settings</a>
+			{#snippet actions()}<Button size="sm">Sign in</Button>{/snippet}
+		</Header>
 	</div>
 </section>
 
@@ -129,6 +143,11 @@
 	.stack {
 		display: grid;
 		gap: 0.75rem;
+	}
+	.header-demo {
+		border: 1px solid var(--tern-border);
+		border-radius: var(--tern-radius);
+		overflow: hidden;
 	}
 	.shell {
 		border: 1px solid var(--tern-border);

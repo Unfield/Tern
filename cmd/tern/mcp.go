@@ -34,6 +34,7 @@ Conventions:
 - A route with Go code needs var Access = kit.Public, kit.SignedIn or kit.Permission("…"); SignedIn and Permission also cover the directories below. Don't make a route public to get past the error: choose who should use it.
 - Run generate after changing Go route files or adding routes: it writes tern.gen.go and the TypeScript types ($types, $routes, $api). Then check type-checks everything, including the markup of Go components.
 - <script lang="go" live> makes a live component: its logic is Go on the server (State, Derived, Func from the goscript package) and its markup is Svelte.
+- Sticky and fixed bars (headers, sidebars, toolbars) need whole-pixel sizes, in the bar and everything inside it: heights, paddings, gaps, font sizes and px line heights (line-height: 20px, not 1.5). Off the pixel grid they twitch while the page scrolls. Prefer Tern UI's Header and Sidebar; tern dev warns about bars that are off the grid.
 - The CLI is go tool tern (dev, build, gen, check, routes, migrate new).
 Search the docs (search_docs, read_doc) before guessing an API.`
 

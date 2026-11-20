@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/Unfield/Tern/internal/codegen"
@@ -57,15 +58,30 @@ func cmdCheck(args []string, stdout, stderr io.Writer) int {
 	cmd.Dir = root
 	cmd.Stdout = &pathFixer{w: stdout}
 	cmd.Stderr = &pathFixer{w: stderr}
+	code := 0
 	if err := cmd.Run(); err != nil {
 		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			return exit.ExitCode()
+		if !errors.As(err, &exit) {
+			ui.New(stderr).Error(err)
+			return 1
 		}
+		code = exit.ExitCode()
+	}
+	bars, err := checkBars(root)
+	if err != nil {
 		ui.New(stderr).Error(err)
 		return 1
 	}
-	return 0
+	for _, w := range bars {
+		fmt.Fprintf(stdout, "\n%s\n", w)
+	}
+	if len(bars) > 0 {
+		fmt.Fprintf(stdout, "\ntern: %d sticky or fixed sizes off the pixel grid; see the \"Sticky and fixed bars\" section of docs/ui.md\n", len(bars))
+		if code == 0 && slices.Contains(args, "--fail-on-warnings") {
+			code = 1
+		}
+	}
+	return code
 }
 
 // pathFixer makes paths in svelte-check's output point at the real files.

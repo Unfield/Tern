@@ -61,6 +61,7 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `Alert` | with `live`, `role="alert"` (danger, warning) or `role="status"`. An `action` snippet puts a button at the end, or under the text in a narrow alert |
 | `Progress` | `role="progressbar"` with values; with no value, it is indeterminate |
 | `Spinner` | `role="status"` with a hidden label |
+| `Header` | a `<header>` bar across the top that stays there while the page scrolls: `brand`, the links in a labelled `<nav>` (mark the current one with `aria-current="page"`) and `actions`. Every size in it is a whole pixel (see [Sticky and fixed bars](#sticky-and-fixed-bars)). `translucent` blurs the page behind it; the bar is then fixed, with a spacer under it. On phones the links scroll sideways |
 | `Sidebar` | an app shell: a labelled navigation with groups, badges and sub-links, current page marked, that collapses to icons and becomes a sheet on phones. `user` shows the signed-in user at the bottom, with a sign-out button that posts to `signOut` (`/logout`) |
 | `NavigationMenu` | site navigation with dropdown panels of links, built on the disclosure pattern (links don't belong in an ARIA menu). ArrowDown enters a panel, Escape returns |
 | `Breadcrumb`, `Pagination` | labelled `nav`s with `aria-current="page"`. Long breadcrumbs fold their middle into a menu; pagination can render links (`href`) so it works without JavaScript |
@@ -174,6 +175,18 @@ func Load(ctx *kit.Ctx) (oidc.Consent, error) { return provider.ConsentRequest(c
 ```
 
 `ConsentRequest` checks the client and its redirect address, sends signed-out users to sign in, and stops other sites from framing the page.
+
+## Sticky and fixed bars
+
+A header, sidebar or toolbar with `position: sticky` or `fixed` twitches by a pixel while the page scrolls when it or anything in it sits between pixels. Browsers round such a bar to the screen's pixels differently from frame to frame. It happens with sizes that don't come out whole: `padding: 0.6rem` is 9.6px, `font-size: 0.95rem` with `line-height: 1.5` makes a 22.8px line.
+
+In a bar, and in everything inside it:
+
+- **Sizes in whole pixels:** heights, paddings, gaps, font sizes and line heights in `px`, or in `rem` that come out whole (`0.75rem` is 12px).
+- **Line heights in `px`**, not unitless: `line-height: 20px`, not `1.5`.
+- **No blur behind a sticky bar:** Safari twitches it too. Make a blurred bar `position: fixed`, with a spacer of its height under it.
+
+`Header` and `Sidebar` follow these rules. In `tern dev`, the page measures its sticky and fixed bars after it loads and warns, in the browser's console, in the terminal and at `/__tern/dev/logs`, about each one that is off the pixel grid, naming the element and the file and line it's written in. `tern check` warns about such sizes in the sticky or fixed rules themselves.
 
 ## Owning a component
 

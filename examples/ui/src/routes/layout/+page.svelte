@@ -68,7 +68,7 @@
 <section aria-labelledby="header">
 	<h2 id="header">Header</h2>
 	<div class="header-demo">
-		<Header>
+		<Header label="Demo">
 			{#snippet brand()}<a href="/">Acme</a>{/snippet}
 			<a href="/layout" aria-current="page">Overview</a>
 			<a href="/data">Projects</a>

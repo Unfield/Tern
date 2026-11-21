@@ -34,6 +34,10 @@ node -e '
 const fs = require("fs");
 const p = JSON.parse(fs.readFileSync("package.json"));
 p.devDependencies["@ternkit/tern"] = "file:" + process.argv[1] + "/packages/tern";
+// The linked package brings its own svelte. The app must use the same
+// version, or TypeScript sees two Snippet types that never match.
+const svelte = require(process.argv[1] + "/packages/tern/node_modules/svelte/package.json").version;
+for (const deps of [p.dependencies, p.devDependencies]) if (deps && deps.svelte) deps.svelte = svelte;
 fs.writeFileSync("package.json", JSON.stringify(p, null, 2));
 ' "$repo"
 npm install --no-audit --no-fund --loglevel=error

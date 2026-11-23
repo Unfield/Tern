@@ -16,11 +16,11 @@ require (
 	golang.org/x/crypto v0.59.0
 	golang.org/x/image v0.48.0
 	golang.org/x/mod v0.43.0
-	golang.org/x/net v0.62.0
+	golang.org/x/net v0.63.0
 	golang.org/x/oauth2 v0.38.0
 	golang.org/x/sync v0.25.0
 	golang.org/x/text v0.44.0
-	golang.org/x/tools v0.52.0
+	golang.org/x/tools v0.53.0
 	golang.org/x/vuln v1.9.0
 	modernc.org/quickjs v0.27.0
 	modernc.org/sqlite v1.62.0
@@ -37,7 +37,7 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	golang.org/x/telemetry v0.0.0-20261010193011-f71dc92da45e // indirect
+	golang.org/x/telemetry v0.0.0-20261116191925-e77a43154acb // indirect
 	modernc.org/libc v1.80.1 // indirect
 	modernc.org/libquickjs v0.14.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

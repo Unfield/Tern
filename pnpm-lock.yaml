@@ -12,19 +12,19 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.11.0
-        version: 4.14.0(playwright-core@1.65.0)
+        version: 4.14.0(playwright-core@1.65.1)
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -36,19 +36,19 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.11.0
-        version: 4.14.0(playwright-core@1.65.0)
+        version: 4.14.0(playwright-core@1.65.1)
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -62,11 +62,11 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@lucide/svelte':
-        specifier: ^1.72.0
-        version: 1.72.0(svelte@5.57.3)
+        specifier: ^1.77.0
+        version: 1.77.0(svelte@5.59.0)
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@tailwindcss/vite':
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
@@ -75,31 +75,31 @@ importers:
         version: link:../../packages/tern
       bits-ui:
         specifier: ^2.21.0
-        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.57.3)
+        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.59.0)
       cn:
         specifier: ^0.5.2
         version: 0.5.2
       layerchart:
-        specifier: ^2.10.1
-        version: 2.10.1(svelte@5.57.3)
+        specifier: ^2.11.0
+        version: 2.11.0(svelte@5.59.0)
       mode-watcher:
         specifier: ^1.1.0
-        version: 1.1.0(svelte@5.57.3)
+        version: 1.1.0(svelte@5.59.0)
       shadcn-svelte:
         specifier: ^1.8.1
-        version: 1.8.1(svelte@5.57.3)
+        version: 1.8.1(svelte@5.59.0)
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@26.6.6)
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       svelte-sonner:
         specifier: ^1.2.3
-        version: 1.2.3(svelte@5.57.3)
+        version: 1.2.3(svelte@5.59.0)
       tailwind-variants:
         specifier: ^4.0.2
         version: 4.0.2
@@ -119,17 +119,17 @@ importers:
   examples/goscript:
     devDependencies:
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -140,17 +140,17 @@ importers:
   examples/shelf:
     devDependencies:
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -164,11 +164,11 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@lucide/svelte':
-        specifier: ^1.72.0
-        version: 1.72.0(svelte@5.57.3)
+        specifier: ^1.77.0
+        version: 1.77.0(svelte@5.59.0)
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@tailwindcss/vite':
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
@@ -177,31 +177,31 @@ importers:
         version: link:../../packages/tern
       bits-ui:
         specifier: ^2.21.0
-        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.57.3)
+        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.59.0)
       cn:
         specifier: ^0.5.2
         version: 0.5.2
       layerchart:
-        specifier: ^2.10.1
-        version: 2.10.1(svelte@5.57.3)
+        specifier: ^2.11.0
+        version: 2.11.0(svelte@5.59.0)
       mode-watcher:
         specifier: ^1.1.0
-        version: 1.1.0(svelte@5.57.3)
+        version: 1.1.0(svelte@5.59.0)
       shadcn-svelte:
         specifier: ^1.8.1
-        version: 1.8.1(svelte@5.57.3)
+        version: 1.8.1(svelte@5.59.0)
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@26.6.6)
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       svelte-sonner:
         specifier: ^1.2.3
-        version: 1.2.3(svelte@5.57.3)
+        version: 1.2.3(svelte@5.59.0)
       tailwind-variants:
         specifier: ^4.0.2
         version: 4.0.2
@@ -221,17 +221,17 @@ importers:
   examples/todos:
     devDependencies:
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -243,19 +243,19 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.11.0
-        version: 4.14.0(playwright-core@1.65.0)
+        version: 4.14.0(playwright-core@1.65.1)
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -269,14 +269,14 @@ importers:
     dependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.1
-        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 7.3.1(svelte@5.59.0)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
       acorn:
         specifier: ^8.19.0
         version: 8.19.0
     devDependencies:
       '@sveltejs/package':
-        specifier: ^3.0.2
-        version: 3.0.2(svelte@5.57.3)(typescript@6.0.3)
+        specifier: ^3.0.3
+        version: 3.0.3(svelte@5.59.0)(typescript@6.0.3)
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -284,11 +284,11 @@ importers:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@26.6.6)
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -296,8 +296,8 @@ importers:
         specifier: ^8.3.8
         version: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
       vitest:
-        specifier: ^5.1.0
-        version: 5.1.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        specifier: ^5.1.1
+        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
 
   tests/ssr-compat:
     devDependencies:
@@ -305,20 +305,20 @@ importers:
         specifier: ^1.8.0
         version: 1.8.0
       '@lucide/svelte':
-        specifier: ^1.72.0
-        version: 1.72.0(svelte@5.57.3)
+        specifier: ^1.77.0
+        version: 1.77.0(svelte@5.59.0)
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.1
-        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+        version: 7.3.1(svelte@5.59.0)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
       '@tanstack/svelte-query':
-        specifier: ^6.4.1
-        version: 6.4.1(svelte@5.57.3)
+        specifier: ^6.4.5
+        version: 6.4.5(svelte@5.59.0)
       '@ternkit/tern':
         specifier: workspace:*
         version: link:../../packages/tern
       bits-ui:
         specifier: ^2.21.0
-        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.57.3)
+        version: 2.21.0(@internationalized/date@3.12.4)(svelte@5.59.0)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -341,38 +341,38 @@ importers:
         specifier: ^0.19.1
         version: 0.19.1
       layerchart:
-        specifier: ^2.10.1
-        version: 2.10.1(svelte@5.57.3)
+        specifier: ^2.11.0
+        version: 2.11.0(svelte@5.59.0)
       lodash-es:
         specifier: ^4.18.1
         version: 4.18.1
       marked:
-        specifier: ^18.2.0
-        version: 18.2.0
+        specifier: ^18.2.1
+        version: 18.2.1
       mode-watcher:
         specifier: ^1.1.0
-        version: 1.1.0(svelte@5.57.3)
+        version: 1.1.0(svelte@5.59.0)
       nanoid:
         specifier: ^6.0.2
         version: 6.0.2
       paneforge:
         specifier: ^1.0.2
-        version: 1.0.2(svelte@5.57.3)
+        version: 1.0.2(svelte@5.59.0)
       runed:
         specifier: ^0.38.0
-        version: 0.38.0(svelte@5.57.3)(zod@4.6.7)
+        version: 0.38.0(svelte@5.59.0)(zod@4.6.7)
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-i18n:
         specifier: ^4.0.1
-        version: 4.0.1(svelte@5.57.3)
+        version: 4.0.1(svelte@5.59.0)
       svelte-sonner:
         specifier: ^1.2.3
-        version: 1.2.3(svelte@5.57.3)
+        version: 1.2.3(svelte@5.59.0)
       tailwind-merge:
-        specifier: ^3.7.0
-        version: 3.7.0
+        specifier: ^3.7.1
+        version: 3.7.1
       uuid:
         specifier: ^14.0.3
         version: 14.0.3
@@ -398,11 +398,11 @@ importers:
         specifier: workspace:*
         version: link:../packages/tern
       svelte:
-        specifier: ^5.57.3
-        version: 5.57.3
+        specifier: ^5.59.0
+        version: 5.59.0
       svelte-check:
         specifier: ^4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
@@ -794,8 +794,8 @@ packages:
   '@layerstack/utils@2.0.0-next.19':
     resolution: {integrity: sha512-HyXCEz9pge4rFWklrSgFr3YIwdE1gP8WM6GPetmnKPDfYLF1/oetRFKI9FqiE+dw4brnULGPKJsVhjM3vQfD4A==}
 
-  '@lucide/svelte@1.72.0':
-    resolution: {integrity: sha512-DRwtZ5p/m5ZRsNlfCzELJRDzd2z19mc76eMs8rwllx/JWfvykmLoTFs3RyzFN519ldQxHt8Jxum/LKukgzuTLQ==}
+  '@lucide/svelte@1.77.0':
+    resolution: {integrity: sha512-gXjmQ4VK3Mh/M11Nn/XCeln3XZByR4MxX5o+NMfr/Wg9MQs+BffvXTnW+0WvmjV1u58TXJhXvgJZHrMASUnqow==}
     peerDependencies:
       svelte: ^5
 
@@ -809,8 +809,8 @@ packages:
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
 
-  '@playwright/test@1.65.0':
-    resolution: {integrity: sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ==}
+  '@playwright/test@1.65.1':
+    resolution: {integrity: sha512-y+NCIRm2LvY4slUVWvGh1nujJ8RF/hEisIsq2mtUPgdQC4L701bq5hZGMhrpeXjACvwvO9tj5dJqhvM6TP9lbw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -927,8 +927,8 @@ packages:
     resolution: {integrity: sha512-VT3qmUb8pRV2QrZjd8iAmtg8lf4W0TIjZbvXtz5MKei/q96teWZgGJyyidJzOjzZzvdq616eSRVeMYIQChUTAQ==}
     engines: {node: '>= 18.0.0'}
 
-  '@sveltejs/package@3.0.2':
-    resolution: {integrity: sha512-1HhN/Lgw1Bqyu7T6fWILt6euTyt+h+yBH2yUVYxTkGVUdIV1Xsp/gGaHnfBkD584i1fXte1cR4+zYtUsQC/F6A==}
+  '@sveltejs/package@3.0.3':
+    resolution: {integrity: sha512-aOEPwEPZfsWau3RvtEQCORKpfwlJNBmIPY34hvhO4ZwqQMSqvP+FQRLvlgHbSdXervl88SapjlFoMim+l8IAXQ==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
@@ -1041,11 +1041,11 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/query-core@5.107.1':
-    resolution: {integrity: sha512-PSyAik11oQBEVOiVy5hjZWHmoUqOXqK1WYy4v55mcxozEfKaQgpUMsgnXhWjuESzSht8JfzqMS1m6M/9CpNgvg==}
+  '@tanstack/query-core@5.108.2':
+    resolution: {integrity: sha512-0l+0xDKqn71hfJBKaAvFP/X7WYM0TbscEk6nK1pHaWQUWUEA+WJD0VlT8wF+HIJANMV9B/DouPWwDnX3w/l9BA==}
 
-  '@tanstack/svelte-query@6.4.1':
-    resolution: {integrity: sha512-5j0PrXJOx8Ay6s13UamdLL6oc4stG84kVv0/WwFN74y5mkWDR20wNs9idYD4wb3etAI/slmKzPQzNkAzumKkMg==}
+  '@tanstack/svelte-query@6.4.5':
+    resolution: {integrity: sha512-XpBX5fzIJxfNQFD6O/BBZlsty9UrUn+h4Lr7zM/WM+3PBKV/TpPEatJPorLCm0RNoTx0eJwNhPGq90AKN1ykWw==}
     peerDependencies:
       svelte: ^5.25.0
 
@@ -1064,8 +1064,8 @@ packages:
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
 
-  '@vitest/mocker@5.1.0':
-    resolution: {integrity: sha512-5umB9/jlWcqVS6fsrFmv5Gdnpu6wAUio/lEOwAmvB7v+lFo/IW2B9FhAD0p19GCULTgMzLCdUmuCDCnAzWgppQ==}
+  '@vitest/mocker@5.1.1':
+    resolution: {integrity: sha512-b2OgTB4+3ImWIVafXKazJXwLKwQxUNnix6b3xUvUTMh7RyXlrtzoxfZr8aEz9zkHOMAS4K5lu3TvFWoiVeVTQg==}
     peerDependencies:
       msw: ^2.4.9 || ^3.0.0
       vite: ^6.0.0 || ^7.0.0 || ^8.0.0
@@ -1075,8 +1075,8 @@ packages:
       vite:
         optional: true
 
-  '@vitest/spy@5.1.0':
-    resolution: {integrity: sha512-2DPO5OMHWKrBngC+fCmTQqemNF0gidRhp3lxbBmRhW+M1XJrfgPpqNqWVevXtn2f2ufD5ZaR1B6B641aAlcX5A==}
+  '@vitest/spy@5.1.1':
+    resolution: {integrity: sha512-6K8C6alQG1/Yc8/ZI22iJS7JEsxPdVzqtqDq+/xM4Z0mGVykemMVjLhqMy/q6/IHYG3kKD8hKSwRen/ZdyI9vQ==}
 
   acorn@8.19.0:
     resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
@@ -1339,8 +1339,8 @@ packages:
     resolution: {integrity: sha512-kTUIGKQ/mDPFoJ0oVfcmyJn4iBDRptjNVIzwIFR7tqWXdVI9xfA2RMwY/gbSpJG3lkdWNEjLap/NqVHZiJsdfg==}
     engines: {node: '>=0.10'}
 
-  esrap@2.4.0:
-    resolution: {integrity: sha512-CQPcneEHw/czj32uwQC52nYnax8H4SXt25FCM+LIwGZ49cMIxpOj3bP8wmzcI+Z0HIy5KkClaPhRLfCySzwHPA==}
+  esrap@2.4.2:
+    resolution: {integrity: sha512-WpVZsWnSheHBy+fGrO/0duwnbe6ODZH1QyBbjupreSCJGojaBWRncrq+HVeIJ8eHQjEwSJg9hC4yPJyNVOrpqg==}
     peerDependencies:
       '@typescript-eslint/types': ^8.2.0
     peerDependenciesMeta:
@@ -1422,8 +1422,8 @@ packages:
     resolution: {integrity: sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA==}
     hasBin: true
 
-  layerchart@2.10.1:
-    resolution: {integrity: sha512-/W1zMbcQdvcUoeMWoBVbIEymLtr7ZCA0bptIFfzPWym/hTid/3sWnrK2qhflNdvPTel4mvr4drvhB6RDlcJxEQ==}
+  layerchart@2.11.0:
+    resolution: {integrity: sha512-j8yFwfF+DbP5stsIfts14c+8gV8cUFTs43yNu0lAZut1EqWaK5Kaa3WT/HxNOVxcxHB+7lpOL9r+doD4P8ekow==}
     peerDependencies:
       svelte: ^5.57.0
 
@@ -1520,8 +1520,8 @@ packages:
   magic-string@1.4.5:
     resolution: {integrity: sha512-oLLC2+YvQUfAa+vxoufE/yc1icb87M9iXIRqAoR/2EhE/8cb3SF/+Gi0c2By1B+5Vz2e2vQtUvHiu1+63Znh+w==}
 
-  marked@18.2.0:
-    resolution: {integrity: sha512-KaeL+tAbtvI930q7HE2PN5lYXYdT8EiSmxHlN6F3rsfb57wd5mp5W5TLazpdj4inTQBJdgjYwbs40W/0VUGU+Q==}
+  marked@18.2.1:
+    resolution: {integrity: sha512-ii4bxCTCqqwpT86XZWgJNs+ZnAIZksmLGYMViWA7PDIXYIeNo1x6cDdX3JOip9NM/cI6p8z57FxliACboTruMA==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -1582,13 +1582,13 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  playwright-core@1.65.0:
-    resolution: {integrity: sha512-vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==}
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.65.0:
-    resolution: {integrity: sha512-F3AMWcR44qMBt4kq+6Kb6mX7bjGXshktKFOPULd7reED6ZJWevjbNRqysP7q+AATE9kdPEZBibex1BYsvpVoeA==}
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -1735,15 +1735,15 @@ packages:
       svelte: ^3.55 || ^4.0.0-next.0 || ^4.0 || ^5.0.0-next.0
       typescript: ^4.9.4 || ^5.0.0 || ^6.0.0
 
-  svelte@5.57.3:
-    resolution: {integrity: sha512-5mAftM3SoDV9X0zdF386F9p2pv8iKOwi/KfBS1XnBAkVCKFzVOLHUoa8iGWAt4buoicLmyWVRpuuD5wplXOQsg==}
+  svelte@5.59.0:
+    resolution: {integrity: sha512-D2wE/hsHvZtbitZ+2TSFsiw00ck/Y9uK4tO59f391z4bzbdyVO2tFHqwiENKc57pp51hX7klBG+EkAVyDlD4sw==}
     engines: {node: '>=18'}
 
   tabbable@6.5.1:
     resolution: {integrity: sha512-dMCuwDUY6Noz3zVKLefBC4wq+aJV20yc7vWmM7uTNGwtQSFF5kX7OUIUsxuVajz/bdt5Xqdah3/0NLjth+cM5A==}
 
-  tailwind-merge@3.7.0:
-    resolution: {integrity: sha512-XPPUyAc+cvspz3lHTcR/QgPfW2A0lv/xQNIjX3HGhLR+Nq2lHaLq5MtTesHn8GUr3W3DguT2KT5x3NVgRtYwmA==}
+  tailwind-merge@3.7.1:
+    resolution: {integrity: sha512-v7y4BV4FUlO8exj/4M5UXKeoowDiuugVUg3tkMNIyOUCOHy5xp8+5aWQeXCtZ2491sUV1YPsVeM9EveZ6/xuZQ==}
 
   tailwind-variants@4.0.2:
     resolution: {integrity: sha512-sZvOFkfe5LlYG/crRX5IvP3oUHmJPu+7WmrLQFvF0kCRq51C+lurlzFMm/jURG/5keT7VOJ/it0N3jkzYux85w==}
@@ -1763,8 +1763,8 @@ packages:
   tiny-glob@0.2.9:
     resolution: {integrity: sha512-g/55ssRPUjShh+xkfx9UPDXqhckHEsHr4Vd9zX55oSdGZc/MD0m3sferOkwWtp98bv+kcVfEHtRJgBVJzelrzg==}
 
-  tinybench@6.2.3:
-    resolution: {integrity: sha512-Al01C2JIBnO2CXCAPbpAl6sUiOZHeThGtHYNTa51JRw9PyWOCdr+9Ong05R4qg/Sk3+H645E8ov1h2c58ityNw==}
+  tinybench@6.2.4:
+    resolution: {integrity: sha512-SQ52jEncXxbMCzJuY2A/jGIbbAu6NYsBWW7grz2pNE+EnzQdoGaoBfpk4qC/opE7qiUcGmGgaGIz5EoHdS1O9w==}
     engines: {node: '>=20.0.0'}
 
   tinyexec@1.3.1:
@@ -1855,20 +1855,20 @@ packages:
       vite:
         optional: true
 
-  vitest@5.1.0:
-    resolution: {integrity: sha512-MzmNFnrwa8v8lF1bLxw3UJ4EREwVOVb75VqJZmUDRjJ6EluK/x9th7qTbaeDk41WxE1GxWqmTXcdsfobfH5sOA==}
+  vitest@5.1.1:
+    resolution: {integrity: sha512-trVmzUFOSraCZcI3uZIMD5FqBh4atFkC/XuJP/IU7qtyQay0FCs3Ia+0QiQ2JJwGyWG/xrcBoJNel2+O7kEZ0g==}
     engines: {node: ^22.12.0 || ^24.0.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
       '@edge-runtime/vm': '*'
       '@opentelemetry/api': ^1.9.0
       '@types/node': ^22.0.0 || >=24.0.0
-      '@vitest/browser-playwright': 5.1.0
-      '@vitest/browser-preview': 5.1.0
+      '@vitest/browser-playwright': 5.1.1
+      '@vitest/browser-preview': 5.1.1
       '@vitest/browser-webdriverio': ^5.0.0-beta.5 || >=5.0.0
-      '@vitest/coverage-istanbul': 5.1.0
-      '@vitest/coverage-v8': 5.1.0
-      '@vitest/ui': 5.1.0
+      '@vitest/coverage-istanbul': 5.1.1
+      '@vitest/coverage-v8': 5.1.1
+      '@vitest/ui': 5.1.1
       happy-dom: '*'
       jsdom: '*'
       vite: ^6.4.0 || ^7.0.0 || ^8.0.0
@@ -1909,10 +1909,10 @@ packages:
 
 snapshots:
 
-  '@axe-core/playwright@4.14.0(playwright-core@1.65.0)':
+  '@axe-core/playwright@4.14.0(playwright-core@1.65.1)':
     dependencies:
       axe-core: 4.14.0
-      playwright-core: 1.65.0
+      playwright-core: 1.65.1
 
   '@dagrejs/dagre@2.0.4':
     dependencies:
@@ -2196,9 +2196,9 @@ snapshots:
       d3-time: 3.1.1
       d3-time-format: 4.1.1
 
-  '@lucide/svelte@1.72.0(svelte@5.57.3)':
+  '@lucide/svelte@1.77.0(svelte@5.59.0)':
     dependencies:
-      svelte: 5.57.3
+      svelte: 5.59.0
 
   '@napi-rs/wasm-runtime@1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
     dependencies:
@@ -2209,9 +2209,9 @@ snapshots:
 
   '@oxc-project/types@0.156.0': {}
 
-  '@playwright/test@1.65.0':
+  '@playwright/test@1.65.1':
     dependencies:
-      playwright: 1.65.0
+      playwright: 1.65.1
 
   '@rolldown/binding-android-arm-eabi@1.2.19':
     optional: true
@@ -2273,21 +2273,21 @@ snapshots:
 
   '@sveltejs/load-config@0.2.3': {}
 
-  '@sveltejs/package@3.0.2(svelte@5.57.3)(typescript@6.0.3)':
+  '@sveltejs/package@3.0.3(svelte@5.59.0)(typescript@6.0.3)':
     dependencies:
       '@sveltejs/load-config': 0.2.3
       chokidar: 6.0.0
-      svelte: 5.57.3
-      svelte2tsx: 0.7.63(svelte@5.57.3)(typescript@6.0.3)
+      svelte: 5.59.0
+      svelte2tsx: 0.7.63(svelte@5.59.0)(typescript@6.0.3)
     optionalDependencies:
       typescript: 6.0.3
 
-  '@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
+  '@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.59.0)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
     dependencies:
       deepmerge: 4.3.1
       magic-string: 1.4.5
       obug: 2.2.1
-      svelte: 5.57.3
+      svelte: 5.59.0
       vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
       vitefu: 1.1.3(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
 
@@ -2361,12 +2361,12 @@ snapshots:
       tailwindcss: 4.3.5
       vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
 
-  '@tanstack/query-core@5.107.1': {}
+  '@tanstack/query-core@5.108.2': {}
 
-  '@tanstack/svelte-query@6.4.1(svelte@5.57.3)':
+  '@tanstack/svelte-query@6.4.5(svelte@5.59.0)':
     dependencies:
-      '@tanstack/query-core': 5.107.1
-      svelte: 5.57.3
+      '@tanstack/query-core': 5.108.2
+      svelte: 5.59.0
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
@@ -2386,16 +2386,16 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@vitest/mocker@5.1.0(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
+  '@vitest/mocker@5.1.1(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
-      '@vitest/spy': 5.1.0
+      '@vitest/spy': 5.1.1
       estree-walker: 3.0.3
       magic-string: 1.4.5
     optionalDependencies:
       vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
 
-  '@vitest/spy@5.1.0': {}
+  '@vitest/spy@5.1.1': {}
 
   acorn@8.19.0: {}
 
@@ -2407,15 +2407,15 @@ snapshots:
 
   axobject-query@4.1.0: {}
 
-  bits-ui@2.21.0(@internationalized/date@3.12.4)(svelte@5.57.3):
+  bits-ui@2.21.0(@internationalized/date@3.12.4)(svelte@5.59.0):
     dependencies:
       '@floating-ui/core': 1.8.0
       '@floating-ui/dom': 1.8.0
       '@internationalized/date': 3.12.4
       esm-env: 1.2.2
-      runed: 0.35.1(svelte@5.57.3)
-      svelte: 5.57.3
-      svelte-toolbelt: 0.10.7(svelte@5.57.3)
+      runed: 0.35.1(svelte@5.59.0)
+      svelte: 5.59.0
+      svelte-toolbelt: 0.10.7(svelte@5.59.0)
       tabbable: 6.5.1
     transitivePeerDependencies:
       - '@sveltejs/kit'
@@ -2665,7 +2665,7 @@ snapshots:
       event-emitter: 0.3.7
       type: 2.7.3
 
-  esrap@2.4.0:
+  esrap@2.4.2:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
 
@@ -2731,7 +2731,7 @@ snapshots:
     dependencies:
       commander: 15.1.0
 
-  layerchart@2.10.1(svelte@5.57.3):
+  layerchart@2.11.0(svelte@5.59.0):
     dependencies:
       '@dagrejs/dagre': 2.0.4
       '@layerstack/svelte-actions': 1.0.1-next.20
@@ -2762,7 +2762,7 @@ snapshots:
       d3-tile: 1.0.0
       d3-time: 3.1.1
       memoize: 10.2.0
-      svelte: 5.57.3
+      svelte: 5.59.0
 
   lightningcss-android-arm64@1.33.0:
     optional: true
@@ -2831,7 +2831,7 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  marked@18.2.0: {}
+  marked@18.2.1: {}
 
   memoize@10.2.0:
     dependencies:
@@ -2850,11 +2850,11 @@ snapshots:
 
   mimic-function@5.0.1: {}
 
-  mode-watcher@1.1.0(svelte@5.57.3):
+  mode-watcher@1.1.0(svelte@5.59.0):
     dependencies:
-      runed: 0.25.0(svelte@5.57.3)
-      svelte: 5.57.3
-      svelte-toolbelt: 0.7.1(svelte@5.57.3)
+      runed: 0.25.0(svelte@5.59.0)
+      svelte: 5.59.0
+      svelte-toolbelt: 0.7.1(svelte@5.59.0)
 
   mri@1.2.0: {}
 
@@ -2870,21 +2870,21 @@ snapshots:
 
   obug@3.0.0: {}
 
-  paneforge@1.0.2(svelte@5.57.3):
+  paneforge@1.0.2(svelte@5.59.0):
     dependencies:
-      runed: 0.23.4(svelte@5.57.3)
-      svelte: 5.57.3
-      svelte-toolbelt: 0.9.3(svelte@5.57.3)
+      runed: 0.23.4(svelte@5.59.0)
+      svelte: 5.59.0
+      svelte-toolbelt: 0.9.3(svelte@5.59.0)
 
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
 
-  playwright-core@1.65.0: {}
+  playwright-core@1.65.1: {}
 
-  playwright@1.65.0:
+  playwright@1.65.1:
     dependencies:
-      playwright-core: 1.65.0
+      playwright-core: 1.65.1
 
   postcss@8.5.32:
     dependencies:
@@ -2920,34 +2920,34 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.2.19
       '@rolldown/binding-win32-x64-msvc': 1.2.19
 
-  runed@0.23.4(svelte@5.57.3):
+  runed@0.23.4(svelte@5.59.0):
     dependencies:
       esm-env: 1.2.2
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  runed@0.25.0(svelte@5.57.3):
+  runed@0.25.0(svelte@5.59.0):
     dependencies:
       esm-env: 1.2.2
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  runed@0.29.2(svelte@5.57.3):
+  runed@0.29.2(svelte@5.59.0):
     dependencies:
       esm-env: 1.2.2
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  runed@0.35.1(svelte@5.57.3):
+  runed@0.35.1(svelte@5.59.0):
     dependencies:
       dequal: 2.0.3
       esm-env: 1.2.2
       lz-string: 1.5.0
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  runed@0.38.0(svelte@5.57.3)(zod@4.6.7):
+  runed@0.38.0(svelte@5.59.0)(zod@4.6.7):
     dependencies:
       dequal: 2.0.3
       esm-env: 1.2.2
       lz-string: 1.5.0
-      svelte: 5.57.3
+      svelte: 5.59.0
     optionalDependencies:
       zod: 4.6.7
 
@@ -2963,13 +2963,13 @@ snapshots:
 
   semver@7.8.6: {}
 
-  shadcn-svelte@1.8.1(svelte@5.57.3):
+  shadcn-svelte@1.8.1(svelte@5.59.0):
     dependencies:
       cn: 0.3.3
       commander: 14.0.3
       node-fetch-native: 1.6.7
       postcss: 8.5.32
-      svelte: 5.57.3
+      svelte: 5.59.0
 
   sharp@0.35.5(@types/node@26.6.6):
     dependencies:
@@ -3012,7 +3012,7 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  svelte-check@4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3):
+  svelte-check@4.7.8(picomatch@4.0.7)(svelte@5.59.0)(typescript@6.0.3):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@sveltejs/load-config': 0.2.3
@@ -3020,12 +3020,12 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picocolors: 1.1.1
       sade: 1.8.1
-      svelte: 5.57.3
+      svelte: 5.59.0
       typescript: 6.0.3
     transitivePeerDependencies:
       - picomatch
 
-  svelte-i18n@4.0.1(svelte@5.57.3):
+  svelte-i18n@4.0.1(svelte@5.59.0):
     dependencies:
       cli-color: 2.0.4
       deepmerge: 4.3.1
@@ -3033,44 +3033,44 @@ snapshots:
       estree-walker: 2.0.2
       intl-messageformat: 10.7.18
       sade: 1.8.1
-      svelte: 5.57.3
+      svelte: 5.59.0
       tiny-glob: 0.2.9
 
-  svelte-sonner@1.2.3(svelte@5.57.3):
+  svelte-sonner@1.2.3(svelte@5.59.0):
     dependencies:
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  svelte-toolbelt@0.10.7(svelte@5.57.3):
+  svelte-toolbelt@0.10.7(svelte@5.59.0):
     dependencies:
       clsx: 2.1.1
-      runed: 0.35.1(svelte@5.57.3)
+      runed: 0.35.1(svelte@5.59.0)
       style-to-object: 1.0.14
-      svelte: 5.57.3
+      svelte: 5.59.0
     transitivePeerDependencies:
       - '@sveltejs/kit'
 
-  svelte-toolbelt@0.7.1(svelte@5.57.3):
+  svelte-toolbelt@0.7.1(svelte@5.59.0):
     dependencies:
       clsx: 2.1.1
-      runed: 0.23.4(svelte@5.57.3)
+      runed: 0.23.4(svelte@5.59.0)
       style-to-object: 1.0.14
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  svelte-toolbelt@0.9.3(svelte@5.57.3):
+  svelte-toolbelt@0.9.3(svelte@5.59.0):
     dependencies:
       clsx: 2.1.1
-      runed: 0.29.2(svelte@5.57.3)
+      runed: 0.29.2(svelte@5.59.0)
       style-to-object: 1.0.14
-      svelte: 5.57.3
+      svelte: 5.59.0
 
-  svelte2tsx@0.7.63(svelte@5.57.3)(typescript@6.0.3):
+  svelte2tsx@0.7.63(svelte@5.59.0)(typescript@6.0.3):
     dependencies:
       dedent-js: 1.0.1
       scule: 1.3.0
-      svelte: 5.57.3
+      svelte: 5.59.0
       typescript: 6.0.3
 
-  svelte@5.57.3:
+  svelte@5.59.0:
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -3082,7 +3082,7 @@ snapshots:
       clsx: 2.1.1
       devalue: 5.9.4
       esm-env: 1.2.2
-      esrap: 2.4.0
+      esrap: 2.4.2
       is-reference: 3.0.3
       locate-character: 3.0.0
       magic-string: 0.30.21
@@ -3092,7 +3092,7 @@ snapshots:
 
   tabbable@6.5.1: {}
 
-  tailwind-merge@3.7.0: {}
+  tailwind-merge@3.7.1: {}
 
   tailwind-variants@4.0.2: {}
 
@@ -3110,7 +3110,7 @@ snapshots:
       globalyzer: 0.1.0
       globrex: 0.1.2
 
-  tinybench@6.2.3: {}
+  tinybench@6.2.4: {}
 
   tinyexec@1.3.1: {}
 
@@ -3151,10 +3151,10 @@ snapshots:
     optionalDependencies:
       vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)
 
-  vitest@5.1.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0)):
+  vitest@5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0)):
     dependencies:
       '@types/chai': 5.2.3
-      '@vitest/mocker': 5.1.0(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
+      '@vitest/mocker': 5.1.1(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
       chai: 6.3.0
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -3162,7 +3162,7 @@ snapshots:
       obug: 3.0.0
       picomatch: 4.0.7
       std-env: 4.3.0
-      tinybench: 6.2.3
+      tinybench: 6.2.4
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: 8.3.8(@types/node@26.6.6)(jiti@2.7.0)

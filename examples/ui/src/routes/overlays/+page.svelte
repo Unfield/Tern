@@ -11,6 +11,9 @@
 	let zoom = $state('100');
 	let last = $state('');
 	let removed = $state(false);
+	let deleteOpen = $state(false);
+	let typed = $state('');
+	let deleted = $state(false);
 
 	const viewItems: MenuItem[] = $derived([
 		{ heading: 'Show' },
@@ -107,6 +110,8 @@
 		<Button variant="secondary" onclick={() => (drawerOpen = true)} data-testid="open-drawer">Open drawer</Button>
 		<Button variant="danger" onclick={() => (alertOpen = true)} data-testid="open-alert">Remove member</Button>
 		{#if removed}<span data-testid="removed">Member removed.</span>{/if}
+		<Button variant="danger" onclick={() => (deleteOpen = true)} data-testid="open-delete">Delete project</Button>
+		{#if deleted}<span data-testid="deleted">Project deleted.</span>{/if}
 	</div>
 </section>
 
@@ -136,6 +141,21 @@
 		toast.success('Ada was removed');
 	}}
 />
+
+<AlertDialog
+	bind:open={deleteOpen}
+	title="Delete the project acme?"
+	description="Its services and data are deleted. This can't be undone."
+	confirmLabel="Delete"
+	danger
+	confirmDisabled={typed !== 'acme'}
+	onconfirm={() => {
+		deleted = true;
+		typed = '';
+	}}
+>
+	<Field label="Type acme to confirm"><Input bind:value={typed} autocomplete="off" /></Field>
+</AlertDialog>
 
 <style>
 	.lead {

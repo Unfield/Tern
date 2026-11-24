@@ -53,7 +53,7 @@ See [examples/ui](../examples/ui) for every component, and a form validated by a
 | `ContextMenu` | opens on right-click, a long press, Shift+F10 or the menu key, at the pointer or the focused element, and returns focus |
 | `Popover` | a non-modal `role="dialog"` labelled by its title, opened by a trigger with `aria-expanded`. Focus moves in; Escape, clicks outside and tabbing away close it |
 | `HoverCard` | a preview on hover or focus, linked as the trigger's description; Escape hides it |
-| `AlertDialog` | `role="alertdialog"` for confirmations. Focus starts on Cancel, so Enter doesn't confirm by accident. The confirm button waits for an async `onconfirm` |
+| `AlertDialog` | `role="alertdialog"` for confirmations. Focus starts on Cancel, so Enter doesn't confirm by accident; Enter in a text field inside it confirms once `confirmDisabled` is false, as in a form. The confirm button waits for an async `onconfirm` |
 | `Sheet`, `Drawer` | modal dialogs against an edge. A `Drawer` is a bottom sheet that closes when dragged down |
 | `Tooltip` | `role="tooltip"`, linked to its trigger with `aria-describedby`. It shows on hover and focus, Escape hides it, and it can sit on any `side` |
 | `Accordion` | buttons with `aria-expanded` inside headings of the level you choose, and labelled regions |

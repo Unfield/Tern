@@ -150,6 +150,20 @@ test('the alert dialog starts on Cancel and waits for the action', async ({ page
 	await expect(opener).toBeFocused();
 });
 
+test('Enter in the alert dialog\'s field confirms once the name matches', async ({ page }) => {
+	await page.goto('/overlays');
+	await page.getByTestId('open-delete').click();
+	const alert = page.getByRole('alertdialog', { name: 'Delete the project acme?' });
+	const field = alert.getByLabel('Type acme to confirm');
+	await field.fill('acm');
+	await field.press('Enter');
+	await expect(alert).toBeVisible(); // not yet: the button is disabled
+	await field.fill('acme');
+	await field.press('Enter');
+	await expect(alert).toBeHidden();
+	await expect(page.getByTestId('deleted')).toBeVisible();
+});
+
 test('sheets and drawers are modal and close by dragging', async ({ page }) => {
 	await page.goto('/overlays');
 	await page.getByTestId('open-sheet').click();

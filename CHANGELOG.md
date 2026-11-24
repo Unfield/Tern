@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Enter in a text field inside an `AlertDialog` confirms it, as in a form, once the confirm button is enabled. Typing a name to confirm a deletion and pressing Enter used to do nothing. A dialog without fields still starts on Cancel, so Enter there doesn't confirm by accident.
+
 ## [1.18.0] - 2026-11-21
 
 Headers and sidebars that don't twitch while the page scrolls: a `Header` component, and warnings in `tern dev` and `tern check` for bars off the pixel grid. No upgrade steps.

@@ -6,9 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-25
+
+Enter confirms an `AlertDialog` from its field. No upgrade steps.
+
 ### Changed
 
 - Enter in a text field inside an `AlertDialog` confirms it, as in a form, once the confirm button is enabled. Typing a name to confirm a deletion and pressing Enter used to do nothing. A dialog without fields still starts on Cancel, so Enter there doesn't confirm by accident.
+- Dependencies: `golang.org/x/net` 0.63.0, `golang.org/x/tools` 0.53.0, `golang.org/x/vuln` 1.10.0 and `regexp2` 2.13.1.
 
 ## [1.18.0] - 2026-11-21
 
@@ -551,7 +556,8 @@ The first release. It covers the v0.1, v0.2 and v0.3 milestones of the [roadmap]
 - The [guide](docs/guide.md) and the [deployment guide](docs/deployment.md).
 - Server-side rendering with hydration. Pages render in a pool of embedded QuickJS VMs (pure Go, no cgo) with per-render timeouts and memory limits, and fall back to client rendering if a render fails. Development renders through Vite. Opt out per page with `const SSR = false` or app-wide with `kit.WithoutSSR()`; tune with `kit.WithSSRWorkers` and `kit.WithSSRTimeout`.
 
-[Unreleased]: https://github.com/Unfield/Tern/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/Unfield/Tern/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/Unfield/Tern/releases/tag/v1.19.0
 [1.18.0]: https://github.com/Unfield/Tern/releases/tag/v1.18.0
 [1.17.2]: https://github.com/Unfield/Tern/releases/tag/v1.17.2
 [1.17.1]: https://github.com/Unfield/Tern/releases/tag/v1.17.1

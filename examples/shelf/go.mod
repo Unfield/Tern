@@ -10,7 +10,7 @@ require (
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
-	github.com/dlclark/regexp2/v2 v2.13.1 // indirect
+	github.com/dlclark/regexp2/v2 v2.13.2 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.9 // indirect

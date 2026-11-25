@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The default `Permissions-Policy` header no longer lists `interest-cohort`. Chrome dropped that feature along with FLoC, and now logs an error for it on every page. The header keeps `camera=(), microphone=(), geolocation=()`.
+
+### Changed
+
+- Dependencies: `regexp2` 2.13.2.
+
 ## [1.19.0] - 2026-11-25
 
 Enter confirms an `AlertDialog` from its field. No upgrade steps.

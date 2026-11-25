@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -199,12 +200,19 @@ func TestSampling(t *testing.T) {
 		l.Info("flood")
 		l.Warn("flood") // above MaxLevel: all kept
 	}
-	l.Info("other")
-	var info, warn, other int
+	// A message that shares flood's counter is sampled with it (the seed is
+	// random), so pick one that doesn't.
+	smp := l.Handler().(*handler).c.sample
+	other := "other"
+	for i := 0; smp.slot(slog.LevelInfo, other) == smp.slot(slog.LevelInfo, "flood"); i++ {
+		other = fmt.Sprintf("other %d", i)
+	}
+	l.Info(other)
+	var info, warn, others int
 	for _, m := range lines(t, &buf) {
 		switch {
-		case m["msg"] == "other":
-			other++
+		case m["msg"] == other:
+			others++
 		case m["level"] == "INFO":
 			info++
 		default:
@@ -212,8 +220,8 @@ func TestSampling(t *testing.T) {
 		}
 	}
 	// 3 first, then the 8th, 13th and 18th.
-	if info != 6 || warn != 20 || other != 1 {
-		t.Fatalf("info %d warn %d other %d", info, warn, other)
+	if info != 6 || warn != 20 || others != 1 {
+		t.Fatalf("info %d warn %d other %d", info, warn, others)
 	}
 	if s := StatsOf(l).Sampled; s != 14 {
 		t.Fatalf("sampled %d", s)

@@ -60,17 +60,22 @@ func (s *sampler) keep(level slog.Level, msg string, t time.Time) bool {
 	if s == nil || level > s.max {
 		return true
 	}
-	var h maphash.Hash
-	h.SetSeed(s.seed)
-	_, _ = h.WriteString(msg)
-	_ = h.WriteByte(byte(level))
-	c := &s.slots[h.Sum64()%sampleSlots]
+	c := &s.slots[s.slot(level, msg)]
 	n := c.inc(t.UnixNano(), s.tick)
 	if n <= s.first || (s.thereafter > 0 && (n-s.first)%s.thereafter == 0) {
 		return true
 	}
 	s.dropped.Add(1)
 	return false
+}
+
+// slot is the counter a record's message and level count against.
+func (s *sampler) slot(level slog.Level, msg string) uint64 {
+	var h maphash.Hash
+	h.SetSeed(s.seed)
+	_, _ = h.WriteString(msg)
+	_ = h.WriteByte(byte(level))
+	return h.Sum64() % sampleSlots
 }
 
 func (c *sampleCounter) inc(now, tick int64) int64 {

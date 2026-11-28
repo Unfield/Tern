@@ -1137,6 +1137,8 @@ q.Schedule("ping", "@every 30s", checkMonitors)
 
 Schedules take five-field cron expressions (`*/5 * * * *`, `0 9 * * mon-fri`), `@hourly`, `@daily`, `@weekly`, `@monthly` and `@every <duration>`. They run in UTC unless `Options.Location` says otherwise. Each run is a job, retried like any other. With several instances, each run happens once, and a run doesn't start while the previous one is still going.
 
+`q.Next(ctx)` says when a job or a scheduled run is next due, and how many jobs this process is running. A platform that stops idle apps can ask before stopping one and start it again in time: the queue runs what is due when it starts, and a scheduled run missed while the app was stopped runs once.
+
 ## Email
 
 Write emails as Svelte components in `src/emails/`. They render on the server with the same engine as pages. Their styles are included in the HTML, since mail clients can't load your stylesheets. The `<title>` becomes the subject:

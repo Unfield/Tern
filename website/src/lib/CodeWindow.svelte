@@ -4,7 +4,8 @@
 	type Sample = { file: string; html: string; code: string };
 	let { samples, label }: { samples: Sample[]; label: string } = $props();
 	let current = $state(0);
-	const id = 'code-' + Math.random().toString(36).slice(2, 8);
+	const uid = $props.id();
+	const id = 'code-' + uid;
 
 	function name(file: string) {
 		return file.split('/').pop() ?? file;

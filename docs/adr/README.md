@@ -32,7 +32,7 @@ An ADR captures one significant decision: the context, what was decided, and the
 | [0026](0026-svelte-compiler-in-go.md) | Svelte's compiler in Go | Proposed |
 | [0027](0027-secure-by-default.md) | Secure by default | Accepted |
 | [0028](0028-typed-sql.md) | Typed SQL from .sql files | Accepted |
-| [0029](0029-build-output.md) | A build output for hosting platforms | Proposed |
+| [0029](0029-build-output.md) | A build output for hosting platforms | Accepted |
 
 ## Template
 

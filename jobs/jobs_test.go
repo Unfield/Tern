@@ -295,3 +295,50 @@ func TestJobsContinueTraces(t *testing.T) {
 		}
 	})
 }
+
+func TestNext(t *testing.T) {
+	dbtest.Each(t, func(t *testing.T, db *sql.DB) {
+		ctx := context.Background()
+		q := newQueue(t, db)
+		if err := q.Migrate(ctx); err != nil {
+			t.Fatal(err)
+		}
+		release := make(chan struct{})
+		started := make(chan struct{}, 1)
+		kind := jobs.Handle(q, "slow", func(ctx context.Context, _ struct{}) error {
+			started <- struct{}{}
+			<-release
+			return nil
+		})
+		if at, running, err := q.Next(ctx); err != nil || !at.IsZero() || running != 0 {
+			t.Fatalf("empty queue: %v %d %v", at, running, err)
+		}
+		if _, err := kind.Enqueue(ctx, struct{}{}, jobs.Delay(2*time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := q.Next(ctx)
+		if err != nil || time.Until(at) < 119*time.Minute || time.Until(at) > 2*time.Hour {
+			t.Fatalf("a job in two hours: %v %v", at, err)
+		}
+		// A schedule that hasn't run yet is due at its next time from now.
+		if err := q.Schedule("report", "@every 30m", func(context.Context) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		at, _, err = q.Next(ctx)
+		if err != nil || time.Until(at) <= 0 || time.Until(at) > 30*time.Minute {
+			t.Fatalf("a schedule in 30 minutes: %v %v", at, err)
+		}
+		// A job running here keeps the app awake.
+		if _, err := kind.Enqueue(ctx, struct{}{}); err != nil {
+			t.Fatal(err)
+		}
+		start(t, q)
+		<-started
+		_, running, err := q.Next(ctx)
+		if err != nil || running != 1 {
+			t.Fatalf("running %d, %v", running, err)
+		}
+		close(release)
+		waitFor(t, "the job to finish", func() bool { _, n, _ := q.Next(ctx); return n == 0 })
+	})
+}

@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0
+	github.com/andybalholm/brotli v1.3.0
 	github.com/coder/websocket v1.8.15
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/dlclark/regexp2/v2 v2.13.2

@@ -1,7 +1,9 @@
 package kit
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -10,6 +12,8 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -23,12 +27,57 @@ type assets struct {
 	files map[string]assetFile // by URL path
 	vite  map[string]viteChunk
 	entry string
+	// csp is the policy prerendered pages are sent, set by the app; the
+	// header is cspName.
+	csp, cspName string
 }
 
 type assetFile struct {
 	name string // path in fsys
 	etag string
 	gzip string // path of a precompressed .gz sibling, or ""
+	br   string // path of a precompressed .br sibling, or ""
+	// page is set for a page Tern prerendered, whose inline scripts are
+	// allowed by their hashes.
+	page   bool
+	hashes []string // 'sha256-…' of each inline script that runs
+}
+
+// ternPage marks the HTML of a page Tern rendered: its data script.
+const ternPage = `id="__tern_data"`
+
+// inlineScript matches a <script> element with its attributes and text.
+var inlineScript = regexp.MustCompile(`(?is)<script\b([^>]*)>(.*?)</script>`)
+
+// scriptSrc matches a src attribute.
+var scriptSrc = regexp.MustCompile(`(?i)\bsrc\s*=`)
+
+// scriptHashes returns the CSP hash of each inline script in page that
+// runs. A prerendered page has no nonce: the request it was rendered for is
+// gone, so its scripts are allowed by what they say.
+func scriptHashes(page []byte) []string {
+	var out []string
+	for _, m := range inlineScript.FindAllSubmatch(page, -1) {
+		attrs := strings.ToLower(string(m[1]))
+		if scriptSrc.MatchString(attrs) || !executable(attrs) {
+			continue
+		}
+		sum := sha256.Sum256(m[2])
+		h := "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+		if !slices.Contains(out, h) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// pageCSP is the policy a prerendered page is sent: the app's, with its
+// scripts' hashes.
+func (a *assets) pageCSP(f assetFile) string {
+	if len(f.hashes) == 0 {
+		return a.csp
+	}
+	return addSources(a.csp, "script-src", f.hashes)
 }
 
 // viteChunk is an entry in Vite's .vite/manifest.json.
@@ -64,7 +113,7 @@ func loadAssets(fsys fs.FS, entry string) (*assets, error) {
 			}
 			return nil
 		}
-		if strings.HasSuffix(name, ".gz") {
+		if strings.HasSuffix(name, ".gz") || strings.HasSuffix(name, ".br") {
 			return nil
 		}
 		f := assetFile{name: name}
@@ -77,6 +126,18 @@ func loadAssets(fsys fs.FS, entry string) (*assets, error) {
 		}
 		if _, err := fs.Stat(fsys, name+".gz"); err == nil {
 			f.gzip = name + ".gz"
+		}
+		if _, err := fs.Stat(fsys, name+".br"); err == nil {
+			f.br = name + ".br"
+		}
+		if strings.HasSuffix(name, ".html") {
+			raw, err := fs.ReadFile(fsys, name)
+			if err != nil {
+				return err
+			}
+			if bytes.Contains(raw, []byte(ternPage)) {
+				f.page, f.hashes = true, scriptHashes(raw)
+			}
 		}
 		a.files["/"+name] = f
 		return nil
@@ -125,11 +186,18 @@ func (a *assets) serve(w http.ResponseWriter, r *http.Request) bool {
 	if ct := mime.TypeByExtension(path.Ext(f.name)); ct != "" {
 		h.Set("Content-Type", ct)
 	}
+	if f.page && a.csp != "" {
+		h.Set(a.cspName, a.pageCSP(f))
+	}
 
 	name := f.name
-	if f.gzip != "" {
+	if f.gzip != "" || f.br != "" {
 		h.Add("Vary", "Accept-Encoding")
-		if acceptsGzip(r) {
+		switch {
+		case f.br != "" && accepts(r, "br"):
+			name = f.br
+			h.Set("Content-Encoding", "br")
+		case f.gzip != "" && accepts(r, "gzip"):
 			name = f.gzip
 			h.Set("Content-Encoding", "gzip")
 		}
@@ -151,10 +219,11 @@ func (a *assets) serve(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func acceptsGzip(r *http.Request) bool {
+// accepts reports whether the request accepts the content encoding.
+func accepts(r *http.Request, encoding string) bool {
 	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
 		enc, q, _ := strings.Cut(strings.TrimSpace(part), ";")
-		if strings.EqualFold(strings.TrimSpace(enc), "gzip") && strings.TrimSpace(q) != "q=0" {
+		if strings.EqualFold(strings.TrimSpace(enc), encoding) && strings.TrimSpace(q) != "q=0" {
 			return true
 		}
 	}

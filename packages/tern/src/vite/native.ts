@@ -123,7 +123,12 @@ export function nativePlugin(getRoot: () => string, entry: string): Plugin {
 			const root = getRoot();
 			const out = path.join(root, NATIVE_IR);
 			fs.mkdirSync(path.dirname(out), { recursive: true });
-			const ir = { version: 1, svelte: svelteVersion(root), entry, env, fileUrls, bundled, modules: [...modules.values()] };
+			// In a fixed order, so the same app compiles to the same Go:
+			// Vite loads modules in parallel, in whatever order they finish.
+			// The compiler orders them by their imports, not by this list.
+			const byKey = <T>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+			const sorted = [...modules.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+			const ir = { version: 1, svelte: svelteVersion(root), entry, env, fileUrls: byKey(fileUrls), bundled: byKey(bundled), modules: sorted };
 			try {
 				// BigInt literals keep their digits in the node's bigint field;
 				// their value, which JSON can't hold, is left out.

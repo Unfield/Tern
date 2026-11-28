@@ -4,10 +4,20 @@
 package ratelimit
 
 import (
+	"context"
 	"math"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/Unfield/Tern/cache"
 )
+
+// A Taker limits how often each key may act.
+type Taker interface {
+	// Take spends one action for k, or reports how long until k may act.
+	Take(ctx context.Context, k string) (time.Duration, bool)
+}
 
 // Limiter limits how often each key may act. It's safe for concurrent use.
 type Limiter struct {
@@ -31,7 +41,7 @@ func New(perSecond, burst float64) *Limiter {
 }
 
 // Take spends a token for k, or reports how long until one is available.
-func (l *Limiter) Take(k string) (time.Duration, bool) {
+func (l *Limiter) Take(_ context.Context, k string) (time.Duration, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.Now()
@@ -73,4 +83,43 @@ func (l *Limiter) sweep() {
 			delete(l.buckets, k)
 		}
 	}
+}
+
+// Store counts in a cache.Store, so that every instance of an app shares
+// the counts and they outlast a restart. It allows burst actions per key in
+// each window of burst/perSecond seconds: a fixed window, since a store
+// only has to count.
+type Store struct {
+	store  cache.Store
+	prefix string
+	limit  int64
+	window time.Duration
+	// Now is the clock; tests replace it.
+	Now func() time.Time
+	// OnError is told when the store fails; the action is then allowed.
+	OnError func(error)
+}
+
+// NewStore returns a limiter counting in store under keys that start with
+// prefix.
+func NewStore(store cache.Store, prefix string, perSecond, burst float64) *Store {
+	window := time.Duration(math.Max(1, math.Round(burst/perSecond))) * time.Second
+	return &Store{store: store, prefix: prefix, limit: int64(math.Max(1, burst)), window: window, Now: time.Now}
+}
+
+// Take implements Taker.
+func (s *Store) Take(ctx context.Context, k string) (time.Duration, bool) {
+	now := s.Now()
+	win := now.UnixNano() / int64(s.window)
+	n, err := cache.IncrTTL(ctx, s.store, s.prefix+k+":"+strconv.FormatInt(win, 10), s.window+time.Second)
+	if err != nil {
+		if s.OnError != nil {
+			s.OnError(err)
+		}
+		return 0, true
+	}
+	if n <= s.limit {
+		return 0, true
+	}
+	return time.Unix(0, (win+1)*int64(s.window)).Sub(now), false
 }

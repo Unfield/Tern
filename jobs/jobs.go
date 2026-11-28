@@ -32,6 +32,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Unfield/Tern/kit"
@@ -101,6 +102,7 @@ type Queue struct {
 	jobCtx  context.Context
 	running sync.WaitGroup
 	started bool
+	busy    atomic.Int64 // jobs this process is running
 }
 
 type handler struct {
@@ -463,6 +465,8 @@ func (q *Queue) runOne(ctx context.Context) (bool, error) {
 	if err != nil || j == nil {
 		return false, err
 	}
+	q.busy.Add(1)
+	defer q.busy.Add(-1)
 	err = q.call(ctx, h, j)
 	// Record the result even if the queue is stopping.
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)

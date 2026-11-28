@@ -99,6 +99,16 @@ func (s *Store) Set(ctx context.Context, key string, value []byte, ttl time.Dura
 	return err
 }
 
+// IncrTTL implements cache.TTLCounter.
+func (s *Store) IncrTTL(ctx context.Context, key string, ttl time.Duration) (int64, error) {
+	n, err := s.Incr(ctx, key)
+	if err != nil || n != 1 {
+		return n, err
+	}
+	_, err = s.do(ctx, "PEXPIRE", key, strconv.FormatInt(max(ttl.Milliseconds(), 1), 10))
+	return n, err
+}
+
 // Delete implements cache.Store.
 func (s *Store) Delete(ctx context.Context, keys ...string) error {
 	if len(keys) == 0 {

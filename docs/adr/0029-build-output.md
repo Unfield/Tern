@@ -1,6 +1,6 @@
 # 0029. A build output for hosting platforms
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-28
 
 ## Context
@@ -51,7 +51,7 @@ The binary still holds everything, so a platform that sends every request to it 
     "goarch": "amd64",
     "env": { "port": "PORT", "host": "HOST" },
     "ready": "/readyz",
-    "shutdown": { "signal": "SIGTERM", "grace_seconds": 30 }
+    "shutdown": { "signal": "SIGTERM", "grace_seconds": 10 }
   },
   "base_path": "",
   "immutable": ["/_app/immutable/"],
@@ -72,7 +72,7 @@ The binary still holds everything, so a platform that sends every request to it 
       "headers": {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "public, max-age=0, must-revalidate",
-        "ETag": "\"d2d483f4e8c8530b1ae3\"",
+        "Etag": "\"d2d483f4e8c8530b1ae3\"",
         "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-7dQw…' 'sha256-…'; …"
       }
     },
@@ -94,7 +94,7 @@ How a platform serves it:
 
 - **Matching.** A `GET` or `HEAD` whose path is a key in `files` is that file. Anything else, every other method included, goes to the server. There are no patterns, rewrites or trailing-slash rules: the keys are the URLs.
 - **Kinds.** `page` is a prerendered page, `data` its `__data.json`, `endpoint` a prerendered endpoint such as `sitemap.xml`, `asset` a client or static file. A `page` matches only without a query string; with one it goes to the server, as the binary does it today. The others match with or without one.
-- **Headers.** Send `headers`, then the file's own `headers` over them. These are what the app sends for the file, captured from the app itself during the build, so `plugins/secure` and the app's options are in them. Headers that differ per request, such as `Date` and `X-Request-Id`, are left out.
+- **Headers.** Send `headers`, then the file's own `headers` over them. Names are in Go's canonical form, such as `Etag`; compare them without regard to case. These are what the app sends for the file, captured from the app itself during the build, so `plugins/secure` and the app's options are in them. Headers that differ per request, such as `Date` and `X-Request-Id`, are left out.
 - **Encodings.** `encodings` lists the compressed siblings, best first. Send `<file>.br` or `<file>.gz` with `Content-Encoding` when the request accepts it, and add `Vary: Accept-Encoding` whenever `encodings` isn't empty.
 - **Immutable.** Paths under an `immutable` prefix never change content. A missing one is a 404 and never goes to the server.
 - **Not found.** `not_found` is a key in `files` to send, with status 404, for such a miss, or null for a plain 404. Tern renders its error pages when they're needed, so for now it is null; a later version can fill it without a new `version`.
@@ -122,7 +122,7 @@ A platform asks before it stops an idle app, and doesn't stop it while `running`
 
 ### Rate limits across instances
 
-`plugins/ratelimit` and kit's default limit count in the process's memory. An app with several instances, or one that is stopped and started, then counts per instance and from zero. Both take a `cache.Store`, so Redis or a platform's key-value store holds the counts. Counting in a store uses fixed windows rather than a token bucket, since a store only has to count. That takes counters that expire, so `cache.Store` gets an optional `IncrTTL`; stores without it fall back to `Set` with a TTL.
+`plugins/ratelimit` and kit's default limit count in the process's memory. An app with several instances, or one that is stopped and started, then counts per instance and from zero. Both take a `cache.Store`, so Redis or a platform's key-value store holds the counts. Counting in a store uses fixed windows rather than a token bucket, since a store only has to count. That takes counters that expire, so stores can implement `cache.TTLCounter` (`IncrTTL`), as Memory, Disk and Redis do; in other stores the window's counters stay.
 
 ### Platform plugins live with the platform
 

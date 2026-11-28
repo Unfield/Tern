@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -83,4 +84,59 @@ func (q *Queue) tick(ctx context.Context, s *schedule) (time.Duration, error) {
 		}
 	}
 	return time.Until(next), nil
+}
+
+// Next reports when a job or a scheduled run is next due, and how many jobs
+// this process is running now. at is zero when nothing is waiting, and no
+// later than now when something is due already.
+//
+// A platform that stops idle apps asks before stopping one: it waits while
+// running is above zero, and starts the app again at at. The queue runs
+// what is due when it starts, so nothing more is needed to catch up.
+func (q *Queue) Next(ctx context.Context) (at time.Time, running int, err error) {
+	running = int(q.busy.Load())
+	now := time.Now()
+	earliest := int64(0)
+	consider := func(ms int64) {
+		if ms > 0 && (earliest == 0 || ms < earliest) {
+			earliest = ms
+		}
+	}
+	names := q.kindNames()
+	if len(names) > 0 {
+		in := strings.TrimSuffix(strings.Repeat("?, ", len(names)), ", ")
+		args := make([]any, len(names))
+		for i, n := range names {
+			args[i] = n
+		}
+		// Waiting jobs and retries, and running jobs whose lock runs out:
+		// those are retried then if their worker is gone.
+		var queued, locked sql.NullInt64
+		row := q.db.QueryRowContext(ctx, q.d.Rebind(`SELECT
+			(SELECT MIN(run_at) FROM tern_jobs WHERE state = 'queued' AND kind IN (`+in+`)),
+			(SELECT MIN(locked_until) FROM tern_jobs WHERE state = 'running' AND kind IN (`+in+`))`), append(args, args...)...)
+		if err := row.Scan(&queued, &locked); err != nil {
+			return time.Time{}, running, fmt.Errorf("jobs: next: %w", err)
+		}
+		consider(queued.Int64)
+		consider(locked.Int64)
+	}
+	for _, s := range q.sched {
+		var due int64
+		err := q.db.QueryRowContext(ctx, q.d.Rebind(`SELECT next_run FROM tern_schedules WHERE name = ?`), s.name).Scan(&due)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			// Not run yet: the first instance to start sets it.
+			if next := s.sch.Next(now); !next.IsZero() {
+				due = next.UnixMilli()
+			}
+		case err != nil:
+			return time.Time{}, running, fmt.Errorf("jobs: next: %w", err)
+		}
+		consider(due)
+	}
+	if earliest == 0 {
+		return time.Time{}, running, nil
+	}
+	return time.UnixMilli(earliest), running, nil
 }

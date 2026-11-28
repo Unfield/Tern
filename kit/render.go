@@ -229,7 +229,12 @@ func (a *App) writeDocument(c *Ctx, status int, def *RouteDef, p payload) {
 	}
 
 	nonce := newNonce()
-	if cached(c.Request) {
+	switch {
+	case a.prerendering:
+		// The page is saved and served to everyone: tern build removes the
+		// empty nonces, and its scripts are allowed by their hashes.
+		nonce = ""
+	case cached(c.Request):
 		nonce = a.cacheNonce // each copy served gets a nonce of its own
 	}
 	// A page without JavaScript: its styles, and no scripts or data.

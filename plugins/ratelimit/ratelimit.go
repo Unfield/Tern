@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Unfield/Tern/cache"
 	"github.com/Unfield/Tern/internal/ratelimit"
 	"github.com/Unfield/Tern/kit"
 )
@@ -46,12 +47,20 @@ func Methods(m ...string) Option { return func(p *Plugin) { p.methods = m } }
 // kit.ClientIP. Return "" to exempt a request.
 func KeyFunc(fn func(*http.Request) string) Option { return func(p *Plugin) { p.key = fn } }
 
+// Store keeps the counts in store, such as Redis, instead of this
+// process's memory. Every instance of the app then shares them, and they
+// outlast a restart. A store counts in fixed windows of Burst requests over
+// Burst/rate: with Rate(30, time.Minute), 30 in each minute.
+func Store(store cache.Store) Option { return func(p *Plugin) { p.store = store } }
+
 // Plugin limits request rates. Create it with New.
 type Plugin struct {
 	rate, burst float64
 	methods     []string
 	key         func(*http.Request) string
-	limiter     *ratelimit.Limiter
+	store       cache.Store
+	limiter     ratelimit.Taker
+	memory      *ratelimit.Limiter
 }
 
 // New returns the rate limiting plugin.
@@ -64,7 +73,12 @@ func New(opts ...Option) *Plugin {
 	for _, o := range opts {
 		o(p)
 	}
-	p.limiter = ratelimit.New(p.rate, p.burst)
+	if p.store != nil {
+		p.limiter = ratelimit.NewStore(p.store, "tern:ratelimit:plugin:", p.rate, p.burst)
+	} else {
+		p.memory = ratelimit.New(p.rate, p.burst)
+		p.limiter = p.memory
+	}
 	return p
 }
 
@@ -73,9 +87,15 @@ func (*Plugin) Name() string { return "ratelimit" }
 
 // Setup implements kit.Plugin.
 func (p *Plugin) Setup(s *kit.Setup) error {
-	stop := make(chan struct{})
-	go p.limiter.Sweep(stop)
-	s.OnShutdown(func(context.Context) error { close(stop); return nil })
+	if st, ok := p.limiter.(*ratelimit.Store); ok {
+		log := s.Logger()
+		st.OnError = func(err error) { log.Warn("ratelimit: the store failed; allowing the request", "err", err) }
+	}
+	if p.memory != nil {
+		stop := make(chan struct{})
+		go p.memory.Sweep(stop)
+		s.OnShutdown(func(context.Context) error { close(stop); return nil })
+	}
 	s.Middleware(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(p.methods) > 0 && !slices.Contains(p.methods, r.Method) {
@@ -87,7 +107,7 @@ func (p *Plugin) Setup(s *kit.Setup) error {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if wait, ok := p.limiter.Take(k); !ok {
+			if wait, ok := p.limiter.Take(r.Context(), k); !ok {
 				w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
 				http.Error(w, "Too many requests; try again later.", http.StatusTooManyRequests)
 				return

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andybalholm/brotli"
+
 	"github.com/Unfield/Tern/internal/codegen"
 	"github.com/Unfield/Tern/internal/ui"
 	"github.com/Unfield/Tern/internal/version"
@@ -31,12 +33,25 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	fl := flag.NewFlagSet("build", flag.ContinueOnError)
 	fl.SetOutput(stderr)
 	out := fl.String("o", "", "output binary (default build/<directory name>)")
+	outDir := fl.String("out", "", "write a directory for hosting platforms: the server, the static files and tern-output.json (ADR 0029)")
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
-	if fl.NArg() > 0 {
-		fmt.Fprintln(stderr, "usage: tern build [-o output]")
+	if fl.NArg() > 0 || *out != "" && *outDir != "" {
+		fmt.Fprintln(stderr, "usage: tern build [-o output | -out directory]")
 		return 2
+	}
+	if *outDir != "" {
+		if err := clearOutput(*outDir); err != nil {
+			ui.New(stderr).Error(err)
+			return 1
+		}
+		*out = outputBinary(*outDir)
+		// A platform runs the server as it is: a static binary, unless
+		// the app asks for cgo.
+		if os.Getenv("CGO_ENABLED") == "" {
+			_ = os.Setenv("CGO_ENABLED", "0")
+		}
 	}
 	if *out == "" {
 		wd, err := os.Getwd()
@@ -130,20 +145,11 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 			if err != nil {
 				return "", err
 			}
-			bin := *out
-			if crossBuild() {
-				// The binary is for another system: prerender with one for
-				// this one.
-				bin = filepath.Join(os.TempDir(), "tern-prerender-"+strconv.Itoa(os.Getpid()))
-				if runtime.GOOS == "windows" {
-					bin += ".exe"
-				}
-				defer func() { _ = os.Remove(bin) }()
-				var log bytes.Buffer
-				if err := goBuildTo(&log, bin, native, []string{"GOOS=" + runtime.GOOS, "GOARCH=" + runtime.GOARCH}); err != nil {
-					return "", fmt.Errorf("building a binary to prerender with: %w\n%s", err, log.String())
-				}
+			bin, cleanup, err := hostBinary(*out, native)
+			if err != nil {
+				return "", err
 			}
+			defer cleanup()
 			n, err := prerender(bin, cfg.BasePath)
 			return plural(n, "page"), err
 		}) && step("Compressing prerendered pages", func(io.Writer) (string, error) {
@@ -162,6 +168,17 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	if ok && needsCompile {
 		ok = step("Embedding the final assets", compile)
 	}
+	if ok && *outDir != "" {
+		ok = step("Writing "+*outDir, func(io.Writer) (string, error) {
+			bin, cleanup, err := hostBinary(*out, native)
+			if err != nil {
+				return "", err
+			}
+			defer cleanup()
+			n, err := writeOutput(*outDir, bin, *out, cfg.BasePath)
+			return plural(n, "static file"), err
+		})
+	}
 	if !ok {
 		return 1
 	}
@@ -176,11 +193,33 @@ func cmdBuild(args []string, stdout, stderr io.Writer) int {
 	p.Printf("    %s %s\n", p.Dim("binary "), ui.Size(binSize))
 	p.Printf("    %s %s %s\n", p.Dim("client "), ui.Size(raw), p.Dim("("+ui.Size(gz)+" gzipped)"))
 	if buildRunHint {
-		p.Printf("\n  Run it with %s\n\n", p.Cyan("./"+filepath.ToSlash(*out)))
+		run := filepath.ToSlash(*out)
+		if !filepath.IsAbs(*out) {
+			run = "./" + run
+		}
+		p.Printf("\n  Run it with %s\n\n", p.Cyan(run))
 	} else {
 		p.Println()
 	}
 	return 0
+}
+
+// hostBinary returns a binary of the app for this system, to run during
+// the build: out itself, or, when out is for another system, one built for
+// this one, which cleanup removes.
+func hostBinary(out string, native bool) (bin string, cleanup func(), err error) {
+	if !crossBuild() {
+		return out, func() {}, nil
+	}
+	bin = filepath.Join(os.TempDir(), "tern-prerender-"+strconv.Itoa(os.Getpid()))
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	var log bytes.Buffer
+	if err := goBuildTo(&log, bin, native, []string{"GOOS=" + runtime.GOOS, "GOARCH=" + runtime.GOARCH}); err != nil {
+		return "", nil, fmt.Errorf("building a binary to run here: %w\n%s", err, log.String())
+	}
+	return bin, func() { _ = os.Remove(bin) }, nil
 }
 
 // goBuildTo builds the app's binary to out, with env added to the
@@ -276,6 +315,9 @@ func clientSize(dir string) (raw, gzipped int64) {
 		if err != nil {
 			return nil //nolint:nilerr // best effort
 		}
+		if strings.HasSuffix(p, ".br") {
+			return nil
+		}
 		if strings.HasSuffix(p, ".gz") {
 			gzipped += info.Size()
 			return nil
@@ -289,68 +331,93 @@ func clientSize(dir string) (raw, gzipped int64) {
 	return raw, gzipped
 }
 
-// prerender runs the built app in prerender mode and saves the HTML and
-// data of every page marked with `const Prerender = true` into the client
-// output, so the next compile embeds them as static files.
-func prerender(bin, basePath string) (int, error) {
+// prerenderList is what an app in prerender mode lists at /__tern/prerender.
+type prerenderList struct {
+	Paths     []string `json:"paths"`
+	Endpoints []string `json:"endpoints"`
+	Errors    []string `json:"errors"`
+	Plugins   []string `json:"plugins"`
+}
+
+// prerenderServer is the built app running in prerender mode.
+type prerenderServer struct {
+	base string // origin and base path
+	list prerenderList
+	stop func()
+}
+
+// startPrerender runs bin in prerender mode and waits for its list.
+func startPrerender(bin, basePath string) (*prerenderServer, error) {
 	port, err := freePort()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	abs, err := filepath.Abs(bin)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	var logs strings.Builder
 	cmd := exec.Command(abs)
 	cmd.Env = append(os.Environ(), "TERN_PRERENDER=1", "HOST=127.0.0.1", "PORT="+strconv.Itoa(port))
 	cmd.Stdout, cmd.Stderr = &logs, &logs
 	if err := cmd.Start(); err != nil {
-		return 0, err
+		return nil, err
 	}
 	exited := make(chan struct{})
 	go func() { _ = cmd.Wait(); close(exited) }()
-	defer func() {
-		_ = cmd.Process.Kill()
-		<-exited
-	}()
-
-	origin := "http://127.0.0.1:" + strconv.Itoa(port)
-	base := origin + basePath
-	client := &http.Client{Timeout: 30 * time.Second}
-	var list struct {
-		Paths     []string `json:"paths"`
-		Endpoints []string `json:"endpoints"`
-		Errors    []string `json:"errors"`
+	srv := &prerenderServer{
+		base: "http://127.0.0.1:" + strconv.Itoa(port) + basePath,
+		stop: func() {
+			_ = cmd.Process.Kill()
+			<-exited
+		},
 	}
+	client := &http.Client{Timeout: 30 * time.Second}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		select {
 		case <-exited:
-			return 0, fmt.Errorf("the app exited while prerendering:\n%s", logs.String())
+			return nil, fmt.Errorf("the app exited while prerendering:\n%s", logs.String())
 		default:
 		}
-		resp, err := client.Get(base + "/__tern/prerender")
+		resp, err := client.Get(srv.base + "/__tern/prerender")
 		if err == nil && resp.StatusCode == http.StatusFound {
 			_ = resp.Body.Close()
 			err = errors.New("redirected")
 		}
 		if err == nil {
-			err = json.NewDecoder(resp.Body).Decode(&list)
+			err = json.NewDecoder(resp.Body).Decode(&srv.list)
 			_ = resp.Body.Close()
 			if err != nil {
-				return 0, fmt.Errorf("reading the prerender list: %w", err)
+				srv.stop()
+				return nil, fmt.Errorf("reading the prerender list: %w", err)
 			}
 			break
 		}
 		if time.Now().After(deadline) {
-			return 0, fmt.Errorf("the app did not start for prerendering:\n%s", logs.String())
+			srv.stop()
+			return nil, fmt.Errorf("the app did not start for prerendering:\n%s", logs.String())
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if len(list.Errors) > 0 {
-		return 0, errors.New(strings.Join(list.Errors, "\n"))
+	if len(srv.list.Errors) > 0 {
+		srv.stop()
+		return nil, errors.New(strings.Join(srv.list.Errors, "\n"))
 	}
+	return srv, nil
+}
+
+// prerender runs the built app in prerender mode and saves the HTML and
+// data of every page marked with `const Prerender = true` into the client
+// output, so the next compile embeds them as static files.
+func prerender(bin, basePath string) (int, error) {
+	srv, err := startPrerender(bin, basePath)
+	if err != nil {
+		return 0, err
+	}
+	defer srv.stop()
+	base, list := srv.base, srv.list
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	fetch := func(urlPath, file, accept string) error {
 		req, err := http.NewRequest(http.MethodGet, base+urlPath, nil)
@@ -369,6 +436,11 @@ func prerender(bin, basePath string) (int, error) {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
+		}
+		if strings.HasSuffix(file, ".html") {
+			// Prerendering renders with an empty nonce: the saved page
+			// is allowed its scripts by their hashes instead.
+			body = bytes.ReplaceAll(body, []byte(` nonce=""`), nil)
 		}
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 			return err
@@ -456,9 +528,9 @@ var compressible = map[string]bool{
 	".txt": true, ".xml": true, ".wasm": true, ".map": true, ".webmanifest": true, ".ico": true,
 }
 
-// precompress writes a .gz next to every compressible asset over 1 KiB
-// when compression saves space. The server serves it to clients that
-// accept gzip.
+// precompress writes a .gz and a .br next to every compressible asset
+// over 1 KiB, each only when it saves space. The server sends the one the
+// client accepts, brotli first.
 func precompress(dir string) error {
 	return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !compressible[strings.ToLower(filepath.Ext(p))] {
@@ -472,8 +544,8 @@ func precompress(dir string) error {
 		if err != nil {
 			return err
 		}
-		var buf strings.Builder
-		zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+		var gz bytes.Buffer
+		zw, err := gzip.NewWriterLevel(&gz, gzip.BestCompression)
 		if err != nil {
 			return err
 		}
@@ -483,9 +555,26 @@ func precompress(dir string) error {
 		if err := zw.Close(); err != nil {
 			return err
 		}
-		if buf.Len() >= len(src) {
-			return nil
+		var br bytes.Buffer
+		bw := brotli.NewWriterLevel(&br, brotli.BestCompression)
+		if _, err := bw.Write(src); err != nil {
+			return err
 		}
-		return os.WriteFile(p+".gz", []byte(buf.String()), 0o644)
+		if err := bw.Close(); err != nil {
+			return err
+		}
+		for _, c := range []struct {
+			ext string
+			b   []byte
+		}{{".gz", gz.Bytes()}, {".br", br.Bytes()}} {
+			if len(c.b) >= len(src) {
+				_ = os.Remove(p + c.ext) // stale from an earlier build
+				continue
+			}
+			if err := os.WriteFile(p+c.ext, c.b, 0o644); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }

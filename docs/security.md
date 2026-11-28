@@ -56,7 +56,7 @@ app, err := ternApp(
 )
 ```
 
-Under `tern dev`, the overlay shows each thing the policy blocked, with the line that allows it. `kit.WithContentSecurityPolicy(policy)` replaces the policy, `kit.WithContentSecurityPolicyReportOnly(policy)` tries one without enforcing it, and Tern adds the nonce to either. Prerendered pages are static files, sent without a policy.
+Under `tern dev`, the overlay shows each thing the policy blocked, with the line that allows it. `kit.WithContentSecurityPolicy(policy)` replaces the policy, `kit.WithContentSecurityPolicyReportOnly(policy)` tries one without enforcing it, and Tern adds the nonce to either. Prerendered pages are saved during the build, so no request's nonce fits them: they are sent with the policy and the hash of each inline script they have, and a script changed after the build doesn't run.
 
 ## Rate limits
 
@@ -69,6 +69,15 @@ To change the limit, add `plugins/ratelimit`, which replaces it:
 ```go
 ratelimit.New(ratelimit.Rate(30, time.Minute), ratelimit.Methods()) // every request, 30 a minute
 ```
+
+The counts are in the process's memory: each instance of the app counts for itself, and from zero after a restart. To share them, keep them in a `cache.Store` such as Redis:
+
+```go
+kit.WithRateLimitStore(store)          // the default limit
+ratelimit.New(ratelimit.Store(store))  // the plugin's
+```
+
+A store counts in fixed windows rather than a token bucket: the default allows 120 a minute in each minute, and the plugin `Burst` requests in each `Burst`/rate. If the store fails, requests are allowed and a warning is logged.
 
 `accounts` has limits of its own on sign-in, sign-up and password reset attempts.
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/Unfield/Tern/cache"
 	"github.com/Unfield/Tern/internal/ratelimit"
 )
 
@@ -190,12 +191,31 @@ func WithoutRateLimit() Option {
 	return func(o *options) { o.noRateLimit = true }
 }
 
+// WithRateLimitStore keeps the default rate limit's counts in store, such
+// as Redis, instead of this process's memory. Every instance of the app
+// then shares them, and they outlast a restart. Counting in a store uses
+// one-minute windows (ADR 0029): up to 120 state-changing requests a minute
+// per client.
+func WithRateLimitStore(store cache.Store) Option {
+	return func(o *options) { o.rateLimitStore = store }
+}
+
 // rateLimit is the default limit on state-changing requests. Clients on
 // loopback addresses aren't limited: they're the developer, or a proxy on
 // the same machine that isn't trusted, which would make every client one.
 func (a *App) rateLimit(next http.Handler) http.Handler {
-	l := ratelimit.New(defaultRatePerMinute/60.0, defaultRateBurst)
-	go l.Sweep(a.shutdownCtx.Done())
+	var l ratelimit.Taker
+	if a.opts.rateLimitStore != nil {
+		s := ratelimit.NewStore(a.opts.rateLimitStore, "tern:ratelimit:", defaultRatePerMinute/60.0, defaultRatePerMinute)
+		s.OnError = func(err error) {
+			a.logger.Warn("tern: the rate limit's store failed; allowing the request", "err", err)
+		}
+		l = s
+	} else {
+		mem := ratelimit.New(defaultRatePerMinute/60.0, defaultRateBurst)
+		go mem.Sweep(a.shutdownCtx.Done())
+		l = mem
+	}
 	var warned atomic.Bool
 	trusting := len(a.opts.trustedProxies) > 0
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +234,7 @@ func (a *App) rateLimit(next http.Handler) http.Handler {
 			a.logger.Warn("tern: requests come through a proxy that isn't trusted, so every client looks like one to the rate limit; name it with kit.WithTrustedProxies",
 				"proxy", ip)
 		}
-		if wait, ok := l.Take(ip); !ok {
+		if wait, ok := l.Take(r.Context(), ip); !ok {
 			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
 			http.Error(w, "Too many requests; try again later.", http.StatusTooManyRequests)
 			return

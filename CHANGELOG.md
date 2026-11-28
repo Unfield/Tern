@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `tern build -out <dir>` writes a directory for hosting platforms that serve static files without starting the app: the server binary, the static files under their URL paths, and `tern-output.json`, which lists each static URL with its kind, its compressed versions and the exact headers the app sends with it. The same source gives the same output, byte for byte. See [ADR 0029](docs/adr/0029-build-output.md).
+- `tern build` writes a brotli copy (`.br`) next to the gzip one of each compressible asset and prerendered page, and the server sends it to browsers that accept it.
+- `jobs.Queue.Next` says when a job or a scheduled run is next due, and how many jobs the process is running, so a platform that stops idle apps knows when to start one again.
+- Rate limits can count in a `cache.Store` such as Redis, shared by every instance and kept across restarts: `kit.WithRateLimitStore` for the default limit, `ratelimit.Store` for the plugin. A store counts in fixed windows.
+- `cache.TTLCounter` and `cache.IncrTTL`: counters that expire. Memory, Disk and Redis stores implement it.
+
+### Fixed
+
+- Prerendered pages are sent with a Content-Security-Policy. They had none, and their scripts carried the nonce of the request they were rendered for. Their inline scripts are now allowed by hash.
+- The same app builds to the same binary. The order of modules in the compiled renderer changed from build to build.
+
 ## [1.19.1] - 2026-11-25
 
 ### Fixed

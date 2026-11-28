@@ -44,6 +44,25 @@ type Store interface {
 	Incr(ctx context.Context, key string) (int64, error)
 }
 
+// A TTLCounter is a Store that counts in keys that expire, as rate limits
+// do. Memory, Disk and Redis are TTLCounters.
+type TTLCounter interface {
+	// IncrTTL adds one to the number at key, starting from 0, and returns
+	// it. A key it creates expires after ttl.
+	IncrTTL(ctx context.Context, key string, ttl time.Duration) (int64, error)
+}
+
+// IncrTTL adds one to the number at key in store and returns it. A key it
+// creates expires after ttl, if the store is a TTLCounter; in other stores
+// the key stays, so put something in it that changes, such as a time
+// window.
+func IncrTTL(ctx context.Context, store Store, key string, ttl time.Duration) (int64, error) {
+	if c, ok := store.(TTLCounter); ok {
+		return c.IncrTTL(ctx, key, ttl)
+	}
+	return store.Incr(ctx, key)
+}
+
 // Cache keeps entries in a Store, with tags. Create it with New.
 type Cache struct {
 	store  Store

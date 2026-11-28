@@ -191,6 +191,10 @@ func New(m *Manifest, opts ...Option) (*App, error) {
 			if a.assets, err = loadAssets(m.Client, m.ClientEntry); err != nil {
 				return nil, err
 			}
+			a.assets.csp, a.assets.cspName = a.opts.csp, "Content-Security-Policy"
+			if a.opts.cspReportOnly {
+				a.assets.cspName += "-Report-Only"
+			}
 		}
 		// A binary without the JavaScript engine has no server bundle,
 		// only the compiled renderer.
@@ -501,7 +505,13 @@ func (a *App) prerenderList(w http.ResponseWriter, req *http.Request) {
 	slices.Sort(paths)
 	slices.Sort(endpoints)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string][]string{"paths": slices.Compact(paths), "endpoints": slices.Compact(endpoints), "errors": errs})
+	// The plugins tell tern build -out what the app has, such as a job
+	// queue.
+	plugins := []string{}
+	for _, p := range a.opts.plugins {
+		plugins = append(plugins, p.Name())
+	}
+	_ = json.NewEncoder(w).Encode(map[string][]string{"paths": slices.Compact(paths), "endpoints": slices.Compact(endpoints), "errors": errs, "plugins": plugins})
 }
 
 // wantsPage reports whether a request to a route with a page should be

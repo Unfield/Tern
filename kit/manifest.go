@@ -186,6 +186,7 @@ type options struct {
 	cspSources      [][]string
 	noSecHeaders    bool
 	noRateLimit     bool
+	rateLimitStore  cache.Store
 	signedIn        func(*Ctx) error
 	permissions     func(*Ctx, ...string) error
 	ssr             bool

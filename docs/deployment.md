@@ -293,3 +293,15 @@ func GET(ctx *kit.Ctx) error { return ctx.Text(200, "ok") }
 ## Serverless and edge platforms
 
 Tern apps are long-running HTTP servers. Platforms that run containers (Cloud Run, Fly.io, Railway, Render, ECS, Kubernetes) work out of the box. Function platforms that expect a request handler can mount the app, since `*kit.App` is an `http.Handler`, using an adapter such as `aws-lambda-go-api-proxy`.
+
+### Build output for hosting platforms
+
+Platforms that serve static files from storage, and start the app only for the rest, need to know which files those are. `tern build -out <dir>` writes:
+
+```
+<dir>/tern-output.json
+<dir>/server/app      the binary, for GOOS/GOARCH as set, without cgo unless CGO_ENABLED says otherwise
+<dir>/static/…        the client assets and prerendered pages under their URL paths, with .br and .gz next to them
+```
+
+`tern-output.json` lists every static URL with its file, its kind (`page`, `data`, `endpoint` or `asset`), its compressed versions and the headers the app sends with it, security headers and Content-Security-Policy included. A platform sends a `GET` or `HEAD` for one of those URLs from `static/` and everything else to the server. The format and the rules for serving it are in [ADR 0029](adr/0029-build-output.md). The same source and Tern version give the same output, byte for byte, if the app's own code renders the same each time.

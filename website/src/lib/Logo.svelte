@@ -1,6 +1,7 @@
 <script lang="ts">
 	let { size = 28 }: { size?: number } = $props();
-	const id = 'tern-logo-' + Math.random().toString(36).slice(2, 8);
+	const uid = $props.id();
+	const id = 'tern-logo-' + uid;
 </script>
 
 <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">

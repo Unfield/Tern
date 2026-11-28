@@ -19,7 +19,7 @@ import (
 // maxBytes of values and evicting the least recently used first. It isn't
 // shared between processes: each has its own.
 func Memory(maxBytes int64) Store {
-	return &memory{max: maxBytes, items: map[string]*list.Element{}, lru: list.New(), counters: map[string]int64{}}
+	return &memory{max: maxBytes, items: map[string]*list.Element{}, lru: list.New(), counters: map[string]int64{}, windows: map[string]memWindow{}}
 }
 
 type memory struct {
@@ -31,6 +31,13 @@ type memory struct {
 	// counters are Incr's, apart from the values: tag versions aren't
 	// evicted for room, as losing one would make stale entries fresh.
 	counters map[string]int64
+	// windows are IncrTTL's counters, which expire.
+	windows map[string]memWindow
+}
+
+type memWindow struct {
+	n       int64
+	expires time.Time
 }
 
 type memItem struct {
@@ -103,6 +110,27 @@ func (m *memory) Incr(_ context.Context, key string) (int64, error) {
 	defer m.mu.Unlock()
 	m.counters[key]++
 	return m.counters[key], nil
+}
+
+// IncrTTL implements TTLCounter.
+func (m *memory) IncrTTL(_ context.Context, key string, ttl time.Duration) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := time.Now()
+	w, ok := m.windows[key]
+	if !ok || !now.Before(w.expires) {
+		if len(m.windows) >= 1024 && len(m.windows)%1024 == 0 {
+			for k, w := range m.windows {
+				if !now.Before(w.expires) {
+					delete(m.windows, k)
+				}
+			}
+		}
+		w = memWindow{expires: now.Add(ttl)}
+	}
+	w.n++
+	m.windows[key] = w
+	return w.n, nil
 }
 
 // Disk returns a store of files in dir, one per key, which processes on
@@ -193,4 +221,18 @@ func (d *disk) Incr(ctx context.Context, key string) (int64, error) {
 	n, _ := strconv.ParseInt(string(b), 10, 64)
 	n++
 	return n, d.Set(ctx, key, []byte(strconv.FormatInt(n, 10)), 0)
+}
+
+// IncrTTL implements TTLCounter. Each count writes the file again, which
+// moves its expiry on: a window's key is gone ttl after its last count.
+func (d *disk) IncrTTL(ctx context.Context, key string, ttl time.Duration) (int64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	b, _, err := d.Get(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := strconv.ParseInt(string(b), 10, 64)
+	n++
+	return n, d.Set(ctx, key, []byte(strconv.FormatInt(n, 10)), ttl)
 }

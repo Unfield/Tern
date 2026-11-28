@@ -55,6 +55,7 @@ The binary still holds everything, so a platform that sends every request to it 
   },
   "base_path": "",
   "immutable": ["/_app/immutable/"],
+  "not_found": null,
   "headers": {
     "Cross-Origin-Opener-Policy": "same-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
@@ -96,6 +97,7 @@ How a platform serves it:
 - **Headers.** Send `headers`, then the file's own `headers` over them. These are what the app sends for the file, captured from the app itself during the build, so `plugins/secure` and the app's options are in them. Headers that differ per request, such as `Date` and `X-Request-Id`, are left out.
 - **Encodings.** `encodings` lists the compressed siblings, best first. Send `<file>.br` or `<file>.gz` with `Content-Encoding` when the request accepts it, and add `Vary: Accept-Encoding` whenever `encodings` isn't empty.
 - **Immutable.** Paths under an `immutable` prefix never change content. A missing one is a 404 and never goes to the server.
+- **Not found.** `not_found` is a key in `files` to send, with status 404, for such a miss, or null for a plain 404. Tern renders its error pages when they're needed, so for now it is null; a later version can fill it without a new `version`.
 - **Versions.** New fields may be added in version 1, so readers ignore fields they don't know. A change that would mislead an old reader raises `version`.
 
 `jobs` is present when the app has a `jobs.Queue`. `server.ready` is null without `plugins/health`.
